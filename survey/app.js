@@ -2,7 +2,6 @@ const surveyForm=document.getElementById("surveyForm");
 const lead=document.getElementById("lead");
 const participantId=document.getElementById("participantId");
 const satisfaction=document.getElementById("satisfaction");
-const memorableSpot=document.getElementById("memorableSpot");
 const comment=document.getElementById("comment");
 const prizeRequested=document.getElementById("prizeRequested");
 const shipping=document.getElementById("shipping");
@@ -36,10 +35,9 @@ participantId.value=participant;
 
 const RESULT_MESSAGES={
 	already_submitted:"この参加者IDのアンケートは回答済みです。ご協力ありがとうございました。",
-	not_completed:"6か所すべてのスタンプ取得が確認できません。",
+	not_completed:"景品を希望できる数のスタンプ取得が確認できません。",
 	invalid_participant:"参加者IDが確認できません。スタンプラリーのページからお進みください。",
 	invalid_satisfaction:"満足度を選択してください。",
-	invalid_spot:"印象に残ったスポットを選び直してください。",
 	invalid_comment:"自由記述は2000文字以内で入力してください。",
 	invalid_name:"氏名を100文字以内で入力してください。",
 	invalid_postal:"郵便番号を7桁の数字で入力してください。",
@@ -150,7 +148,7 @@ surveyForm.onsubmit=async e=>{
 	const result=await db.rpc("submit_survey",{
 		p_participant_id:participant,
 		p_satisfaction:Number(satisfaction.value),
-		p_memorable_spot:memorableSpot.value||null,
+		p_memorable_spot:null, // 印象に残ったスポットの質問は廃止（掲示板に名前がなくなったため）。引数だけ残してある
 		p_comment:comment.value.trim()||null,
 		p_prize_requested:prize,
 		p_recipient_name:prize ? recipientName.value.trim() : null,

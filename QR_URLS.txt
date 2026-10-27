@@ -1,19 +1,22 @@
-QRコードURL一覧
+QRコードのURL一覧（このファイルは公開されます。掲示板のコードは、ここには書きません）
 
-■ 新URL（Organization「Chiyodake2026」のリポジトリ「chiyodake2026.github.io」で公開）
-  ※ 最新のファイルを push して、Pagesに反映されてから使用してください。
-  ※ QRコードを配布する前に、公開URLを確定してください（独自ドメインを使う場合は、先に設定してください）。URLのドメインが変わると、参加者の保存データ（参加者ID・取得済みスタンプ）は、そのままでは引き継がれません。
-https://chiyodake2026.github.io/?stamp=river
-https://chiyodake2026.github.io/?stamp=bridge
-https://chiyodake2026.github.io/?stamp=fish
-https://chiyodake2026.github.io/?stamp=island
-https://chiyodake2026.github.io/?stamp=water
-https://chiyodake2026.github.io/?stamp=goal
+■ 公開URL
+トップページ（「すきまキッズラボ」とは？）   https://sukimakidslab2026.github.io/
+スタンプラリー（スタンプはつきません）       https://sukimakidslab2026.github.io/rally/
+アンケート                                   https://sukimakidslab2026.github.io/survey/
+管理画面（運営者用）                         https://sukimakidslab2026.github.io/admin/
 
-■ 旧URL（移行が完了するまで有効。移行後は、転送ページから新URLへ自動で移動します）
-https://koeisuzuki.github.io/Chiyodake/?stamp=river
-https://koeisuzuki.github.io/Chiyodake/?stamp=bridge
-https://koeisuzuki.github.io/Chiyodake/?stamp=fish
-https://koeisuzuki.github.io/Chiyodake/?stamp=island
-https://koeisuzuki.github.io/Chiyodake/?stamp=water
-https://koeisuzuki.github.io/Chiyodake/?stamp=goal
+■ QRコードの画像（qr/ フォルダ。トップページ・スタンプラリーのページを開くだけのQRコードです）
+qr/qr_top.png, qr/qr_top_title.png      → トップページ
+qr/qr_rally.png, qr/qr_rally_title.png  → スタンプラリーのページ
+
+■ 掲示板のQRコード（スタンプがつくもの）
+掲示板ごとに、推測されにくいコードが入った、別々のQRコードです。
+URLの形： https://sukimakidslab2026.github.io/rally/?stamp=（掲示板ごとのコード）
+
+コードと画像は、公開されない qr/boards/ フォルダにあります（GitHubには送られません）。
+  qr/boards/boards.csv        掲示板の番号・コード・URLの一覧（元データ。なくさないでください）
+  qr/boards/board_01.png ...   QRコードだけ（A3・縦・300dpi）
+  qr/boards/board_01_title.png ...  題名「スタンプラリー」と番号（No.01）つき
+  qr/boards/boards_seed.sql    Supabaseに掲示板のコードを登録するSQL
+作り方・登録のしかたは、README の「4. 掲示板のQRコード」を見てください。

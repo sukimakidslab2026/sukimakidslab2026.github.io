@@ -20,12 +20,13 @@
  */
 
 // シートの列や見た目を変えたときに上げる数字。変えると、次の同期で全シートを作り直します。
-const LAYOUT_VERSION = '2';
+const LAYOUT_VERSION = '3';
 const SYNC_MINUTES = 5;
 
 const SUMMARY_SHEET = '概要';
 const PARTICIPANT_SHEET = '参加者';
-const SPOT_SHEET = 'スポット別';
+const SPOT_SHEET = '掲示板別';
+const LEGACY_SPOT_SHEET = 'スポット別'; // 旧版のシート名（この名前のシートが残っていたら、概要に削除を促す表示を出す）
 const SURVEY_SHEET = 'アンケート';
 const SCAN_SHEET = 'スキャン履歴';
 const SHIPPING_SHEET = '景品発送（個人情報）';
@@ -51,14 +52,8 @@ const PARTICIPANT_COLUMNS = [
   { title: '参加者ID', key: 'participant_id', type: 'text', width: 110 },
   { title: '状態', key: 'status', type: 'text', width: 100 },
   { title: '獲得数', key: 'stamps', type: 'int', width: 60 },
-  { title: '川の入口', key: 'river_at', type: 'stamp', width: 90 },
-  { title: '橋', key: 'bridge_at', type: 'stamp', width: 90 },
-  { title: '魚', key: 'fish_at', type: 'stamp', width: 90 },
-  { title: '島', key: 'island_at', type: 'stamp', width: 90 },
-  { title: '水辺', key: 'water_at', type: 'stamp', width: 90 },
-  { title: 'ゴール', key: 'goal_at', type: 'stamp', width: 90 },
   { title: 'コンプリート日時', key: 'completed_at', type: 'datetime', width: 150 },
-  { title: '取得順', key: 'route', type: 'text', width: 280 },
+  { title: '取得順（掲示板の番号）', key: 'route', type: 'text', width: 380 },
   { title: '最初の読み取り', key: 'first_scan_at', type: 'datetime', width: 150 },
   { title: '最後の読み取り', key: 'last_scan_at', type: 'datetime', width: 150 },
   { title: '読み取り回数', key: 'total_scans', type: 'int', width: 90 },
@@ -68,7 +63,7 @@ const PARTICIPANT_COLUMNS = [
   { title: 'ワークショップ', key: 'workshop', type: 'text', width: 160 },
 ];
 const SPOT_COLUMNS = [
-  { title: 'スポット', key: 'stamp_name', type: 'text', width: 110 },
+  { title: '掲示板', key: 'stamp_name', type: 'text', width: 110 },
   { title: '総読み取り回数', key: 'total_scans', type: 'int', width: 110 },
   { title: 'ユニーク参加者数', key: 'unique_participants', type: 'int', width: 120 },
   { title: '再スキャン回数', key: 'rescans', type: 'int', width: 110 },
@@ -79,7 +74,6 @@ const SURVEY_COLUMNS = [
   { title: '回答日時', key: 'submitted_at', type: 'datetime', width: 150 },
   { title: '参加者ID', key: 'participant_id', type: 'text', width: 110 },
   { title: '満足度（1〜5）', key: 'satisfaction', type: 'int', width: 100 },
-  { title: '印象に残った場所', key: 'memorable_spot', type: 'text', width: 130 },
   { title: 'コメント', key: 'comment', type: 'text', width: 380, wrap: true },
   { title: 'ワークショップ参加', key: 'workshop', type: 'text', width: 170 },
   { title: '景品', key: 'prize', type: 'text', width: 90 },
@@ -87,7 +81,7 @@ const SURVEY_COLUMNS = [
 const SCAN_COLUMNS = [
   { title: '読み取り日時', key: 'scanned_at', type: 'datetime', width: 150 },
   { title: '参加者ID', key: 'participant_id', type: 'text', width: 110 },
-  { title: 'スポット', key: 'stamp_name', type: 'text', width: 100 },
+  { title: '掲示板', key: 'stamp_name', type: 'text', width: 100 },
   { title: '種別', key: 'scan_type', type: 'text', width: 90 },
   { title: '端末', key: 'device', type: 'text', width: 110 },
   { title: '再送', key: 'resend', type: 'text', width: 60 },
@@ -434,11 +428,14 @@ function buildSummary_(data, config, now, ss) {
   add('meta', ['状態', '正常']);
   add('meta', ['データの正本', 'Supabase（このファイルは閲覧・集計用です。データが変わると、同期されるシートは上書きされます。自由に使うシートは「' + FREE_SHEET + '」へ）']);
   add('meta', ['景品発送情報の同期', shippingText]);
+  if (ss.getSheetByName(LEGACY_SPOT_SHEET)) {
+    add('meta', ['旧シートについて', '以前の「' + LEGACY_SPOT_SHEET + '」シートが残っています。今は「' + SPOT_SHEET + '」シートに同期しています。不要なら削除してください。']);
+  }
   add('blank');
 
   add('heading', ['■ 全体']);
   add('meta', ['参加者数', s.participants, 'QRを1回以上読み取った端末の数（除外した参加者は含みません）']);
-  add('meta', ['クリア人数', s.completers, '6か所すべてのスタンプを取得した人数']);
+  add('meta', ['クリア人数', s.completers, s.required + '個以上のスタンプを取得した人数（景品を希望できる条件を満たした人数）']);
   add('meta', ['クリア率', pct(s.completers, s.participants), 'クリア人数 ÷ 参加者数']);
   add('meta', ['総スキャン数', s.total_scans, '再スキャンを含む、QRの読み取り回数の合計']);
   add('meta', ['うち再スキャン', s.rescans, '取得済みのスタンプをもう一度読み取った回数']);
@@ -518,7 +515,7 @@ function ensureFreeSheet_(ss) {
   ]);
   sheet.getRange('B3:B5').setFormulas([
     ["=COUNTIF('" + PARTICIPANT_SHEET + "'!B:B,\"コンプリート\")"],
-    ["=IFERROR(AVERAGEIF('" + SURVEY_SHEET + "'!F:F,\"参加した\",'" + SURVEY_SHEET + "'!C:C),\"\")"],
+    ["=IFERROR(AVERAGEIF('" + SURVEY_SHEET + "'!E:E,\"参加した\",'" + SURVEY_SHEET + "'!C:C),\"\")"],
     ["=COUNTIF('" + SCAN_SHEET + "'!E:E,\"iPhone\")"],
   ]);
   sheet.getRange('A7').setValue('※ 「概要」「参加者」「アンケート」などの同期されるシートは、データが変わるたびに中身が書き直されます。' +

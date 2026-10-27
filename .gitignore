@@ -1,0 +1,5 @@
+# 掲示板のQRコード（コードが公開されないよう、GitHubには送りません。scripts/make_boards.py が作ります）
+qr/boards/
+
+# macOS
+.DS_Store

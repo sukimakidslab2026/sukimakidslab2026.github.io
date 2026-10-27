@@ -3,7 +3,7 @@
 <title>QRスタンプラリー 管理画面</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=83e38fe7"><link rel="stylesheet" href="style.css?v=a620ab1c">
+<link rel="stylesheet" href="../brand.css?v=fa2d8e5b"><link rel="stylesheet" href="style.css?v=316688ef">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="../js/config.js?v=aae7ba99"></script></head><body>
 <main class="container"><h1><span class="ph">QRスタンプラリー</span> <span class="ph">管理画面</span></h1>
@@ -40,7 +40,7 @@
 <div><h3>獲得数別の人数（どこで離脱しているか）</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>獲得数</th><th>ちょうど</th><th>その数以上</th><th>割合（以上）</th></tr></thead><tbody id="funnelBody"></tbody></table></div></div>
 <div><h3>ワークショップ参加別（アンケート）</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>区分</th><th>回答数</th><th>平均満足度</th><th>景品希望</th></tr></thead><tbody id="workshopBody"></tbody></table></div></div>
 </div>
-<h3>スポット別</h3><div class="table-wrap"><table><thead><tr><th>スポット</th><th>総読み込み</th><th>ユニーク参加者</th><th>再スキャン</th><th>取得者数</th><th>取得率</th></tr></thead><tbody id="spotBody"></tbody></table></div>
+<h3>掲示板別</h3><div class="table-wrap"><table><thead><tr><th>掲示板</th><th>総読み込み</th><th>ユニーク参加者</th><th>再スキャン</th><th>取得者数</th><th>取得率</th></tr></thead><tbody id="spotBody"></tbody></table></div>
 <div class="grid2">
 <div><h3>日別（日本時間・新しい順）</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>日付</th><th>新規参加者</th><th>読み取り</th><th>コンプリート</th><th>アンケート</th></tr></thead><tbody id="dailyBody"></tbody></table></div></div>
 <div><h3>満足度の分布</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>満足度</th><th>回答数</th></tr></thead><tbody id="satBody"></tbody></table></div></div>
@@ -67,12 +67,12 @@
 <h2>QR読み込み履歴 <span class="count" id="scanCount"></span></h2>
 <div class="filters">
 <label>検索<input id="scanSearch" placeholder="参加者ID（部分一致）"></label>
-<label>スポット<select id="scanSpot"><option value="">すべて</option><option value="river">川の入口</option><option value="bridge">橋</option><option value="fish">魚</option><option value="island">島</option><option value="water">水辺</option><option value="goal">ゴール</option></select></label>
+<label>掲示板<select id="scanSpot"><option value="">すべて</option></select></label>
 <label>種別<select id="scanKind"><option value="">すべて</option><option value="first">初回取得</option><option value="again">再スキャン</option></select></label>
 <label>期間（から）<input type="date" id="scanFrom"></label>
 <label>期間（まで）<input type="date" id="scanTo"></label>
 </div>
-<div class="table-wrap"><table><thead><tr><th>読み込み日時</th><th>参加者ID</th><th>スポット</th><th>種別</th><th>端末</th></tr></thead><tbody id="scanBody"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>読み込み日時</th><th>参加者ID</th><th>掲示板</th><th>種別</th><th>端末</th></tr></thead><tbody id="scanBody"></tbody></table></div>
 <button id="moreScansBtn" class="secondary" hidden>さらに読み込む</button>
 
 <h2>アンケート <span class="count" id="surveyCount"></span></h2>
@@ -82,10 +82,10 @@
 <label>期間（から）<input type="date" id="surveyFrom"></label>
 <label>期間（まで）<input type="date" id="surveyTo"></label>
 </div>
-<div class="table-wrap"><table><thead><tr><th>回答日時</th><th>参加者ID</th><th>満足度</th><th>印象に残ったスポット</th><th>自由記述</th><th>ワークショップ</th><th>景品</th><th>発送先</th></tr></thead><tbody id="surveyBody"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>回答日時</th><th>参加者ID</th><th>満足度</th><th>自由記述</th><th>ワークショップ</th><th>景品</th><th>発送先</th></tr></thead><tbody id="surveyBody"></tbody></table></div>
 
 <details class="box" id="shippingBox"><summary>景品発送先（個人情報）— 開くと表示されます</summary>
 <p class="note">氏名・住所・電話番号を含みます。周囲に画面が見えない状況で開いてください。</p>
 <div class="table-wrap"><table><thead><tr><th>回答日時</th><th>参加者ID</th><th>氏名</th><th>郵便番号</th><th>住所</th><th>電話番号</th><th>同意した規約の版</th></tr></thead><tbody id="shippingBody"></tbody></table></div>
 </details>
-</section></main><script src="app.js?v=b8d15d2f"></script></body></html>
+</section></main><script src="app.js?v=008fed7c"></script></body></html>

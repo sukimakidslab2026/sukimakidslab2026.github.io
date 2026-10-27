@@ -1,11 +1,9 @@
 const $=id=>document.getElementById(id);
 // CDN版supabase-jsがグローバル変数 supabase を定義するため、別名で作成します。
 const db=window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY);
-const names={river:"川の入口",bridge:"橋",fish:"魚",island:"島",water:"水辺",goal:"ゴール"};
 const workshopLabels={attended:"参加した",not_attended:"参加していない",unsure:"わからない／覚えていない"};
 const workshopName=v=>workshopLabels[v]||"";
 const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-const spotName=code=>names[code]||code||"";
 const fmt=v=>v?new Date(v).toLocaleString("ja-JP"):"";
 const fmtShort=v=>new Date(v).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
 const pct=v=>v===null||v===undefined?"—":`${(Number(v)*100).toFixed(1)}%`;
@@ -92,7 +90,7 @@ function renderStats(st){
  const s=st.summary;
  $("cParticipants").textContent=s.participants;
  $("cCompleters").textContent=s.completers;
- $("cCompleteRate").textContent=s.participants?`クリア率 ${pct(s.completers/s.participants)}`:"";
+ $("cCompleteRate").textContent=`${s.required}個以上`+(s.participants?`・クリア率 ${pct(s.completers/s.participants)}`:"");
  $("cScans").textContent=s.total_scans;
  $("cRescans").textContent=`うち再スキャン ${s.rescans}`;
  $("cSurveys").textContent=s.surveys;
@@ -101,15 +99,24 @@ function renderStats(st){
  $("cAvg").textContent=s.avg_satisfaction===null?"—":Number(s.avg_satisfaction).toFixed(2);
  $("cExcluded").textContent=s.excluded_participants;
 
- $("funnelBody").innerHTML=st.funnel.map(f=>`<tr><td>${f.stamps}個</td><td>${f.exact}</td><td>${f.at_least}</td><td>${pct(f.ratio)}</td></tr>`).join("");
+ $("funnelBody").innerHTML=st.funnel.map(f=>`<tr><td>${f.stamps}個${f.stamps===s.required?` <span class="muted">（景品の条件）</span>`:""}</td><td>${f.exact}</td><td>${f.at_least}</td><td>${pct(f.ratio)}</td></tr>`).join("");
  const dec=v=>v===null||v===undefined?"—":Number(v).toFixed(2);
  const sumOf=key=>st.workshop.reduce((t,x)=>t+Number(x[key]||0),0);
  $("workshopBody").innerHTML=st.workshop.map(w=>`<tr><td>${esc(w.label)}</td><td>${w.responses}</td><td>${dec(w.avg_satisfaction)}</td><td>${w.prize_requests}</td></tr>`).join("")
   +`<tr class="total"><td>合計</td><td>${sumOf("responses")}</td><td>${dec(s.avg_satisfaction)}</td><td>${sumOf("prize_requests")}</td></tr>`;
+ fillBoardFilter(st.spots);
  $("spotBody").innerHTML=st.spots.map(x=>`<tr><td>${esc(x.stamp_name)}</td><td>${x.total_scans}</td><td>${x.unique_participants}</td><td>${x.rescans}</td><td>${x.claimed_participants}</td><td>${pct(x.acquisition_rate)}</td></tr>`).join("");
  $("dailyBody").innerHTML=st.daily.map(d=>`<tr><td>${esc(d.date)}</td><td>${d.new_participants}</td><td>${d.scans}</td><td>${d.completers}</td><td>${d.surveys}</td></tr>`).join("")
   ||`<tr><td colspan="5" class="muted">まだデータがありません。</td></tr>`;
  $("satBody").innerHTML=st.satisfaction.map(x=>`<tr><td>${x.score}</td><td>${x.count}</td></tr>`).join("");
+}
+
+// 読み取り履歴の「掲示板」の絞り込みの選択肢を、登録されている掲示板から作る（更新しても、選んでいる値は保つ）
+function fillBoardFilter(spots){
+ const select=$("scanSpot"),current=select.value;
+ const boards=spots.filter(x=>x.board_no!==null&&x.board_no!==undefined);
+ select.innerHTML=`<option value="">すべて</option>`+boards.map(x=>`<option value="${x.board_no}">${esc(x.stamp_name)}</option>`).join("");
+ select.value=boards.some(x=>String(x.board_no)===current)?current:"";
 }
 
 function renderParticipants(){
@@ -121,8 +128,8 @@ function renderParticipants(){
  $("participantBody").innerHTML=list.map(p=>`<tr class="${p.is_excluded?"excluded":""}">
   <td>${esc(p.participant_id)}${badge(p.is_excluded)}</td>
   <td>${p.completed?`<span class="done">コンプリート</span>`:"途中"}</td>
-  <td>${p.stamps}/6</td>
-  <td><ol class="route">${(p.claims||[]).map(c=>`<li>${spotName(c.stamp_code)} <span class="muted">${fmtShort(c.at)}</span></li>`).join("")}</ol></td>
+  <td>${p.stamps}個</td>
+  <td><ol class="route">${(p.claims||[]).map(c=>`<li>${esc(c.stamp_name)} <span class="muted">${fmtShort(c.at)}</span></li>`).join("")}</ol></td>
   <td>${fmt(p.first_scan_at)}</td><td>${fmt(p.last_scan_at)}</td>
   <td>${p.total_scans}（${p.rescans}）</td><td>${esc(p.device)}</td>
   <td><button class="mini${p.is_excluded?" secondary":""}" data-exclude="${esc(p.participant_id)}" data-to="${p.is_excluded?"0":"1"}">${p.is_excluded?"除外を解除":"除外"}</button></td></tr>`).join("")
@@ -134,9 +141,9 @@ const jstStart=(value,addDays=0)=>new Date(new Date(`${value}T00:00:00+09:00`).g
 
 function scanQuery(){
  let q=db.from("v_admin_scans").select("*");
- const spot=$("scanSpot").value,kind=$("scanKind").value,from=$("scanFrom").value,to=$("scanTo").value;
+ const board=$("scanSpot").value,kind=$("scanKind").value,from=$("scanFrom").value,to=$("scanTo").value;
  const text=$("scanSearch").value.trim().replace(/[%_\\,()*]/g,"");
- if(spot)q=q.eq("stamp_code",spot);
+ if(board)q=q.eq("board_no",Number(board));
  if(kind==="first")q=q.eq("is_first_claim",true);
  if(kind==="again")q=q.eq("is_first_claim",false);
  if(from)q=q.gte("scanned_at",jstStart(from).toISOString());
@@ -170,9 +177,9 @@ function renderSurveys(){
  const list=filteredSurveys(),shipIds=new Set(shipping.map(s=>s.participant_id));
  $("surveyCount").textContent=`${list.length}件`;
  $("surveyBody").innerHTML=list.map(x=>`<tr class="${excludedIds.has(x.participant_id)?"excluded":""}"><td>${fmt(x.submitted_at)}</td><td>${esc(x.participant_id)}${badge(excludedIds.has(x.participant_id))}</td><td>${x.satisfaction??""}</td>
-  <td>${esc(spotName(x.memorable_spot))}</td><td>${esc(x.comment)}</td><td>${esc(workshopName(x.workshop_participation))}</td><td>${x.prize_requested?"希望":"—"}</td>
+  <td>${esc(x.comment)}</td><td>${esc(workshopName(x.workshop_participation))}</td><td>${x.prize_requested?"希望":"—"}</td>
   <td>${shipIds.has(x.participant_id)?"登録あり":"—"}</td></tr>`).join("")
-  ||`<tr><td colspan="8" class="muted">該当する回答はありません。</td></tr>`;
+  ||`<tr><td colspan="7" class="muted">該当する回答はありません。</td></tr>`;
 }
 
 // Excelで開いたときに先頭の0が消えないよう、ハイフン区切りにします（区切り位置は目安）。
@@ -221,8 +228,8 @@ $("csvShippingBtn").onclick=()=>exportCsv($("csvShippingBtn"),async()=>{
 $("csvSurveyBtn").onclick=()=>exportCsv($("csvSurveyBtn"),async()=>{
  const [svs,ex]=await Promise.all([fetchAll(()=>db.from("survey_responses").select("*").order("submitted_at").order("id")),freshExclusions()]);
  const rows=svs.filter(x=>!ex.has(x.participant_id));
- downloadCsv("stamp-rally-survey.csv",["送信日時","参加者ID","満足度","印象に残ったスポット","自由記述","暗渠ワークショップ参加","景品希望"],
-  rows.map(x=>[fmt(x.submitted_at),x.participant_id,x.satisfaction,spotName(x.memorable_spot),x.comment,workshopName(x.workshop_participation),x.prize_requested?"希望":"希望しない"]));
+ downloadCsv("stamp-rally-survey.csv",["送信日時","参加者ID","満足度","自由記述","暗渠ワークショップ参加","景品希望"],
+  rows.map(x=>[fmt(x.submitted_at),x.participant_id,x.satisfaction,x.comment,workshopName(x.workshop_participation),x.prize_requested?"希望":"希望しない"]));
  notify(`アンケートCSVを出力しました（${rows.length}件${svs.length-rows.length?`。除外した${svs.length-rows.length}件は含みません`:""}）。`);
 });
 

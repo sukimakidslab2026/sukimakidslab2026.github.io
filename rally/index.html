@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#30557e">
+  <meta name="color-scheme" content="light">
+  <title>スタンプラリー｜すきまキッズラボ</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="../assets/favicon-64.png">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+  <!-- 欧文・数字：Josefin Sans Bold（Google Fonts / SIL Open Font License） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
+  <!-- 日本語：筑紫A丸ゴシックのWebフォントを契約した場合は、ここに読み込みタグを追加します（README参照）
+  <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
+  -->
+  <link rel="stylesheet" href="../brand.css?v=fa2d8e5b">
+  <link rel="stylesheet" href="style.css?v=eec99fe7">
+</head>
+<body>
+<noscript><p style="margin:16px;font-size:14px">このページを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
+<!-- アイコン（線画）。バナー・スタンプ枠・場所の案内で共通に使います。線の太さ・端の形はすべて同じです。 -->
+<svg class="icon-defs" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
+  <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="icon-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0c0 5.4 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="icon-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></symbol>
+</svg>
+
+<!-- 共通ヘッダー：ロゴ（トップページへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
+<header class="site-header">
+  <a class="site-logo" href="../" aria-label="すきまキッズラボ トップページへ"><img src="../assets/logo-128.png" width="48" height="48" alt="すきまキッズラボ"></a>
+  <button type="button" class="menu-toggle" id="menuToggle" aria-label="メニューを開く" aria-expanded="false" aria-controls="siteMenu"><span class="menu-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
+</header>
+<div class="menu-backdrop" id="menuBackdrop"></div>
+<nav class="site-menu" id="siteMenu" aria-label="メニュー" aria-hidden="true">
+  <div class="menu-head"><span class="menu-title en">MENU</span><button type="button" class="menu-close" aria-label="メニューを閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div>
+  <ul class="menu-list">
+    <li><a href="../rally/" aria-current="page">スタンプラリー</a></li>
+    <li><a href="../">「すきまキッズラボ」とは？</a></li>
+  </ul>
+  <div class="menu-sns"><a class="menu-instagram" href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer" aria-label="すきまキッズラボのInstagram（外部サイトが開きます）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/></svg></a></div>
+</nav>
+
+<header class="hero">
+  <p class="eyebrow en">SUKIMA KIDS LAB.</p>
+  <h1>スタンプラリー</h1>
+  <p class="lead"><span class="ph">掲示板にあるQRコードを、</span><span class="ph"><span id="requiredCount">3</span>つ読み取ろう。</span></p>
+</header>
+
+<main class="container">
+  <!-- 進捗バナー：取得数と、景品を希望できるまでの残り個数 -->
+  <section id="progressBanner" class="banner" data-state="empty" aria-label="スタンプの進み具合">
+    <div class="banner-top">
+      <p class="banner-count">
+        <span class="banner-label en">STAMPS</span>
+        <span class="banner-figure"><span id="count" class="count num">0</span><span class="of num">/</span><span id="total" class="num">3</span></span>
+      </p>
+      <p class="banner-remain">
+        <span class="remain-wrap">
+          <span class="banner-label">あと</span>
+          <span class="banner-figure"><span id="remain" class="num">3</span><span class="unit">個</span></span>
+        </span>
+        <span class="done-wrap" hidden>
+          <svg class="icon done-icon" width="40" height="40" aria-hidden="true"><use href="#icon-check"></use></svg>
+          <span class="banner-label en">COMPLETE</span>
+        </span>
+      </p>
+    </div>
+    <div id="bannerBar" class="banner-bar" role="progressbar" aria-label="スタンプ獲得の進み具合" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0"></div>
+    <p id="bannerMessage" class="banner-message">スタンプを集めて、景品の希望に進もう！</p>
+    <p id="bannerNote" class="banner-note" hidden></p>
+  </section>
+
+  <!-- ブラウザが記録の保存を許可していないときの案内（rally/app.js が表示します） -->
+  <p id="storageNote" class="storage-note" role="status" hidden><strong>このブラウザでは、記録を保存できません。</strong><br>プライベートブラウズや、制限のあるアプリ内ブラウザでは、取得したスタンプが次のQRコードの読み取りに引き継がれません。SafariやChromeなどの通常のブラウザで、開き直してください。</p>
+
+  <!-- QRを読み取った結果（獲得・獲得済み・登録されていないQR・通信エラー・条件達成） -->
+  <section id="scanResult" class="scan-result" role="status" aria-live="polite" hidden></section>
+
+  <a id="surveyLink" class="survey-link" href="../survey/" hidden>
+    <span class="survey-link-title">アンケートに回答する</span>
+    <span class="survey-link-sub">条件を達成した方へ。景品の希望もこちらから</span>
+  </a>
+
+  <section class="card">
+    <div class="card-head"><h2>スタンプ</h2></div>
+    <div id="stamps" class="stamps"></div>
+    <p class="small">掲示板のQRコードを読み取るたびに、スタンプが増えます。同じ掲示板のQRコードは、何度読み取っても1個です。</p>
+  </section>
+
+  <!-- 掲示板のある場所（js/rally-data.js に登録した内容を表示します） -->
+  <section class="card places-card" id="placesCard">
+    <div class="card-head"><h2>掲示板のある場所</h2></div>
+    <div id="placesEmbed" class="place-map place-map-all" hidden></div>
+    <ul id="placeList" class="place-list"></ul>
+    <p id="placesOverview" class="places-overview" hidden></p>
+  </section>
+
+  <section class="card id-card">
+    <div class="status-row">
+      <span>参加者ID</span>
+      <code id="participantId" class="num">読み込み中…</code>
+    </div>
+    <p class="small">このIDは端末ごとに自動発行されます。スタンプの取得では名前などの個人情報は収集しません。</p>
+  </section>
+</main>
+
+<footer class="en">SUKIMA KIDS LAB.</footer>
+<script src="../js/config.js?v=aae7ba99"></script>
+<script src="../js/rally-data.js?v=70ed0016"></script>
+<script src="app.js?v=548ae8c0"></script>
+<script src="../js/site-nav.js?v=d37142eb"></script>
+</body>
+</html>

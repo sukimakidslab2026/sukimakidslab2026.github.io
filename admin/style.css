@@ -31,7 +31,7 @@ tr.excluded td{color:var(--color-text-muted);background:var(--tint-primary-08)}.
 /* スマートフォンでは表を横スクロールにし、日時・IDは折り返さない。ブラウザ情報の元の文字列は、PCでマウスを重ねると表示 */
 #scanBody td{white-space:nowrap}
 #participantBody td:nth-child(1),#participantBody td:nth-child(5),#participantBody td:nth-child(6),#participantBody td:nth-child(7),#participantBody td:nth-child(8),#surveyBody td:nth-child(-n+3),#shippingBody td:nth-child(-n+2){white-space:nowrap}
-#surveyBody td:nth-child(5){min-width:200px}#shippingBody td:nth-child(5){min-width:220px}
+#surveyBody td:nth-child(4){min-width:200px}#shippingBody td:nth-child(5){min-width:220px}
 @media(max-width:700px){
  .container{padding:16px 12px}section{padding:16px 14px}
  .cards{grid-template-columns:repeat(2,1fr);gap:8px}.card{padding:12px}.card strong{font-size:24px}

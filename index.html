@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#30557e">
   <meta name="color-scheme" content="light">
-  <title>みんなで川をつくろう｜デジタルスタンプラリー</title>
+  <title>「すきまキッズラボ」とは？｜すきまキッズラボ</title>
+  <meta name="description" content="すきまキッズラボの紹介ページです。">
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <!-- 欧文・数字：Josefin Sans Bold（Google Fonts / SIL Open Font License） -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,96 +16,51 @@
   <!-- 日本語：筑紫A丸ゴシックのWebフォントを契約した場合は、ここに読み込みタグを追加します（README参照）
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
-  <link rel="stylesheet" href="brand.css?v=83e38fe7">
-  <link rel="stylesheet" href="style.css?v=24556202">
+  <link rel="stylesheet" href="brand.css?v=fa2d8e5b">
+  <link rel="stylesheet" href="style.css?v=7afa5f4e">
+  <!-- 念のための転送：スタンプラリーのQRコードのURLが、このページ（トップ）の形（/?stamp=…）で開かれたときは、スタンプラリーのページに移す -->
+  <script>
+    (function () {
+      if (/[?&]stamp=/.test(location.search)) location.replace("rally/" + location.search + location.hash);
+    })();
+  </script>
 </head>
 <body>
-<noscript><p style="margin:16px;font-size:14px">このページを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
-<!-- スタンプのアイコン（線画）。スタンプ枠・川の図・バナーで共通に使います。線の太さ・端の形はすべて同じです。 -->
-<svg class="icon-defs" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
-  <symbol id="icon-river" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17v-6a7 7 0 0 1 14 0v6"/><path d="M3 20.5c2-1.2 4-1.2 6 0s4 1.2 6 0 4-1.2 6 0"/></symbol>
-  <symbol id="icon-bridge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h20"/><path d="M4 8v9M20 8v9"/><path d="M4 15a8 5 0 0 1 16 0"/><path d="M3 20.5c2-1.2 4-1.2 6 0s4 1.2 6 0 4-1.2 6 0"/></symbol>
-  <symbol id="icon-fish" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c2.5-4.2 8.5-6 14 0-5.5 6-11.5 4.2-14 0z"/><path d="M17 12l4-3.5v7z"/><circle cx="8" cy="11.2" r=".9" fill="currentColor" stroke="none"/></symbol>
-  <symbol id="icon-island" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16.5c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/><path d="M12 11.5V6"/><path d="M12 6c-1.6-1.5-3.5-1.6-5-.6M12 6c1.6-1.5 3.5-1.6 5-.6"/><path d="M3 19.5c2-1.2 4-1.2 6 0s4 1.2 6 0 4-1.2 6 0"/></symbol>
-  <symbol id="icon-water" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.2 4.2 5.5 7.2 5.5 10.3a5.5 5.5 0 0 1-11 0c0-3.1 2.3-6.1 5.5-10.3z"/><path d="M9.6 14.6a2.4 2.4 0 0 0 2.4 2.4"/></symbol>
-  <symbol id="icon-goal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V3.5"/><path d="M6 4.5h11l-2.2 3.5 2.2 3.5H6"/></symbol>
-  <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
-  <symbol id="icon-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0c0 5.4 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
-  <symbol id="icon-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></symbol>
-</svg>
+<noscript><p style="margin:16px;font-size:14px">このページのメニューを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
+
+<!-- 共通ヘッダー：ロゴ（トップページへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
+<header class="site-header">
+  <a class="site-logo" href="./" aria-label="すきまキッズラボ トップページへ"><img src="./assets/logo-128.png" width="48" height="48" alt="すきまキッズラボ"></a>
+  <button type="button" class="menu-toggle" id="menuToggle" aria-label="メニューを開く" aria-expanded="false" aria-controls="siteMenu"><span class="menu-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
+</header>
+<div class="menu-backdrop" id="menuBackdrop"></div>
+<nav class="site-menu" id="siteMenu" aria-label="メニュー" aria-hidden="true">
+  <div class="menu-head"><span class="menu-title en">MENU</span><button type="button" class="menu-close" aria-label="メニューを閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div>
+  <ul class="menu-list">
+    <li><a href="./rally/">スタンプラリー</a></li>
+    <li><a href="./" aria-current="page">「すきまキッズラボ」とは？</a></li>
+  </ul>
+  <div class="menu-sns"><a class="menu-instagram" href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer" aria-label="すきまキッズラボのInstagram（外部サイトが開きます）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/></svg></a></div>
+</nav>
 
 <header class="hero">
-  <p class="eyebrow en">IWAMOTOCHO CULVERT PROJECT</p>
-  <h1><span class="ph">みんなで</span><span class="ph">川をつくろう</span></h1>
-  <p class="lead"><span class="ph">QRコードを見つけて、</span><span class="ph">暗渠の「川」を</span><span class="ph">完成させよう。</span><br>
-    （プロトタイプ）</p>
+  <p class="eyebrow en">ABOUT</p>
+  <h1><span class="ph">「すきまキッズラボ」</span><span class="ph">とは？</span></h1>
 </header>
 
 <main class="container">
-  <!-- 進捗バナー：取得数と、景品を希望できるまでの残り個数 -->
-  <section id="progressBanner" class="banner" data-state="empty" aria-label="スタンプの進み具合">
-    <div class="banner-top">
-      <p class="banner-count">
-        <span class="banner-label en">STAMPS</span>
-        <span class="banner-figure"><span id="count" class="count num">0</span><span class="of num">/</span><span id="total" class="num">6</span></span>
-      </p>
-      <p class="banner-remain">
-        <span class="remain-wrap">
-          <span class="banner-label">あと</span>
-          <span class="banner-figure"><span id="remain" class="num">6</span><span class="unit">個</span></span>
-        </span>
-        <span class="done-wrap" hidden>
-          <svg class="icon done-icon" width="40" height="40" aria-hidden="true"><use href="#icon-check"></use></svg>
-          <span class="banner-label en">COMPLETE</span>
-        </span>
-      </p>
-    </div>
-    <div id="bannerBar" class="banner-bar" role="progressbar" aria-label="スタンプ獲得の進み具合" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0"></div>
-    <p id="bannerMessage" class="banner-message">スタンプを集めて、景品の希望に進もう！</p>
-    <p id="bannerNote" class="banner-note" hidden></p>
+  <!-- ▼ プロジェクトの紹介文（内容は準備中です）。確定したら、この <section> の中身を書き換えてください。 -->
+  <section class="card about">
+    <p class="placeholder">プロジェクトの紹介は、ただいま準備中です。</p>
   </section>
 
-  <!-- ブラウザが記録の保存を許可していないときの案内（js/app.js が表示します） -->
-  <p id="storageNote" class="storage-note" role="status" hidden><strong>このブラウザでは、記録を保存できません。</strong><br>プライベートブラウズや、制限のあるアプリ内ブラウザでは、取得したスタンプが次のQRコードの読み取りに引き継がれません。SafariやChromeなどの通常のブラウザで、開き直してください。</p>
-
-  <!-- QRを読み取った結果（獲得・獲得済み・通信エラー・完成） -->
-  <section id="scanResult" class="scan-result" role="status" aria-live="polite" hidden></section>
-
-  <a id="surveyLink" class="survey-link" href="survey/" hidden>
-    <span class="survey-link-title">アンケートに回答する</span>
-    <span class="survey-link-sub">コンプリートした方へ。景品の希望もこちらから</span>
+  <a class="rally-link" href="rally/">
+    <span class="rally-link-title">スタンプラリー</span>
+    <span class="rally-link-sub"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">進み具合を見る</span></span>
   </a>
-
-  <section class="card river-card">
-    <div class="card-head"><h2>みんなでつくる川（仮）</h2></div>
-    <div id="river" class="river"></div>
-    <p id="riverMessage" class="river-message">QRコードを読み取って、川をつくろう。</p>
-  </section>
-
-  <section class="card">
-    <div class="card-head"><h2>スタンプ</h2></div>
-    <div id="stamps" class="stamps"></div>
-  </section>
-
-  <!-- スタンプポイントの場所（js/rally-data.js に登録した内容を表示します） -->
-  <section class="card spots-card" id="spotsCard">
-    <div class="card-head"><h2>スタンプポイント</h2></div>
-    <ul id="spotList" class="spot-list"></ul>
-    <p id="spotsOverview" class="spots-overview" hidden></p>
-  </section>
-
-  <section class="card id-card">
-    <div class="status-row">
-      <span>参加者ID</span>
-      <code id="participantId" class="num">読み込み中…</code>
-    </div>
-    <p class="small">このIDは端末ごとに自動発行されます。スタンプの取得では名前などの個人情報は収集しません。</p>
-  </section>
 </main>
 
-<footer class="en">DIGITAL STAMP RALLY PROTOTYPE</footer>
-<script src="js/config.js?v=aae7ba99"></script>
-<script src="js/rally-data.js?v=d10d59e7"></script>
-<script src="js/app.js?v=4ed0bc99"></script>
+<footer class="en">SUKIMA KIDS LAB.</footer>
+<script src="js/site-nav.js?v=d37142eb"></script>
 </body>
 </html>
