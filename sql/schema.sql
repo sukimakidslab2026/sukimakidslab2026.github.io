@@ -10,6 +10,8 @@
 --   有効なQRコード（掲示板）は public.stamp_boards に登録する。登録は、このファイルの実行後に、
 --   scripts/make_boards.py が作る qr/boards/boards_seed.sql を実行して行う（QRコードの文字列は公開しない）。
 --   登録されていないコードの読み取りは、record_scan が 'invalid_stamp' を返して、何も記録しない。
+--   スタンプを取るたびに、図鑑の魚（コイ・ドジョウ・ナマズ・ハゼ・フナ・メダカの6種類）が、決まった順番で増えていく
+--   （取った掲示板には関係なく、順番は固定）。この順番は、管理画面の「スタンプ設定」で変えられる（rally_settings）。
 --   旧版（river / bridge / fish / island / water / goal の6か所すべてを集める方式）からの更新にも対応しています。
 begin;
 
@@ -70,6 +72,55 @@ set search_path = ''
 as $$
   select 3;
 $$;
+
+-- 図鑑の魚の種類（キー）。画像は assets/fish/、名前などは js/fish-data.js にある。
+-- 魚の種類を増やしたり、キーを変えたりするときは、scripts/make_fish_assets.py と js/fish.js も合わせて変更する
+-- （scripts/check_site.py が、一致しているかを確認する）。
+create or replace function public.rally_fish_keys()
+returns text[]
+language sql
+immutable
+set search_path = ''
+as $$
+  select array['koi', 'dojo', 'namazu', 'haze', 'funa', 'medaka'];
+$$;
+
+-- 魚が増えていく順番の初期値（js/fish.js の RALLY_FISH_DEFAULT_ORDER と同じにする）。
+-- 1個目は大きなナマズ、2個目は大きなコイ、3個目に小さなメダカの群れが加わるので、
+-- 景品の条件の3個だけでも、川がさびしく見えない。
+create or replace function public.rally_default_fish_order()
+returns text[]
+language sql
+immutable
+set search_path = ''
+as $$
+  select array['namazu', 'koi', 'medaka', 'funa', 'dojo', 'haze'];
+$$;
+
+-- 順番が、魚の種類をちょうど1回ずつ並べたものか（重複・不足・知らない種類・空がないか）
+create or replace function public.rally_valid_fish_order(p_order text[])
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select p_order is not null
+     and cardinality(p_order) = cardinality(public.rally_fish_keys())
+     and p_order @> public.rally_fish_keys()
+     and p_order <@ public.rally_fish_keys();
+$$;
+
+-- スタンプラリーの設定（1行だけ）。いまは、魚が増えていく順番だけ。
+-- 参加者は rally_config()、管理者は admin_set_fish_order() を通してだけ、読み書きする（テーブルへの直接のアクセスは不可）。
+create table if not exists public.rally_settings (
+  id integer primary key check (id = 1),
+  fish_order text[] not null check (public.rally_valid_fish_order(fish_order)),
+  updated_at timestamptz not null default now(),
+  updated_by uuid
+);
+insert into public.rally_settings (id, fish_order)
+values (1, public.rally_default_fish_order())
+on conflict (id) do nothing;
 
 -- アンケートの回答。氏名・住所などの個人情報は、別テーブル prize_shipping に分けて保存する。
 create table if not exists public.survey_responses (
@@ -208,6 +259,7 @@ alter table public.prize_shipping enable row level security;
 alter table public.excluded_participants enable row level security;
 alter table public.admin_users enable row level security;
 alter table public.stamp_boards enable row level security;
+alter table public.rally_settings enable row level security;
 
 create or replace function public.is_admin()
 returns boolean
@@ -257,7 +309,7 @@ create policy "stamp_boards_admin_select" on public.stamp_boards
 for select to authenticated using ((select public.is_admin()));
 
 revoke all on public.scan_events, public.stamp_claims, public.survey_responses, public.admin_users,
-  public.prize_shipping, public.excluded_participants, public.stamp_boards from public, anon, authenticated;
+  public.prize_shipping, public.excluded_participants, public.stamp_boards, public.rally_settings from public, anon, authenticated;
 grant select on public.scan_events, public.stamp_claims, public.survey_responses,
   public.prize_shipping, public.excluded_participants, public.stamp_boards to authenticated;
 
@@ -410,6 +462,26 @@ $$;
 
 revoke all on function public.is_completed(text) from public;
 grant execute on function public.is_completed(text) to anon, authenticated;
+
+-- 参加者の画面が読み込む設定（誰でも読める。公開してよい内容だけを返す）。
+--   required   景品を希望できる条件（スタンプの個数）
+--   fish_order 魚が増えていく順番（魚のキーの配列）
+create or replace function public.rally_config()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'required', public.rally_required_stamps(),
+    'fish_order', to_jsonb(coalesce((select s.fish_order from public.rally_settings s where s.id = 1), public.rally_default_fish_order())),
+    'updated_at', (select s.updated_at from public.rally_settings s where s.id = 1)
+  );
+$$;
+
+revoke all on function public.rally_config() from public;
+grant execute on function public.rally_config() to anon, authenticated;
 
 -- QRコードの読み取りを記録する。戻り値：
 --   status          'ok'（記録した）／'invalid_stamp'（登録されていないQRコード。何も記録しない）
@@ -858,6 +930,29 @@ begin
 end;
 $$;
 
+-- 魚が増えていく順番を変える（管理画面の「スタンプ設定」から）。保存すると、参加者の画面に、すぐに反映される。
+-- 魚の種類をちょうど1回ずつ並べた配列だけを受け付ける。戻り値は、保存後の設定（rally_config() と同じ）。
+create or replace function public.admin_set_fish_order(p_order text[])
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'admin only' using errcode = '42501';
+  end if;
+  if not public.rally_valid_fish_order(p_order) then
+    raise exception 'invalid fish order';
+  end if;
+  insert into public.rally_settings (id, fish_order, updated_at, updated_by)
+  values (1, p_order, now(), auth.uid())
+  on conflict (id) do update
+    set fish_order = excluded.fish_order, updated_at = excluded.updated_at, updated_by = excluded.updated_by;
+  return public.rally_config();
+end;
+$$;
+
 -- 参加者を集計から除外する／除外を解除する。戻り値は、実際に変更があったか。
 create or replace function public.admin_set_excluded(
   p_participant_id text,
@@ -947,10 +1042,12 @@ end;
 $$;
 
 revoke all on function public.admin_stats() from public, anon;
+revoke all on function public.admin_set_fish_order(text[]) from public, anon;
 revoke all on function public.admin_set_excluded(text, boolean, text) from public, anon;
 revoke all on function public.admin_exclude_before(timestamptz, text) from public, anon;
 revoke all on function public.admin_clear_excluded() from public, anon;
 grant execute on function public.admin_stats() to authenticated;
+grant execute on function public.admin_set_fish_order(text[]) to authenticated;
 grant execute on function public.admin_set_excluded(text, boolean, text) to authenticated;
 grant execute on function public.admin_exclude_before(timestamptz, text) to authenticated;
 grant execute on function public.admin_clear_excluded() to authenticated;
@@ -1033,6 +1130,9 @@ comment on column public.scan_events.user_agent is 'ブラウザ情報。通信�
 comment on table public.stamp_claims is '参加者ごとの初回スタンプ取得（取得順 sequence と初回取得時刻）';
 comment on table public.stamp_boards is '有効なQRコード（掲示板）。code はQRコードに入る合言葉（公開しない）、board_no は掲示板の番号。管理者以外は読み取れない';
 comment on function public.rally_required_stamps() is '景品を希望できる条件（取得したスタンプの数）。js の PRIZE_REQUIRED と同じ数にする';
+comment on table public.rally_settings is 'スタンプラリーの設定（1行）。魚が増えていく順番。参加者は rally_config()、管理者は admin_set_fish_order() で読み書きする';
+comment on function public.rally_config() is '参加者の画面が読み込む設定（景品の条件・魚の順番）。誰でも読める';
+comment on function public.admin_set_fish_order(text[]) is '魚が増えていく順番を保存する（管理者のみ）';
 comment on table public.survey_responses is 'アンケートの回答（個人情報は含まない）。発送先は prize_shipping';
 comment on column public.survey_responses.participant_id is '参加者ID（stamp_claims・scan_events と同じ）';
 comment on column public.survey_responses.memorable_spot is '【廃止】印象に残ったスポット（旧版の6か所の名前）。この版では保存しない';

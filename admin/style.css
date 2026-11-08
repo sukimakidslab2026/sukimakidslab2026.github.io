@@ -40,3 +40,33 @@ tr.excluded td{color:var(--color-text-muted);background:var(--tint-primary-08)}.
  table{font-size:13px}
  .filters label{flex:1 1 140px}.filters input,.filters select{width:100%;min-height:40px}
 }
+
+/* ログイン後のメニュー・パンくず・スタンプ設定（魚の順番） */
+.menu-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin:14px 0}
+.menu-card{display:block;padding:20px;border:2px solid var(--color-secondary);border-radius:var(--radius-card);background:var(--color-white);color:var(--color-primary);text-decoration:none;box-shadow:inset 0 -6px 0 var(--color-mustard)}
+.menu-card strong{display:block;margin-bottom:6px;font-size:18px}
+.menu-card span{display:block;color:var(--color-text-muted);font-size:14px;line-height:1.6}
+.menu-card:hover,.menu-card:focus-visible{background:var(--tint-accent-12);border-color:var(--color-primary)}
+.crumbs{margin:0 0 6px;font-size:14px}
+.fish-editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:22px;align-items:start;margin-top:6px}
+.fish-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.fish-item{display:grid;grid-template-columns:24px 72px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 10px;border:2px solid var(--color-line);border-radius:var(--radius-control);background:var(--color-white)}
+.fish-no{color:var(--color-text-muted);font-size:18px;text-align:center}
+.fish-thumb{height:46px}
+.fish-thumb img{display:block;width:100%;height:100%;object-fit:contain}
+.fish-name{font-weight:700}
+.fish-btns{display:flex;gap:6px}
+.fish-btns button{margin:0;min-width:44px;min-height:44px;padding:6px}
+.fish-line{display:flex;align-items:center;gap:10px;margin:2px 0;color:var(--color-primary);font-size:13px;font-weight:700}
+.fish-line:before,.fish-line:after{content:"";flex:1;height:4px;border-radius:2px;background:var(--color-mustard)}
+.fish-line span{flex:none}
+.fish-stages{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.fish-stages button{margin:0;min-height:40px;padding:6px 12px}
+.river-thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+.river-thumbs .thumb{display:block;margin:0;padding:6px;border:2px solid var(--color-line);border-radius:var(--radius-control);background:var(--color-white);color:var(--color-text);font-weight:400;text-align:center}
+.river-thumbs .thumb.on{border-color:var(--color-mustard);box-shadow:0 0 0 2px var(--color-mustard)}
+.river-thumbs .river{pointer-events:none}
+.thumb-label{display:block;margin-top:4px;font-size:12px;font-weight:700;color:var(--color-primary)}
+.fish-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:16px}
+#fishStatus.error{color:var(--color-error)}
+@media(max-width:800px){.fish-editor{grid-template-columns:minmax(0,1fr)}}

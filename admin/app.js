@@ -22,8 +22,21 @@ function notify(text,isError=false){
  const el=$("notice");el.textContent=text;el.hidden=false;el.classList.toggle("error",isError);
  clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{el.hidden=true},isError?12000:7000);
 }
+// 画面は3つ：メニュー（ログイン後の最初の画面）／アンケート・集計（#survey）／スタンプ設定（#stamps）。URLの # で切り替わる
+const SECTIONS={menu:"adminMenu",survey:"dashboard",stamps:"stampSettings"};
+let loggedIn=false,currentSection="";
+const routeFromHash=()=>{const h=location.hash.replace(/^#/,"");return h==="survey"||h==="stamps"?h:"menu";};
+function showSection(name){
+ currentSection=name;
+ $("login").hidden=true;
+ for(const [key,id] of Object.entries(SECTIONS))$(id).hidden=key!==name;
+ if(name==="survey")loadDashboard();
+ if(name==="stamps")loadStampSettings();
+ window.scrollTo(0,0);
+}
 function showLogin(text="",isError=false){
- $("login").hidden=false;$("dashboard").hidden=true;
+ loggedIn=false;currentSection="";
+ $("login").hidden=false;Object.values(SECTIONS).forEach(id=>{$(id).hidden=true;});
  $("loginMsg").textContent=text;$("loginMsg").classList.toggle("error",isError);
 }
 // ログインに失敗した原因を、利用者が見分けられるメッセージにする
@@ -36,7 +49,7 @@ function loginErrorMessage(error){
 }
 function dbHint(error){
  const m=String(error?.message||error);
- return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|schema cache|does not exist/.test(m)
+ return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|rally_config|admin_set_fish_order|rally_settings|schema cache|does not exist/.test(m)
   ?`${m}（Supabaseで最新の sql/schema.sql を実行したか確認してください）`:m;
 }
 
@@ -55,8 +68,8 @@ async function enter(){
  const {data,error}=await db.rpc("is_admin");
  if(error){console.error(error);await db.auth.signOut();return showLogin("管理者権限を確認できませんでした。sql/schema.sql が実行済みか確認してください。",true);}
  if(!data){await db.auth.signOut();return showLogin("このアカウントは管理者として登録されていません。",true);}
- $("login").hidden=true;$("dashboard").hidden=false;
- loadDashboard();
+ loggedIn=true;
+ showSection(routeFromHash());
 }
 
 // 除外した参加者を表示するか（オフのときは、表・一覧から隠す）
@@ -275,7 +288,8 @@ $("loginForm").onsubmit=async e=>{
  $("password").value="";
  await enter();
 };
-$("logoutBtn").onclick=async()=>{await db.auth.signOut();location.reload();};
+const logout=async()=>{await db.auth.signOut();location.hash="";location.reload();};
+["logoutBtn","logoutBtnMenu","logoutBtnStamps"].forEach(id=>{$(id).onclick=logout;});
 $("refreshBtn").onclick=()=>loadDashboard();
 $("autoRefresh").onchange=()=>{renderStatus();if($("autoRefresh").checked&&Date.now()-lastLoaded>REFRESH_MS)loadDashboard(true);};
 $("showExcluded").onchange=()=>{renderParticipants();renderSurveys();renderShipping();scanLimit=SCAN_PAGE;reloadScans();};
@@ -289,6 +303,80 @@ $("moreScansBtn").onclick=async()=>{
  await reloadScans();
  $("moreScansBtn").disabled=false;
 };
+
+// ---- スタンプ設定：魚が増えていく順番 ----
+// スタンプを1個取るごとに、上から順番に、魚が1種類ずつ川に現れる。保存すると、参加者の画面が次に開かれたときから、新しい順番で表示される。
+const Fish=window.RallyFish,FISH=Fish.fish;
+let fishSaved=null,fishDraft=null,fishStage=3,fishRequired=3,fishSavedAt="";
+const fishDirty=()=>!!fishDraft&&fishDraft.join()!==fishSaved.join();
+function setFishStatus(text,isError=false){const el=$("fishStatus");el.textContent=text;el.classList.toggle("error",isError);}
+
+async function loadStampSettings(){
+ setFishStatus("読み込み中…");
+ const {data,error}=await db.rpc("rally_config");
+ if(error){console.error(error);return setFishStatus(`読み込めませんでした：${dbHint(error)}`,true);}
+ const order=Fish.normalizeOrder(data.fish_order)||Fish.defaultOrder();
+ fishRequired=Number(data.required)||3;
+ fishSaved=order.slice();fishDraft=order.slice();fishSavedAt=data.updated_at||"";
+ fishStage=Math.min(fishRequired,Fish.keys.length);
+ renderFishEditor();
+ setFishStatus(fishSavedAt?`現在公開中の順番です（最終保存：${fmt(fishSavedAt)}）。`:"現在公開中の順番です（初期の順番）。");
+}
+
+function renderFishEditor(){
+ const last=fishDraft.length-1;
+ $("fishRequired").textContent=fishRequired;
+ document.querySelectorAll(".fishRequiredText").forEach(el=>{el.textContent=fishRequired;});
+ // 順番の一覧。景品の条件の個数の下に、マスタード色の線を引く
+ $("fishList").innerHTML=fishDraft.map((key,i)=>{
+  const f=FISH[key];
+  return `<li class="fish-item" data-key="${key}"><span class="fish-no num">${i+1}</span>
+   <span class="fish-thumb"><img src="${esc(Fish.url(f.stamp))}" width="${f.width}" height="${f.height}" alt=""></span>
+   <span class="fish-name">${esc(f.name)}</span>
+   <span class="fish-btns"><button type="button" class="secondary" data-move="up" data-key="${key}" aria-label="${esc(f.name)}を1つ前にする"${i===0?" disabled":""}>▲</button><button type="button" class="secondary" data-move="down" data-key="${key}" aria-label="${esc(f.name)}を1つ後ろにする"${i===last?" disabled":""}>▼</button></span></li>`
+  +(i===fishRequired-1?`<li class="fish-line" aria-hidden="true"><span>ここまでの${fishRequired}個で、景品を希望できます</span></li>`:"");
+ }).join("");
+ // 川の見え方：選んだ個数のときの絵と、1〜6個の一覧
+ $("fishStages").innerHTML=fishDraft.map((_,i)=>`<button type="button" class="${fishStage===i+1?"":"secondary"}" data-stage="${i+1}" aria-pressed="${fishStage===i+1}">${i+1}個${i+1===fishRequired?"（景品）":""}</button>`).join("");
+ $("fishPreview").innerHTML=Fish.riverInnerHtml(fishDraft,fishStage);
+ $("fishPreview").setAttribute("aria-label",`スタンプが${fishStage}個のときの川の絵`);
+ $("fishPreviewNote").textContent=`スタンプが${fishStage}個のとき：${fishDraft.slice(0,fishStage).map(k=>FISH[k].name).join("・")}`+(fishStage===fishRequired?"（景品を希望できる条件を達成したときの絵です）":"");
+ $("fishThumbs").innerHTML=fishDraft.map((_,i)=>`<button type="button" class="thumb${fishStage===i+1?" on":""}" data-stage="${i+1}" aria-label="スタンプが${i+1}個のときの川の絵を見る"><span class="river">${Fish.riverInnerHtml(fishDraft,i+1)}</span><span class="thumb-label">${i+1}個${i+1===fishRequired?"（景品）":""}</span></button>`).join("");
+ const dirty=fishDirty();
+ $("fishSave").disabled=!dirty;$("fishReset").disabled=!dirty;
+}
+$("fishList").onclick=e=>{
+ const b=e.target.closest("button[data-move]");if(!b)return;
+ const i=fishDraft.indexOf(b.dataset.key),j=b.dataset.move==="up"?i-1:i+1;
+ if(i<0||j<0||j>=fishDraft.length)return;
+ [fishDraft[i],fishDraft[j]]=[fishDraft[j],fishDraft[i]];
+ renderFishEditor();
+ // 並べ替えたあとも、同じ魚のボタンにフォーカスを残す（続けて押せるように）
+ const again=$("fishList").querySelector(`button[data-move="${b.dataset.move}"][data-key="${b.dataset.key}"]:not([disabled])`)||$("fishList").querySelector(`button[data-key="${b.dataset.key}"]:not([disabled])`);
+ if(again)again.focus();
+ setFishStatus("並べ替えました。まだ保存していません（「保存して公開する」を押すと、参加者の画面に反映されます）。");
+};
+const pickStage=e=>{const b=e.target.closest("[data-stage]");if(!b)return;fishStage=Number(b.dataset.stage);renderFishEditor();};
+$("fishStages").onclick=pickStage;$("fishThumbs").onclick=pickStage;
+$("fishReset").onclick=()=>{fishDraft=fishSaved.slice();renderFishEditor();setFishStatus("保存した順番に戻しました。");};
+$("fishDefault").onclick=()=>{fishDraft=Fish.defaultOrder();renderFishEditor();setFishStatus(fishDirty()?"おすすめの順番にしました。まだ保存していません。":"おすすめの順番です（保存済みと同じです）。");};
+$("fishSave").onclick=async()=>{
+ $("fishSave").disabled=true;setFishStatus("保存しています…");
+ const {data,error}=await db.rpc("admin_set_fish_order",{p_order:fishDraft});
+ if(error){console.error(error);renderFishEditor();return setFishStatus(`保存できませんでした：${dbHint(error)}`,true);}
+ const order=Fish.normalizeOrder(data.fish_order)||fishDraft;
+ fishSaved=order.slice();fishDraft=order.slice();fishSavedAt=data.updated_at||"";
+ renderFishEditor();
+ setFishStatus(`保存しました（${fmt(fishSavedAt)}）。参加者の画面には、次に開いたとき（再読み込みしたとき）から、新しい順番で表示されます。`);
+};
+// 保存していない変更があるまま、画面を閉じたり、メニューに戻ったりしないように確認する
+window.addEventListener("beforeunload",e=>{if(fishDirty()){e.preventDefault();e.returnValue="";}});
+window.addEventListener("hashchange",()=>{
+ if(!loggedIn)return;
+ const next=routeFromHash();
+ if(currentSection==="stamps"&&next!=="stamps"&&fishDirty()&&!confirm("保存していない変更があります。破棄して、移動しますか？")){location.hash="#stamps";return;}
+ if(next!==currentSection)showSection(next);
+});
 
 // 自動更新：画面が見えているときだけ、30秒ごとに取り直す
 setInterval(()=>{

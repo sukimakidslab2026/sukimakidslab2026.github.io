@@ -15,8 +15,8 @@
   <!-- 日本語：筑紫A丸ゴシックのWebフォントを契約した場合は、ここに読み込みタグを追加します（README参照）
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
-  <link rel="stylesheet" href="../brand.css?v=fa2d8e5b">
-  <link rel="stylesheet" href="style.css?v=eec99fe7">
+  <link rel="stylesheet" href="../brand.css?v=f27f7b5f">
+  <link rel="stylesheet" href="style.css?v=d7db7776">
 </head>
 <body>
 <noscript><p style="margin:16px;font-size:14px">このページを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
@@ -29,7 +29,7 @@
 
 <!-- 共通ヘッダー：ロゴ（トップページへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
 <header class="site-header">
-  <a class="site-logo" href="../" aria-label="すきまキッズラボ トップページへ"><img src="../assets/logo-128.png" width="48" height="48" alt="すきまキッズラボ"></a>
+  <a class="site-logo" href="../" aria-label="すきまキッズラボ トップページへ"><img src="../assets/logo.webp" width="196" height="144" alt="すきまキッズラボ"></a>
   <button type="button" class="menu-toggle" id="menuToggle" aria-label="メニューを開く" aria-expanded="false" aria-controls="siteMenu"><span class="menu-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
 </header>
 <div class="menu-backdrop" id="menuBackdrop"></div>
@@ -43,31 +43,35 @@
 </nav>
 
 <header class="hero">
-  <p class="eyebrow en">SUKIMA KIDS LAB.</p>
-  <h1>スタンプラリー</h1>
-  <p class="lead"><span class="ph">掲示板にあるQRコードを、</span><span class="ph"><span id="requiredCount">3</span>つ読み取ろう。</span></p>
+  <img class="hero-banner sm" src="../assets/banner.webp" width="1000" height="181" alt="すきまキッズラボ">
+  <h1 class="page-title">スタンプラリー</h1>
+  <p class="lead"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">さかなのスタンプを集めよう！</span><br>
+    <span class="ph"><span id="requiredCount">3</span>個で景品を希望でき、</span><span class="ph"><span id="riverTotal">6</span>個そろうと川が完成します。</span></p>
 </header>
 
 <main class="container">
-  <!-- 進捗バナー：取得数と、景品を希望できるまでの残り個数 -->
+  <!-- 進捗バナー：取得数（◯/6）と、景品の条件（3個）・川の完成（6個）までのゲージ -->
   <section id="progressBanner" class="banner" data-state="empty" aria-label="スタンプの進み具合">
     <div class="banner-top">
       <p class="banner-count">
         <span class="banner-label en">STAMPS</span>
-        <span class="banner-figure"><span id="count" class="count num">0</span><span class="of num">/</span><span id="total" class="num">3</span></span>
+        <span class="banner-figure"><span id="count" class="count num">0</span><span class="of num">/</span><span id="total" class="num">6</span></span>
       </p>
       <p class="banner-remain">
         <span class="remain-wrap">
-          <span class="banner-label">あと</span>
+          <span class="banner-label">景品まで、あと</span>
           <span class="banner-figure"><span id="remain" class="num">3</span><span class="unit">個</span></span>
         </span>
         <span class="done-wrap" hidden>
           <svg class="icon done-icon" width="40" height="40" aria-hidden="true"><use href="#icon-check"></use></svg>
-          <span class="banner-label en">COMPLETE</span>
+          <span id="doneLabel" class="banner-label en">ACHIEVED</span>
         </span>
       </p>
     </div>
-    <div id="bannerBar" class="banner-bar" role="progressbar" aria-label="スタンプ獲得の進み具合" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0"></div>
+    <div class="gauge">
+      <div id="bannerBar" class="banner-bar" role="progressbar" aria-label="スタンプ獲得の進み具合" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0"></div>
+      <p class="gauge-marks" aria-hidden="true"><span id="markPrize" class="mark mark-prize">3個で景品</span><span id="markGoal" class="mark mark-goal">6個で川が完成</span></p>
+    </div>
     <p id="bannerMessage" class="banner-message">スタンプを集めて、景品の希望に進もう！</p>
     <p id="bannerNote" class="banner-note" hidden></p>
   </section>
@@ -83,10 +87,21 @@
     <span class="survey-link-sub">条件を達成した方へ。景品の希望もこちらから</span>
   </a>
 
+  <!-- 川：スタンプを集めるたびに、魚が増えていく（魚の順番は、管理画面の「スタンプ設定」で決まります） -->
+  <section class="card river-card">
+    <div class="card-head"><h2>みんなでつくる川</h2><span id="riverCount" class="count num"></span></div>
+    <div id="river" class="river" role="img" aria-label="川の絵">
+      <img class="river-bg" src="../assets/fish/scene.webp" width="1500" height="629" alt="" draggable="false">
+      <div id="riverFish" class="river-fish"></div>
+    </div>
+    <p id="riverMessage" class="river-message">スタンプを集めると、魚が泳ぎはじめるよ。</p>
+  </section>
+
+  <!-- さかな図鑑：まだ獲得していない魚はシルエット、獲得した魚は色つきの絵になる -->
   <section class="card">
-    <div class="card-head"><h2>スタンプ</h2></div>
+    <div class="card-head"><h2>さかな図鑑</h2><span id="bookCount" class="count num"></span></div>
     <div id="stamps" class="stamps"></div>
-    <p class="small">掲示板のQRコードを読み取るたびに、スタンプが増えます。同じ掲示板のQRコードは、何度読み取っても1個です。</p>
+    <p class="small">掲示板のQRコードを読み取るたびに、図鑑のさかなが1匹ずつ増えます。同じ掲示板のQRコードは、何度読み取っても1個です。</p>
   </section>
 
   <!-- 掲示板のある場所（js/rally-data.js に登録した内容を表示します） -->
@@ -109,7 +124,9 @@
 <footer class="en">SUKIMA KIDS LAB.</footer>
 <script src="../js/config.js?v=aae7ba99"></script>
 <script src="../js/rally-data.js?v=70ed0016"></script>
-<script src="app.js?v=548ae8c0"></script>
+<script src="../js/fish-data.js?v=df730605"></script>
+<script src="../js/fish.js?v=cd62bab2"></script>
+<script src="app.js?v=85209536"></script>
 <script src="../js/site-nav.js?v=d37142eb"></script>
 </body>
 </html>

@@ -126,7 +126,7 @@ async function start(){
 		return block("コンプリート状況を確認できませんでした。通信環境をご確認のうえ、再読み込みしてください。");
 	}
 	if(!completion.data) return block(RESULT_MESSAGES.not_completed+"スタンプラリーのページで取得状況をご確認ください。"+previewHint);
-	lead.textContent="コンプリートおめでとうございます！アンケートにご協力ください。";
+	lead.textContent="景品を希望できる条件を達成しました！アンケートにご協力ください。";
 	surveyForm.hidden=false;
 	loadPrivacy();
 }

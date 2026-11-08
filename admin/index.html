@@ -3,9 +3,10 @@
 <title>QRスタンプラリー 管理画面</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=fa2d8e5b"><link rel="stylesheet" href="style.css?v=316688ef">
+<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=6d2f0d40">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
-<script src="../js/config.js?v=aae7ba99"></script></head><body>
+<script src="../js/config.js?v=aae7ba99"></script>
+<script src="../js/fish-data.js?v=df730605"></script><script src="../js/fish.js?v=cd62bab2"></script></head><body>
 <main class="container"><h1><span class="ph">QRスタンプラリー</span> <span class="ph">管理画面</span></h1>
 <p>管理者用。Supabase Authでログインし、管理者として登録されたユーザーだけがデータを閲覧できます。</p>
 <section id="login"><h2>管理者ログイン</h2>
@@ -13,7 +14,19 @@
 <input id="password" type="password" placeholder="パスワード" autocomplete="current-password" required>
 <button id="loginBtn">ログイン</button></form><p id="loginMsg"></p></section>
 
+<!-- ログイン後に最初に出る画面：見たい画面を選ぶ -->
+<section id="adminMenu" hidden>
+<h2>メニュー</h2>
+<p class="note">開きたい画面を選んでください。</p>
+<div class="menu-cards">
+<a class="menu-card" href="#survey"><strong>アンケート・集計</strong><span>参加者・QR読み込み履歴・アンケートの回答・景品の発送先・CSVの書き出し・テストデータの除外</span></a>
+<a class="menu-card" href="#stamps"><strong>スタンプ設定</strong><span>魚が増えていく順番を決める。保存すると、参加者の画面に、すぐに反映されます</span></a>
+</div>
+<p><button id="logoutBtnMenu" class="secondary">ログアウト</button></p>
+</section>
+
 <section id="dashboard" hidden>
+<p class="crumbs"><a href="#">← メニューに戻る</a></p>
 <div class="toolbar">
 <button id="refreshBtn">更新</button>
 <label class="toggle"><input type="checkbox" id="autoRefresh" checked> 30秒ごとに自動更新</label>
@@ -23,7 +36,7 @@
 <button id="logoutBtn" class="secondary">ログアウト</button>
 </div>
 <p id="status"></p><p id="notice" class="notice" role="status" hidden></p>
-<p class="note">集計・CSVには、除外した参加者（テストなど）は含まれません。</p>
+<p class="note">集計・CSVには、除外した参加者（テストなど）は含まれません。「コンプリート」「クリア」は、景品を希望できる条件（3個以上）を満たした人のことです（6個そろって「川が完成」した人ではありません）。</p>
 
 <div class="cards">
 <div class="card"><span>参加者数</span><strong id="cParticipants">-</strong></div>
@@ -88,4 +101,34 @@
 <p class="note">氏名・住所・電話番号を含みます。周囲に画面が見えない状況で開いてください。</p>
 <div class="table-wrap"><table><thead><tr><th>回答日時</th><th>参加者ID</th><th>氏名</th><th>郵便番号</th><th>住所</th><th>電話番号</th><th>同意した規約の版</th></tr></thead><tbody id="shippingBody"></tbody></table></div>
 </details>
-</section></main><script src="app.js?v=008fed7c"></script></body></html>
+</section>
+
+<!-- スタンプ設定：魚が増えていく順番（スタンプを1個取るごとに、この順番で、次の魚が川に現れる） -->
+<section id="stampSettings" hidden>
+<p class="crumbs"><a href="#">← メニューに戻る</a></p>
+<h2>スタンプ設定（魚が増えていく順番）</h2>
+<p class="note">スタンプを1個取るごとに、上から順番に、魚が1種類ずつ川に現れます（どの掲示板のQRコードを読み取ったかには、関係ありません）。
+景品を希望できる条件は <strong id="fishRequired">3</strong> 個です。<strong>最初の <span class="fishRequiredText">3</span> 個だけでも、川がさびしく見えない順番</strong>にしてください。
+右の「川の見え方」で、スタンプが1〜6個のときの川の絵を確かめながら、▲▼で並べ替えて、「保存して公開する」を押します。
+<strong>イベントが始まってから変えると、すでにスタンプを集めている人の絵も、新しい順番に入れ替わります</strong>（集めた個数は変わりません）。</p>
+<div class="fish-editor">
+<div>
+<h3>魚の順番（上から先に現れる）</h3>
+<ul id="fishList" class="fish-list"></ul>
+</div>
+<div>
+<h3>川の見え方</h3>
+<div id="fishStages" class="fish-stages" role="group" aria-label="スタンプの個数を選んで、川の絵を見る"></div>
+<div id="fishPreview" class="river" role="img" aria-label="川の絵のプレビュー"></div>
+<p id="fishPreviewNote" class="note"></p>
+<div id="fishThumbs" class="river-thumbs"></div>
+</div>
+</div>
+<div class="fish-actions">
+<button id="fishSave" disabled>保存して公開する</button>
+<button id="fishReset" class="secondary" disabled>保存した順番に戻す</button>
+<button id="fishDefault" class="secondary">おすすめの順番にする</button>
+<button id="logoutBtnStamps" class="secondary">ログアウト</button>
+</div>
+<p id="fishStatus" class="note" role="status"></p>
+</section></main><script src="app.js?v=108c417c"></script></body></html>

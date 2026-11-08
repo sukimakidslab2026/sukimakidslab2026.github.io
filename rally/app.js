@@ -2,6 +2,10 @@
 // 景品を希望できる条件：掲示板のQRコードを、この個数以上読み取ること。
 // sql/schema.sql の rally_required_stamps() と同じ数にしてください（scripts/check_site.py が一致を確認します）。
 const PRIZE_REQUIRED=3;
+// 魚の図鑑。魚の名前・画像は js/fish-data.js、共通の部品は js/fish.js にあります。
+// 川が完成するスタンプの個数は、魚の種類の数（いまは6種類）です。
+const Fish=window.RallyFish, FISH=Fish.fish;
+const RIVER_TOTAL=Fish.keys.length;
 // QRコード（掲示板）の合言葉の形式。実際に有効なコードかどうかは、サーバー（record_scan）が確かめます。
 // （"constructor" のような言葉も、形式は満たしますが、登録されていないので、スタンプにはなりません）
 const STAMP_FORMAT=/^[a-z0-9]{6,32}$/;
@@ -16,6 +20,7 @@ const timesKey = "stamp_rally_stamp_times";
 const pendingKey = "stamp_rally_pending";
 const stampsKey = "stamp_rally_stamps";
 const surveyKey = "stamp_rally_survey_submitted";
+const fishOrderKey = "stamp_rally_fish_order";   // 最後に読み込んだ、魚が増えていく順番（通信できなくても、同じ順番で表示するため）
 const memoryStore = new Map();
 let storageBlocked = false;
 const store = {
@@ -33,7 +38,13 @@ function readStampList(key){
 
 const participantId = getOrCreateParticipantId();
 document.getElementById("participantId").textContent = participantId;
-document.getElementById("total").textContent = PRIZE_REQUIRED;
+document.getElementById("total").textContent = RIVER_TOTAL;
+
+// 魚が増えていく順番（図鑑の順番）。スタンプを取った掲示板には関係なく、スタンプを1個取るごとに、この順番で次の魚が現れます。
+// 管理画面の「スタンプ設定」で決めた順番を、サーバーから読み込みます（読み込めないときは、前回の順番、なければ初期の順番）。
+let fishOrder=(()=>{
+  try{ return Fish.normalizeOrder(JSON.parse(store.get(fishOrderKey)||"null")); }catch(e){ return null; }
+})()||Fish.defaultOrder();
 
 function getOrCreateParticipantId(){
   let id = store.get(participantKey);
@@ -66,57 +77,86 @@ function replay(el,className){
   el.classList.remove(className); void el.offsetWidth; el.classList.add(className);
 }
 
-// fx: {code, kind:"new"|"again", complete} … 直前に読み取ったスタンプの演出
+// fx: {code, kind:"new"|"again"} … 直前に読み取ったスタンプの演出
 function render(stamps,fx={}){
   renderBanner(stamps,fx);
+  renderRiver(stamps,fx);
   renderStamps(stamps,fx);
 }
 
 // ---- 進捗バナー ----
-// 残り個数＝必要なスタンプ数 − 取得済みのスタンプ数。文言は、取得状況に応じて切り替えます。
+// ゲージは、川が完成するまでの個数（6）。その途中の3個目に、景品の条件の目盛りがあります。
 // 「景品を希望できる」は、希望の手続き（アンケート）に進める条件のことで、景品の受け取りを約束する表現にはしていません。
 // message は、文節ごとに分けた配列（画面では、文節の区切りでだけ折り返す）
-function bannerContent(got,total){
-  const remain=Math.max(total-got,0);
-  if(remain===0) return {state:"complete",message:["コンプリート！","景品を希望できる条件を","達成したよ！"]};
+function bannerContent(got){
+  const toPrize=Math.max(PRIZE_REQUIRED-got,0), toRiver=Math.max(RIVER_TOTAL-got,0);
+  if(got>=RIVER_TOTAL) return {state:"complete",doneLabel:"COMPLETE",message:["川が完成しました！","ありがとう！"]};
+  if(got>=PRIZE_REQUIRED) return {state:"achieved",doneLabel:"ACHIEVED",message:["景品を希望できる","条件を達成したよ！",`あと${toRiver}個で、`,"川が完成するよ！"]};
   if(got===0) return {state:"empty",message:["スタンプを集めて、","景品の希望に進もう！"]};
-  if(remain===1) return {state:"almost",message:["あと1個！","景品の希望まで、","あと少し！"]};
-  return {state:"progress",message:[`あと${remain}個で、`,"景品を希望できるよ！"]};
+  if(toPrize===1) return {state:"almost",message:["あと1個！","景品の希望まで、","あと少し！"]};
+  return {state:"progress",message:[`あと${toPrize}個で、`,"景品を希望できるよ！"]};
 }
 function renderBanner(stamps,fx){
-  const total=PRIZE_REQUIRED, got=Math.min(stamps.length,total), remain=Math.max(total-got,0);
-  const {state,message}=bannerContent(got,total);
+  const total=RIVER_TOTAL, got=Math.min(stamps.length,total), toPrize=Math.max(PRIZE_REQUIRED-got,0), achieved=got>=PRIZE_REQUIRED;
+  const {state,message,doneLabel}=bannerContent(got);
   const banner=$("progressBanner"), countEl=$("count"), remainEl=$("remain"), bar=$("bannerBar");
   banner.dataset.state=state;
-  // 「あと◯個」と「COMPLETE」の表示は、CSSではなく hidden 属性で切り替える
-  document.querySelector(".remain-wrap").hidden=state==="complete";
-  document.querySelector(".done-wrap").hidden=state!=="complete";
+  // 「景品まで、あと◯個」と「達成」の表示は、CSSではなく hidden 属性で切り替える
+  document.querySelector(".remain-wrap").hidden=achieved;
+  document.querySelector(".done-wrap").hidden=!achieved;
+  if(doneLabel) $("doneLabel").textContent=doneLabel;
   countEl.textContent=got;
-  remainEl.textContent=remain;
+  remainEl.textContent=toPrize;
   $("total").textContent=total;
   $("bannerMessage").innerHTML=phrases(...message);
   const notice=String((window.RALLY_PRIZE||{}).notice||"").trim();
   $("bannerNote").textContent=notice; $("bannerNote").hidden=!notice;
   bar.setAttribute("aria-valuemax",total); bar.setAttribute("aria-valuenow",got);
-  bar.setAttribute("aria-valuetext",remain?`${got}個取得、あと${remain}個`:`${total}個すべて取得`);
-  // 条件を超えたあとに取ったスタンプでは、バーの演出をやり直さない
+  bar.setAttribute("aria-valuetext",`${got}個取得。`+(achieved?"景品を希望できる条件を達成しています。":`景品まで、あと${toPrize}個。`)+(got>=total?"川が完成しました。":`川の完成まで、あと${total-got}個。`));
+  // ゲージの目盛り（景品の条件・川の完成）の位置と文言
+  const gauge=banner.querySelector(".gauge");
+  gauge.style.setProperty("--segs",total); gauge.style.setProperty("--prize-col",PRIZE_REQUIRED);
+  $("markPrize").textContent=`${PRIZE_REQUIRED}個で景品`; $("markGoal").textContent=`${total}個で川が完成`;
+  $("markPrize").classList.toggle("on",achieved); $("markGoal").classList.toggle("on",got>=total);
+  // 川が完成したあとに取ったスタンプでは、ゲージの演出をやり直さない
   const fresh=fx.kind==="new"&&stamps.length<=total;
   bar.innerHTML=Array.from({length:total},(_,i)=>`<span class="seg${i<got?" on":""}${fresh&&i===got-1?" is-new":""}"></span>`).join("");
   if(fresh){ replay(countEl,"bump"); replay(remainEl,"bump"); replay(banner,"is-new"); }
 }
 
-// ---- スタンプ枠 ----
-// 取得した順に並べます。景品の条件の個数までは、空の枠も出し、条件を超えて取った分は、枠が増えます。
+// ---- 川：背景の上に、スタンプの数だけ、順番どおりに魚を重ねる ----
+function renderRiver(stamps,fx){
+  const got=Math.min(stamps.length,RIVER_TOTAL), keys=fishOrder.slice(0,got);
+  const box=$("riverFish"), shown=[...box.children].map(el=>el.dataset.key);
+  const appendOnly=shown.length<=keys.length&&shown.every((k,i)=>k===keys[i]);
+  const newKey=fx.kind==="new"&&stamps.length<=RIVER_TOTAL?keys[keys.length-1]:null;
+  if(appendOnly){
+    // すでに出ている魚には触らず、増えた魚だけを足す（出ている魚が、描き直されて、ちらつかないように）
+    keys.slice(shown.length).forEach(k=>box.insertAdjacentHTML("beforeend",Fish.layerHtml(k,k===newKey)));
+  } else {
+    box.innerHTML=keys.map(k=>Fish.layerHtml(k,false)).join("");   // 順番が変わったときなどは、全部を並べ直す
+  }
+  const river=$("river");
+  river.classList.toggle("is-complete",got>=RIVER_TOTAL);
+  river.setAttribute("aria-label",got?`川の絵。${got}種類の魚が泳いでいます（${keys.map(k=>FISH[k].name).join("、")}）。`:"川の絵。まだ魚はいません。");
+  $("riverCount").textContent=`${got} / ${RIVER_TOTAL}`;
+  $("riverMessage").textContent=got>=RIVER_TOTAL?"川が完成しました！":got?`あと ${RIVER_TOTAL-got} 個で、川が完成します。`:"スタンプを集めると、魚が泳ぎはじめるよ。";
+}
+
+// ---- さかな図鑑：まだ獲得していない魚はシルエット、獲得した魚は色つきの絵 ----
+// カードの番号は、スタンプを取る順番（魚が増えていく順番）です。
 function renderStamps(stamps,fx){
-  const slots=Math.max(PRIZE_REQUIRED,stamps.length);
-  $("stamps").innerHTML=Array.from({length:slots},(_,i)=>{
-    const code=stamps[i], got=code!==undefined, state=got&&fx.code===code?` is-${fx.kind}`:"";
-    const at=got?stampTime(code):null;
-    return `<div class="stamp${got?" got":""}${state}">
+  const got=Math.min(stamps.length,RIVER_TOTAL);
+  $("bookCount").textContent=`${got} / ${RIVER_TOTAL}`;
+  $("stamps").innerHTML=fishOrder.map((key,i)=>{
+    const f=FISH[key], has=i<got, code=stamps[i], state=has&&fx.code===code?` is-${fx.kind}`:"";
+    const at=has?stampTime(code):null;
+    const label=`${pad2(i+1)} ${has?`${f.name}（獲得済み）`:"未獲得"}`;
+    return `<div class="stamp${has?" got":""}${state}" role="group" aria-label="${esc(label)}">
       <span class="stamp-no">${pad2(i+1)}</span>
-      <span class="seal">${got?icon("check"):""}</span>
-      <strong>${got?"獲得済み":"未獲得"}</strong>
-      <small>${got&&at?formatTime(at):" "}</small>
+      <span class="stamp-fish"><img src="${esc(Fish.url(has?f.stamp:f.silhouette))}" width="${f.width}" height="${f.height}" alt="" draggable="false"></span>
+      <strong>${has?esc(f.name):"？"}</strong>
+      <small>${has?(at?formatTime(at):"獲得済み"):"未獲得"}</small>
     </div>`;
   }).join("");
 }
@@ -217,7 +257,9 @@ function updateResult(patch){
 }
 function drawResult(settled){
   const s=resultState, pending=getPending().length>0;
-  const seal=s.seal ? icon(s.seal) : "!";
+  const fishSeal=s.fish&&FISH[s.fish]
+    ? `<span class="sr-seal has-fish" aria-hidden="true"><img src="${esc(Fish.url(FISH[s.fish].stamp))}" alt="" draggable="false"></span>`
+    : `<span class="sr-seal" aria-hidden="true">${s.seal ? icon(s.seal) : "!"}</span>`;
   let error="";
   if(s.sync==="failed"){
     error = pending
@@ -231,7 +273,7 @@ function drawResult(settled){
   resultEl.classList.toggle("settled",settled);
   resultEl.innerHTML=`
     <div class="sr-main">
-      <span class="sr-seal" aria-hidden="true">${seal}</span>
+      ${fishSeal}
       <div>
         <p class="sr-kicker">${s.kicker}</p>
         <p class="sr-title">${s.title}</p>
@@ -248,24 +290,23 @@ function drawResult(settled){
   if(retry) retry.onclick=retryPending;
 }
 
-// 読み取った結果の文言。again＝すでに取得済み、reachedNow＝この読み取りで景品の条件を満たした
-function scanMessage({code,again,reachedNow,current}){
-  const total=PRIZE_REQUIRED, n=current.length;
+// 読み取った結果の文言。again＝すでに取得済み。新しいスタンプでは、そのスタンプで現れた魚（fish）の名前と絵を出す
+function scanMessage({code,again,current}){
+  const total=RIVER_TOTAL, n=current.length;
   if(again){
     const at=stampTime(code);
     return {tone:"again",seal:"check",kicker:"獲得済み",title:phrases("この掲示板は","すでに","獲得しています"),
       body:`${at?`${formatTime(at)} に獲得したスタンプです。`:""}スタンプの数は変わりません（${n}個）。`};
   }
-  if(reachedNow){
-    return {tone:"complete",seal:"check",kicker:`COMPLETE · ${total} / ${total}`,title:phrases("景品の条件を","達成しました！"),
-      body:`${total}つのスタンプがそろいました。アンケートで、景品の希望を受け付けています。`};
+  if(n>total){   // 川が完成したあとに取ったスタンプ（記録はされるが、魚は増えない）
+    return {tone:"new",seal:"check",kicker:`NEW STAMP · ${pad2(n)}`,title:phrases("スタンプを","記録しました"),body:`川は、すでに完成しています（合計${n}個）。`};
   }
-  if(n>total){
-    return {tone:"new",seal:"check",kicker:`NEW STAMP · ${pad2(n)}`,title:phrases("スタンプを","獲得しました"),
-      body:`景品を希望できる条件は、すでに達成しています（合計${n}個）。`};
-  }
-  return {tone:"new",seal:"check",kicker:`NEW STAMP · ${pad2(n)}`,title:phrases("スタンプを","獲得しました"),
-    body:`あと ${total-n} 個で、景品を希望できます。`};
+  const key=fishOrder[n-1], name=FISH[key].name, kicker=`NEW STAMP · ${pad2(n)}`;
+  if(n===total) return {tone:"complete",fish:key,kicker:`COMPLETE · ${n} / ${total}`,title:phrases("川が","完成しました！"),body:`「${name}」が加わって、${total}種類の魚がそろいました。`};
+  if(n===PRIZE_REQUIRED) return {tone:"complete",fish:key,kicker:`ACHIEVED · ${n} / ${total}`,title:phrases("景品の条件を","達成しました！"),
+    body:`「${name}」が仲間になりました。アンケートで、景品の希望を受け付けています。あと ${total-n} 個で、川が完成します。`};
+  if(n>PRIZE_REQUIRED) return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`景品を希望できる条件は、達成済みです。あと ${total-n} 個で、川が完成します。`};
+  return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`あと ${PRIZE_REQUIRED-n} 個で、景品を希望できます。`};
 }
 const invalidMessage=()=>({tone:"info",seal:null,kicker:"QRコード",title:phrases("このQRコードは","登録されていません"),
   body:"掲示板に貼ってある、スタンプラリーのQRコードを読み取ってください。"});
@@ -368,12 +409,13 @@ function showSurveyLink(){
   link.hidden=false;
 }
 
-// 読み取りの結果を、画面（バナー・スタンプ枠・結果パネル）に反映する
+// 読み取りの結果を、画面（バナー・川・図鑑・結果パネル）に反映する
 function applyScan(code,again,before,current,patch){
-  const reachedNow=!again&&before.length<PRIZE_REQUIRED&&current.length>=PRIZE_REQUIRED;
-  render(current,{code,kind:again?"again":"new",complete:reachedNow});
-  haptic(reachedNow ? [18,70,18,70,36] : again ? 8 : 24);
-  showResult({...scanMessage({code,again,reachedNow,current}),...patch});
+  const prizeNow=!again&&before.length<PRIZE_REQUIRED&&current.length>=PRIZE_REQUIRED;
+  const riverNow=!again&&before.length<RIVER_TOTAL&&current.length>=RIVER_TOTAL;
+  render(current,{code,kind:again?"again":"new"});
+  haptic(prizeNow||riverNow ? [18,70,18,70,36] : again ? 8 : 24);
+  showResult({...scanMessage({code,again,current}),...patch});
 }
 
 // 戻り値：{completed: サーバーで条件達成を確認, failed: 通信に失敗}
@@ -387,10 +429,13 @@ async function recordStamp(code){
 
   const before=await getLocalStamps();
   const again=before.includes(code);
+  // 次に現れる魚の画像を、サーバーの返事を待っている間に、先に読み込んでおく（魚が現れるときに、画像が遅れて出ないように）
+  const early=(!again&&before.length<RIVER_TOTAL)?configReady.then(()=>Fish.preload([fishOrder[before.length]],2500)):Promise.resolve();
 
   if(!isSupabaseConfigured()){
     // デモモード：サーバーがないので、形式が合えばスタンプとして受け付ける
     const current=await saveLocalStamp(code);
+    await early;
     applyScan(code,again,before,current,{sync:"demo"});
     return {completed:false,failed:false};
   }
@@ -403,6 +448,7 @@ async function recordStamp(code){
     console.error(error);
     const current=await saveLocalStamp(code);
     if(!again && !getPending().includes(code)) setPending([...getPending(),code]);
+    await configReady; await early;
     applyScan(code,again,before,current,{sync:"failed"});
     return {completed:false,failed:true};
   }
@@ -414,6 +460,7 @@ async function recordStamp(code){
   const current=await saveLocalStamp(code);
   setPending(getPending().filter(c=>c!==code));
   if(result.completed) showSurveyLink();
+  await configReady; await early;
   applyScan(code,again,before,current,{sync:"saved",surveyReady:result.completed});
   return {completed:result.completed,failed:false};
 }
@@ -472,9 +519,30 @@ async function restoreCompletion(){
   }
 }
 
+// 魚が増えていく順番を、サーバーから読み込む（管理画面の「スタンプ設定」で変えた順番が、すぐに反映される）。
+// 読み込めなくても、前回の順番（なければ初期の順番）で、そのまま使えます。
+let configReady=Promise.resolve();
+let lastConfigAt=0;
+async function loadFishOrder(){
+  if(!isSupabaseConfigured()) return;
+  lastConfigAt=Date.now();
+  try{
+    const config=await callRpc("rally_config",{});
+    const order=Fish.normalizeOrder(config&&config.fish_order);
+    if(!order) return;
+    store.set(fishOrderKey,JSON.stringify(order));
+    if(order.join()!==fishOrder.join()){ fishOrder=order; render(await getLocalStamps()); }
+  } catch(error){
+    console.error(error);
+  }
+}
+
 async function init(){
   buildPlaces();
   $("requiredCount").textContent=PRIZE_REQUIRED;
+  $("riverTotal").textContent=RIVER_TOTAL;
+  // 順番の読み込みは、画面の表示と並行して始め、最大2.5秒だけ待つ（スタンプの結果を出す前に、最新の順番にそろえるため）
+  configReady=Promise.race([loadFishOrder(),new Promise(resolve=>setTimeout(resolve,2500))]);
   const params=new URLSearchParams(location.search);
   // QRコードの作成ツールなどで、大文字や前後の空白が入っていても、同じスタンプとして扱う
   const code=(params.get("stamp")||"").trim().toLowerCase();
@@ -494,3 +562,7 @@ async function init(){
   if(!result.completed && !result.failed) await restoreCompletion();
 }
 init();
+// 開いたままにしていたページを、また見たとき（アプリの切り替えなどから戻ったとき）も、1分以上たっていれば、魚の順番を読み込み直す
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden&&Date.now()-lastConfigAt>60000) loadFishOrder();
+});

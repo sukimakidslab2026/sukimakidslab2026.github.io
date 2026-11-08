@@ -18,6 +18,8 @@
  11. 景品を希望できる条件（スタンプの個数）が、JavaScript・SQL・HTMLで同じか
  12. 掲示板のQRコードの文字列（合言葉）が、公開されるファイルに含まれていないか
  13. 旧仕様（6か所の名前付きスタンプ）の記述が残っていないか
+ 14. 魚の図鑑：画像・名前・順番が、JavaScript・SQL・画像の変換スクリプトで一致しているか
+ 15. 元の画像のフォルダ（fish-stamp-images など）が、GitHubに送られないようになっているか
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -33,10 +35,10 @@ VOID = {"meta", "link", "br", "hr", "img", "input", "source", "area", "base", "c
 
 INSTAGRAM_URL = "https://www.instagram.com/sukima.kids.lab/"
 PUBLIC_PAGES = ["index.html", "rally/index.html", "survey/index.html", "survey/privacy.html"]   # 共通ヘッダーを入れるページ（管理画面は除く）
-BRAND_COLORS = {"#30557e", "#4d89b7", "#62adca", "#ffffff", "#fff"}
-TINTS = {"#ecf5f9", "#dcedf3", "#c8e2ec", "#d2e2ed", "#eef1f5", "#4f6e91"}          # 上の色を白に重ねた色／補助の文字色（brand.css で定義）
+BRAND_COLORS = {"#30557e", "#4d89b7", "#62adca", "#dec632", "#ffffff", "#fff"}      # 主色・サブ・アクセント・差し色（マスタード）・白
+TINTS = {"#ecf5f9", "#dcedf3", "#c8e2ec", "#d2e2ed", "#eef1f5", "#4f6e91", "#f8f4d6"}   # 上の色を白に重ねた色／補助の文字色（brand.css で定義）
 ADMIN_ERROR = {"#b42318", "#fdecea", "#f3b8b2"}                                     # 管理画面のエラー表示だけの例外
-RGB_OK = {(255, 255, 255), (48, 85, 126), (98, 173, 202)}
+RGB_OK = {(255, 255, 255), (48, 85, 126), (98, 173, 202), (222, 198, 50)}
 
 failures, warnings = [], []
 
@@ -129,7 +131,7 @@ def check_header():
         # ページごとに違うのは、ファイルの場所に合わせた相対パスの先頭と、「今開いているページ」の印だけ
         norm = block.replace(prefix, "{P}").replace(' aria-current="page"', "")
         blocks[rel] = (norm, block, prefix)
-        if prefix + "assets/logo-128.png" not in block:
+        if prefix + "assets/logo.webp" not in block:
             bad(f"{rel}: ロゴ画像のパスが正しくありません")
         # ロゴのリンク先は、サイトのトップページ（このリポジトリの index.html）
         m = re.search(r'<a class="site-logo" href="([^"]+)"', block)
@@ -153,7 +155,7 @@ def check_header():
     for rel, (_, block, _) in blocks.items():
         if block.find("「すきまキッズラボ」とは？") == -1 or block.find("menu-instagram") < block.find("「すきまキッズラボ」とは？"):
             bad(f"{rel}: メニューで、「すきまキッズラボ」とは？ の下にInstagramがありません")
-    for name in ("logo-128.png", "apple-touch-icon.png", "favicon-64.png", "favicon-32.png"):
+    for name in ("logo.webp", "banner.webp", "apple-touch-icon.png", "favicon-64.png", "favicon-32.png"):
         (ok if os.path.exists(os.path.join(ROOT, "assets", name)) else bad)(f"assets/{name}" + ("" if os.path.exists(os.path.join(ROOT, "assets", name)) else " がありません"))
 
 
@@ -168,11 +170,83 @@ def check_required():
         bad(f"景品の条件が一致しません：rally/app.js は {js.group(1)} 個、sql/schema.sql は {sql.group(1)} 個")
         return
     html = read("rally/index.html")
-    shown = re.search(r'id="requiredCount">(\d+)<', html), re.search(r'id="total"[^>]*>(\d+)<', html), re.search(r'aria-valuemax="(\d+)"', html)
-    if not all(shown) or any(m.group(1) != n for m in shown):
-        bad(f"rally/index.html の初期表示の個数（requiredCount・total・aria-valuemax）が、{n} になっていません")
+    fish = len(re.findall(r"^  \w+: \{", read("js/fish-data.js"), flags=re.M))
+    pairs = [("requiredCount（景品の条件の個数）", re.search(r'id="requiredCount">(\d+)<', html), n),
+             ("riverTotal（川が完成する個数）", re.search(r'id="riverTotal">(\d+)<', html), str(fish)),
+             ("total（バナーの分母）", re.search(r'id="total"[^>]*>(\d+)<', html), str(fish)),
+             ("aria-valuemax（ゲージ）", re.search(r'aria-valuemax="(\d+)"', html), str(fish)),
+             ]
+    css = read("rally/style.css")
+    pairs += [("rally/style.css の --segs（ゲージの区切りの数）", re.search(r"\.gauge\{[^}]*--segs:(\d+)", css), str(fish)),
+              ("rally/style.css の --prize-col（景品の目盛りの位置）", re.search(r"\.gauge\{[^}]*--prize-col:(\d+)", css), n)]
+    wrong = [f"{label}：{m.group(1) if m else '（なし）'}、正しくは {want}" for label, m, want in pairs if not m or m.group(1) != want]
+    if wrong:
+        bad("初期表示が、設定と一致していません：" + " / ".join(wrong))
     else:
-        ok(f"景品の条件は、JavaScript・SQL・HTMLのすべてで {n} 個です")
+        ok(f"景品の条件は {n} 個、川の完成は {fish} 個（魚 {fish} 種類）で、JavaScript・SQL・HTMLが一致しています")
+
+
+def check_fish():
+    data = read("js/fish-data.js")
+    fish = re.findall(r"^  (\w+): (\{.*\})", data, flags=re.M)
+    keys = [k for k, _ in fish]
+    if not keys:
+        bad("js/fish-data.js に、魚のデータがありません（python3 scripts/make_fish_assets.py を実行してください）")
+        return
+    missing = []
+    for key, body in fish:
+        for file in re.findall(r'"(?:stamp|silhouette|layer)": "([^"]+)"', body):
+            if not os.path.exists(os.path.join(ROOT, "assets", "fish", file)):
+                missing.append(file)
+    scene = re.search(r'"file": "([^"]+)"', data)
+    if not scene or not os.path.exists(os.path.join(ROOT, "assets", "fish", scene.group(1))):
+        missing.append("（川の背景）")
+    (bad if missing else ok)(f"魚の画像が見つかりません：{missing}" if missing else f"魚 {len(keys)} 種類の画像（スタンプ・シルエット・重ね画像）と川の背景が、すべてあります")
+
+    sql_keys = re.search(r"function public\.rally_fish_keys\(\).*?array\[([^\]]*)\]", read("sql/schema.sql"), flags=re.S)
+    sql_keys = re.findall(r"'(\w+)'", sql_keys.group(1)) if sql_keys else []
+    (ok if sorted(sql_keys) == sorted(keys) else bad)(
+        f"魚の種類が、js/fish-data.js と sql/schema.sql の rally_fish_keys() で一致しています" if sorted(sql_keys) == sorted(keys)
+        else f"魚の種類が一致しません：JavaScript {sorted(keys)} / SQL {sorted(sql_keys)}")
+    script_keys = re.findall(r'^\s+\("(\w+)", "[^"]+", "[^"]+"\),?$', read("scripts/make_fish_assets.py"), flags=re.M)
+    (ok if sorted(script_keys) == sorted(keys) else bad)(
+        "魚の種類が、scripts/make_fish_assets.py の FISH とも一致しています" if sorted(script_keys) == sorted(keys)
+        else f"魚の種類が一致しません：js/fish-data.js {sorted(keys)} / scripts/make_fish_assets.py {sorted(script_keys)}（変換スクリプトを実行し直してください）")
+
+    js_order = re.search(r"RALLY_FISH_DEFAULT_ORDER\s*=\s*\[([^\]]*)\]", read("js/fish.js"))
+    js_order = re.findall(r'"(\w+)"', js_order.group(1)) if js_order else []
+    sql_order = re.search(r"function public\.rally_default_fish_order\(\).*?array\[([^\]]*)\]", read("sql/schema.sql"), flags=re.S)
+    sql_order = re.findall(r"'(\w+)'", sql_order.group(1)) if sql_order else []
+    if sorted(js_order) != sorted(keys):
+        bad(f"js/fish.js の RALLY_FISH_DEFAULT_ORDER が、魚の種類をちょうど1回ずつ並べたものになっていません：{js_order}")
+    elif js_order != sql_order:
+        bad(f"魚の初期の順番が一致しません：js/fish.js {js_order} / sql/schema.sql {sql_order}")
+    else:
+        ok(f"魚の初期の順番が、JavaScriptとSQLで一致しています（{' → '.join(js_order)}）")
+
+    needs = {"rally/index.html": ["fish-data.js", "fish.js", "app.js"], "admin/index.html": ["fish-data.js", "fish.js", "app.js"]}
+    for rel, order in needs.items():
+        src = read(rel)
+        pos = []
+        for name in order:
+            m = re.search(r'<script[^>]+src="[^"]*' + re.escape(name), src)   # コメントの中の名前ではなく、実際の <script> の位置
+            pos.append(m.start() if m else -1)
+        (ok if all(p >= 0 for p in pos) and pos == sorted(pos) else bad)(
+            f"{rel}: fish-data.js → fish.js → app.js の順に読み込んでいます" if all(p >= 0 for p in pos) and pos == sorted(pos)
+            else f"{rel}: fish-data.js → fish.js → app.js の順に読み込んでいません")
+
+
+def check_sources_ignored():
+    for folder in ("fish-stamp-images", "logo-banner-images"):
+        tracked = subprocess.run(["git", "ls-files", folder], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+        if tracked:
+            warn(f"{folder}/ の元の画像が、すでにGitに登録されています（公開サイトが重くなります。git rm -r --cached {folder} で外してください）")
+            continue
+        if not os.path.isdir(os.path.join(ROOT, folder)):
+            ok(f"{folder}/ は、このパソコンにありません（変換済みの画像 assets/ だけで、サイトは動きます）")
+            continue
+        ignored = subprocess.run(["git", "check-ignore", "-q", folder + "/x.png"], cwd=ROOT).returncode == 0
+        (ok if ignored else warn)(f"{folder}/（元の画像）は、GitHubに送られない設定です" if ignored else f"{folder}/ が .gitignore に入っていません（元の画像が、そのまま公開されてしまいます）")
 
 
 def tracked_or_public_files():
@@ -358,6 +432,12 @@ def main():
 
     print("13. 旧仕様（6か所の名前付きスタンプ）の記述")
     check_legacy()
+
+    print("14. 魚の図鑑（画像・名前・順番）")
+    check_fish()
+
+    print("15. 元の画像のフォルダ")
+    check_sources_ignored()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

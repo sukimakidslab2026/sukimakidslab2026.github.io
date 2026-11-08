@@ -9,11 +9,14 @@
   --color-secondary:#4d89b7;  /* 進捗・補助的なボタンの枠・線・アイコン・スタンプの状態 */
   --color-accent:#62adca;     /* アクセント・アニメーション・進捗の強調 */
   --color-white:#ffffff;
+  --color-mustard:#dec632;    /* 差し色：進捗ゲージ・達成のしるし・強調の線（暗い面の上では、ゲージやアイコンに使う） */
 
   /* ── 読みやすさの基準（コントラスト比） ──
    * 主色 #30557e は白の上で 7.7:1。文字はこの色を基本にします。
    * サブカラー #4d89b7 は白の上で 3.8:1、アクセント #62adca は 2.5:1 のため、
-   * 小さな文字には使わず、線・アイコン・図形・大きな文字にだけ使います。 */
+   * 小さな文字には使わず、線・アイコン・図形・大きな文字にだけ使います。
+   * マスタード #dec632 は、白の上で 1.7:1（文字にも、白地の上の図形にも、単独では使わない）、
+   * 主色の上で 4.5:1（暗い面の上のゲージ・アイコンには使える）。白地の上では、主色の文字に、下線やマーカーのように添えます。 */
 
   /* ── 上の色を白に重ねた淡い色（背景・罫線用。色味はブランドカラーと同じ） ──
    * accent 12%：ページの背景 / accent 22%・35%：区切りや面 / secondary 25%：罫線 / primary 8%：控えめな面 */
@@ -22,6 +25,7 @@
   --tint-accent-35:#c8e2ec;
   --tint-secondary-25:#d2e2ed;
   --tint-primary-08:#eef1f5;
+  --tint-mustard-20:#f8f4d6;   /* マスタードを白に20%重ねた淡い色（強調の背景。この上の文字は主色） */
 
   /* ── 役割ごとの色 ── */
   --color-bg:var(--tint-accent-12);
@@ -81,8 +85,8 @@ a{color:var(--color-primary);text-decoration-color:var(--color-secondary);text-u
 :root{--header-h:64px}
 .site-header{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
   height:var(--header-h);padding:0 var(--space-4);background:var(--color-surface);border-bottom:2px solid var(--color-line)}
-.site-logo{flex:none;display:block;width:48px;height:48px;border-radius:12px;overflow:hidden;border:2px solid var(--color-line);background:var(--color-white)}
-.site-logo img{display:block;width:100%;height:100%;object-fit:cover}
+.site-logo{flex:none;display:block;height:48px}
+.site-logo img{display:block;height:100%;width:auto}
 .menu-toggle,.menu-close{flex:none;display:grid;place-items:center;width:48px;height:48px;min-height:0;margin:0;padding:0;border:0;border-radius:var(--radius-control);
   background:transparent;color:var(--color-primary);font:inherit;cursor:pointer}
 .menu-toggle:active,.menu-close:active{background:var(--tint-accent-22)}
@@ -103,7 +107,8 @@ a{color:var(--color-primary);text-decoration-color:var(--color-secondary);text-u
 .menu-list a{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);min-height:64px;padding:12px var(--space-5);border-bottom:2px solid var(--color-line);
   color:var(--color-primary);font-weight:700;font-size:17px;line-height:1.4;text-decoration:none}
 .menu-list a:after{content:"";flex:none;width:9px;height:9px;border-top:2.5px solid var(--color-secondary);border-right:2.5px solid var(--color-secondary);transform:rotate(45deg)}
-.menu-list a:active,.menu-list a[aria-current=page]{background:var(--tint-accent-12)}
+.menu-list a:active{background:var(--tint-accent-12)}
+.menu-list a[aria-current=page]{background:var(--tint-accent-12);box-shadow:inset 5px 0 0 var(--color-mustard)}
 .menu-sns{padding:var(--space-5)}
 .menu-instagram{display:inline-grid;place-items:center;width:56px;height:56px;border-radius:16px;border:2px solid var(--color-secondary);background:var(--color-white);color:var(--color-primary);
   transition:background .2s var(--ease),border-color .2s var(--ease)}
@@ -120,3 +125,16 @@ html.menu-open{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
   .site-menu,.menu-backdrop,.menu-list li,.menu-sns,.menu-instagram{transition:none!important}
 }
+
+/* ── ページ上部のバナー画像（ロゴの横長版）と、見出しの下の差し色の線 ──
+ * バナー・ロゴには、枠線も背景も付けません（透明な画像を、そのまま置きます）。 */
+.hero-banner{display:block;width:min(100%,360px);height:auto;margin:0 0 var(--space-3)}
+.hero-banner.sm{width:min(58%,210px)}
+.page-title:after{content:"";display:block;width:44px;height:6px;margin-top:var(--space-3);border-radius:3px;background:var(--color-mustard)}
+
+/* ── 川の絵（スタンプラリー画面・管理画面のプレビューで共通）──
+ * 背景の画像の上に、魚の画像（背景と同じ大きさ）を重ねるだけです。縦横の比率は、背景の画像と同じ（5523×2315）。 */
+.river{position:relative;width:100%;height:0;padding-bottom:41.92%;border-radius:var(--radius-control);overflow:hidden;background:var(--tint-accent-22)}
+.river-bg,.river-fish,.river-fish img{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.river-bg{object-fit:cover}
+.river-fish img{pointer-events:none}

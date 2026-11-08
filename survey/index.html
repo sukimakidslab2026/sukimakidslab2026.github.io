@@ -5,11 +5,11 @@
 <!-- 欧文・数字：Josefin Sans Bold（Google Fonts / SIL Open Font License）。日本語：筑紫A丸ゴシック（Webフォント未契約のため、brand.css の代替フォントで表示） -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=fa2d8e5b"><link rel="stylesheet" href="style.css?v=c5a78445">
+<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=ab3e98cf">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script><script src="../js/config.js?v=aae7ba99"></script></head><body>
 <!-- 共通ヘッダー：ロゴ（トップページへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
 <header class="site-header">
-  <a class="site-logo" href="../" aria-label="すきまキッズラボ トップページへ"><img src="../assets/logo-128.png" width="48" height="48" alt="すきまキッズラボ"></a>
+  <a class="site-logo" href="../" aria-label="すきまキッズラボ トップページへ"><img src="../assets/logo.webp" width="196" height="144" alt="すきまキッズラボ"></a>
   <button type="button" class="menu-toggle" id="menuToggle" aria-label="メニューを開く" aria-expanded="false" aria-controls="siteMenu"><span class="menu-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
 </header>
 <div class="menu-backdrop" id="menuBackdrop"></div>
@@ -22,7 +22,7 @@
   <div class="menu-sns"><a class="menu-instagram" href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer" aria-label="すきまキッズラボのInstagram（外部サイトが開きます）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/></svg></a></div>
 </nav>
 <main class="container">
-<header class="page-head"><p class="eyebrow en">SUKIMA KIDS LAB.</p><h1>スタンプラリー<br>アンケート</h1><p id="lead">コンプリート状況を確認しています…</p><p id="previewBanner" class="preview-banner" role="status" hidden>管理者プレビュー：コンプリートしていなくても、この画面を確認できます。<strong>送信しても、記録は保存されません。</strong></p></header>
+<header class="page-head"><img class="hero-banner sm" src="../assets/banner.webp" width="1000" height="181" alt="すきまキッズラボ"><h1 class="page-title">スタンプラリー<br>アンケート</h1><p id="lead">コンプリート状況を確認しています…</p><p id="previewBanner" class="preview-banner" role="status" hidden>管理者プレビュー：コンプリートしていなくても、この画面を確認できます。<strong>送信しても、記録は保存されません。</strong></p></header>
 <form id="surveyForm" hidden>
 <section class="block">
 <label>参加者ID<input id="participantId" readonly></label>
@@ -64,4 +64,4 @@
 <div id="privacyContent" class="dialog-body policy" tabindex="-1" autofocus><p>読み込み中…</p></div>
 <div class="dialog-foot"><button type="button" data-close-privacy>閉じてアンケートに戻る</button></div>
 </dialog>
-<script src="app.js?v=1fb46730"></script><script src="../js/site-nav.js?v=d37142eb"></script></body></html>
+<script src="app.js?v=cb39b31c"></script><script src="../js/site-nav.js?v=d37142eb"></script></body></html>

@@ -4,8 +4,7 @@
 
 /* ヘッダー */
 .hero{max-width:560px;margin:auto;padding:var(--space-5) 20px var(--space-3)}
-.eyebrow{font-size:12px;letter-spacing:.18em;color:var(--color-text-muted);margin:0 0 var(--space-2)}
-.hero h1{font-weight:700;font-size:clamp(26px,7.4vw,34px);letter-spacing:.02em;line-height:1.3;margin:0 0 var(--space-2)}
+.hero h1{font-weight:700;font-size:clamp(26px,7.4vw,34px);letter-spacing:.02em;line-height:1.3;margin:0 0 var(--space-3)}
 .hero .lead{margin:0;color:var(--color-text-muted);font-size:14px;line-height:1.8}
 
 .container{max-width:560px;margin:auto;padding:var(--space-2) var(--space-4) var(--space-5)}
@@ -13,8 +12,8 @@
 .card-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);margin-bottom:var(--space-3)}
 .card-head h2{font-weight:700;font-size:18px;letter-spacing:.02em;margin:0}
 
-/* 進捗バナー */
-.banner{position:relative;margin:0 0 var(--space-4);padding:var(--space-5) 22px 20px;border-radius:var(--radius-card);background:var(--color-primary);color:var(--color-on-primary);overflow:hidden}
+/* 進捗バナー：取得数（◯/6）と、景品の条件（3個）・川の完成（6個）までのゲージ。ゲージの色はマスタード */
+.banner{position:relative;margin:0 0 var(--space-4);padding:var(--space-5) 22px 18px;border-radius:var(--radius-card);background:var(--color-primary);color:var(--color-on-primary);overflow:hidden}
 .banner.is-new{animation:glow 1.3s .15s ease-out}
 .banner-top{display:flex;justify-content:space-between;align-items:flex-end;gap:var(--space-4)}
 .banner-count,.banner-remain{margin:0}
@@ -30,33 +29,48 @@
 .banner-remain .unit{font-size:18px;font-weight:700}
 .count.bump,#remain.bump{animation:bump .6s var(--ease)}
 .done-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:var(--space-1)}
-.done-icon{width:40px;height:40px;padding:8px;border-radius:50%;background:var(--color-accent);color:var(--color-primary);box-sizing:border-box}
-.banner[data-state=complete].is-new .done-icon{animation:press .7s .2s var(--ease) both}
-.banner-bar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin:18px 0 14px}
-.seg{position:relative;height:10px;border-radius:var(--radius-pill);background:rgba(255,255,255,.24);overflow:hidden}
-.seg:after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;border-radius:inherit;background:var(--color-accent);transform:scaleX(0);transform-origin:left}
+.done-icon{width:40px;height:40px;padding:8px;border-radius:50%;background:var(--color-mustard);color:var(--color-primary);box-sizing:border-box}
+.banner.is-new .done-icon{animation:press .7s .2s var(--ease) both}
+/* --segs＝ゲージの区切りの数（川が完成する個数）、--prize-col＝景品の目盛りの位置（景品の条件の個数）。実際の値は、rally/app.js が設定します */
+.gauge{--segs:6;--prize-col:3;margin:18px 0 14px}
+.banner-bar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+.seg{position:relative;height:12px;border-radius:var(--radius-pill);background:rgba(255,255,255,.24);overflow:hidden}
+.seg:after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;border-radius:inherit;background:var(--color-mustard);transform:scaleX(0);transform-origin:left}
 .seg.on:after{transform:scaleX(1)}
 .seg.is-new:after{animation:seg-fill .8s .1s var(--ease) both}
+/* ゲージの目盛り：景品の条件の個数（--prize-col）と、川の完成の個数（--segs）。条件を達成すると、印がマスタードの点になる */
+.gauge-marks{display:grid;grid-template-columns:repeat(var(--segs,6),1fr);gap:6px;margin:6px 0 0;font-size:11px;line-height:1.3;color:var(--color-on-primary-muted)}
+.mark{white-space:nowrap}
+.mark-prize{grid-column:var(--prize-col,3);justify-self:end}
+.mark-goal{grid-column:var(--segs,6);justify-self:end}
+.mark.on{color:var(--color-on-primary);font-weight:700}
+.mark.on:before{content:"";display:inline-block;width:8px;height:8px;margin-right:4px;border-radius:50%;background:var(--color-mustard)}
 .banner-message{margin:0;font-size:17px;font-weight:700;line-height:1.55}
 .banner-note{margin:var(--space-2) 0 0;font-size:13px;line-height:1.6;color:var(--color-on-primary-muted)}
 
 .storage-note{margin:0 0 var(--space-4);padding:var(--space-3) var(--space-4);border-radius:var(--radius-control);background:var(--color-white);border:2px dashed var(--color-secondary);font-size:14px;line-height:1.7}
 
-/* スタンプ枠 */
+/* 川：背景の上に、獲得した順番で、魚が増えていく（川の絵の基本のスタイルは brand.css） */
+.river-fish img.is-new{animation:fish-in 1.3s var(--ease) both}
+.river.is-complete{box-shadow:0 0 0 3px var(--color-mustard)}
+.river-message{margin:var(--space-3) 0 0;font-size:14px;color:var(--color-text-muted)}
+.river.is-complete+.river-message{color:var(--color-primary);font-weight:700;font-size:16px}
+
+/* 図鑑：まだ獲得していない魚はシルエット、獲得した魚は色つきの絵に、入れ替わる */
 .stamps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.stamp{position:relative;padding:24px 6px 12px;border:2px solid var(--color-line);border-radius:var(--radius-control);background:var(--color-white);text-align:center;transition:border-color .3s}
+.stamp{position:relative;display:flex;flex-direction:column;align-items:center;padding:24px 6px 10px;border:2px solid var(--color-line);border-radius:var(--radius-control);background:var(--color-white);text-align:center;transition:border-color .3s}
 .stamp-no{position:absolute;top:8px;left:10px;font-family:var(--font-en);font-weight:700;font-size:11px;letter-spacing:.1em;color:var(--color-text-muted)}
-.seal{width:52px;height:52px;margin:0 auto 8px;border-radius:50%;border:2px dashed var(--color-secondary);display:grid;place-items:center;color:var(--color-secondary)}
-.seal .icon{width:26px;height:26px}
-.stamp strong{display:block;font-size:13px;font-weight:700;letter-spacing:.02em}
-.stamp small{display:block;font-size:12px;color:var(--color-text-muted)}
+.stamp-fish{width:100%;height:64px;margin:0 0 6px}
+.stamp-fish img{display:block;width:100%;height:100%;object-fit:contain}
+.stamp strong{display:block;font-size:13px;font-weight:700;letter-spacing:.02em;line-height:1.4}
+.stamp:not(.got) strong{color:var(--color-text-muted)}
+.stamp small{display:block;min-height:1.4em;font-size:11px;line-height:1.4;color:var(--color-text-muted)}
 .stamp.got{border-color:var(--color-secondary)}
-.stamp.got .seal{border:0;background:var(--color-primary);color:var(--color-white)}
 .stamp.got small{color:var(--color-primary);font-weight:700}
-.stamp.is-new{border-color:var(--color-accent);animation:ring 1.4s .2s ease-out}
-.stamp.is-new .seal{animation:press .7s var(--ease) both}
+.stamp.is-new{border-color:var(--color-mustard);animation:ring 1.4s .2s ease-out}
+.stamp.is-new .stamp-fish img{animation:press .7s var(--ease) both}
 .stamp.is-new:after,.stamp.is-again:after{position:absolute;top:8px;right:10px;font-family:var(--font-en);font-weight:700;font-size:10.5px;letter-spacing:.1em;color:var(--color-primary)}
-.stamp.is-new:after{content:"NEW"}
+.stamp.is-new:after{content:"NEW";box-shadow:inset 0 -5px 0 var(--color-mustard)}
 .stamp.is-again{border-color:var(--color-primary);animation:again 1.6s ease}
 .stamp.is-again:after{content:"再読取";font-family:var(--font-ja);letter-spacing:.04em;color:var(--color-text-muted)}
 
@@ -67,6 +81,8 @@
 .sr-main>div{min-width:0}
 .sr-seal{flex:none;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--color-primary);color:var(--color-white)}
 .sr-seal .icon{width:28px;height:28px}
+.sr-seal.has-fish{background:var(--color-white);border:2px solid var(--color-mustard)}
+.sr-seal.has-fish img{display:block;width:100%;height:100%;padding:7px;object-fit:contain}
 .sr-kicker{margin:2px 0 4px;font-family:var(--font-en);font-weight:700;font-size:12px;letter-spacing:.14em;color:var(--color-text-muted)}
 .sr-title{margin:0;font-weight:700;font-size:20px;line-height:1.45}
 .sr-body{margin:6px 0 0;font-size:14px;color:var(--color-text-muted)}
@@ -83,17 +99,17 @@
 .sr-retry,.sr-cta{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin-top:var(--space-3);padding:10px 16px;border-radius:var(--radius-control);font:inherit;font-weight:700;font-size:15px;text-align:center;text-decoration:none;cursor:pointer}
 .sr-retry{border:2px solid var(--color-secondary);background:var(--color-white);color:var(--color-primary)}
 .sr-cta{border:2px solid var(--color-primary);background:var(--color-primary);color:var(--color-white)}
-.scan-result[data-tone=new]{border-color:var(--color-accent);box-shadow:inset 6px 0 0 var(--color-accent)}
+.scan-result[data-tone=new]{border-color:var(--color-mustard);box-shadow:inset 6px 0 0 var(--color-mustard)}
 .scan-result[data-tone=new]:not(.settled) .sr-seal{animation:press .7s .1s var(--ease) both}
 .scan-result[data-tone=again] .sr-seal{background:var(--color-white);border:2px solid var(--color-primary);color:var(--color-primary)}
 .scan-result[data-tone=info] .sr-seal,.scan-result[data-tone=error] .sr-seal{background:var(--color-white);border:2px dashed var(--color-primary);color:var(--color-primary);font-family:var(--font-en);font-size:26px;font-weight:700}
 .scan-result[data-tone=info],.scan-result[data-tone=error]{border-style:dashed;border-color:var(--color-secondary)}
-.scan-result[data-tone=complete]{background:var(--tint-accent-22);border-color:var(--color-accent);overflow:hidden}
-.scan-result[data-tone=complete]:after{content:"";position:absolute;left:-10%;right:-10%;bottom:-38px;height:60px;border-top:2px solid var(--color-accent);border-radius:50%;animation:wave 1.4s .2s var(--ease) both;pointer-events:none}
+.scan-result[data-tone=complete]{padding-bottom:32px;background:var(--tint-mustard-20);border-color:var(--color-mustard);overflow:hidden}
+.scan-result[data-tone=complete]:after{content:"";position:absolute;left:-10%;right:-10%;bottom:-38px;height:60px;border-top:2px solid var(--color-mustard);border-radius:50%;animation:wave 1.4s .2s var(--ease) both;pointer-events:none}
 .scan-result[data-tone=complete]:not(.settled) .sr-seal{animation:press .7s .1s var(--ease) both}
 .scan-result[data-tone=complete] .sr-kicker,.scan-result[data-tone=complete] .sr-body,.scan-result[data-tone=complete] .sr-sync,.scan-result[data-tone=complete] .sr-close{color:var(--color-primary)}
 .scan-result[data-tone=complete] .sr-title{font-size:23px}
-.scan-result[data-tone=complete] .sr-sync{border-color:var(--tint-accent-35)}
+.scan-result[data-tone=complete] .sr-sync{border-color:var(--color-line)}
 .scan-result[data-tone=complete] .sr-sync:before{background:var(--color-primary)}
 .scan-result[data-tone=complete] .sr-error{background:var(--color-white)}
 
@@ -131,8 +147,9 @@ code{font-size:14px;letter-spacing:.08em;background:var(--tint-primary-08);paddi
 footer{text-align:center;color:var(--color-text-muted);font-size:11px;letter-spacing:.16em;padding:var(--space-2) 0 var(--space-6)}
 
 @keyframes press{0%{transform:scale(1.55) rotate(-12deg);opacity:0}55%{transform:scale(.94) rotate(2deg);opacity:1}100%{transform:none;opacity:1}}
-@keyframes ring{0%{box-shadow:0 0 0 0 rgba(98,173,202,.6)}100%{box-shadow:0 0 0 12px rgba(98,173,202,0)}}
-@keyframes glow{0%{box-shadow:0 0 0 0 rgba(98,173,202,.7)}100%{box-shadow:0 0 0 14px rgba(98,173,202,0)}}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(222,198,50,.7)}100%{box-shadow:0 0 0 12px rgba(222,198,50,0)}}
+@keyframes glow{0%{box-shadow:0 0 0 0 rgba(222,198,50,.75)}100%{box-shadow:0 0 0 14px rgba(222,198,50,0)}}
+@keyframes fish-in{0%{opacity:0;transform:translateX(-9%) scale(.92)}55%{opacity:1}100%{opacity:1;transform:none}}
 @keyframes again{0%,100%{box-shadow:0 0 0 0 rgba(48,85,126,0)}25%{box-shadow:0 0 0 4px rgba(48,85,126,.16)}}
 @keyframes bump{0%{transform:translateY(45%);opacity:0}100%{transform:none;opacity:1}}
 @keyframes seg-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
