@@ -26,6 +26,17 @@ h1{font-weight:700}h2{margin:28px 0 8px}h3{font-size:15px;margin:18px 0 0}.count
 .filters{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:6px 0}.filters label{display:flex;flex-direction:column;font-size:12px;color:var(--color-text-muted)}.filters input,.filters select{margin:4px 0 0;padding:8px}
 details.box{border:2px solid var(--color-line);border-radius:var(--radius-control);padding:4px 14px 10px;margin:14px 0;background:var(--color-white)}details.box>summary{cursor:pointer;font-weight:700;padding:10px 0}
 button.mini{padding:6px 10px;font-size:13px;margin:0;white-space:nowrap}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+button.danger{background:var(--color-error);border-color:var(--color-error);color:var(--color-white)}
+button.mini.danger{background:var(--color-white);color:var(--color-error)}
+dialog{width:min(92vw,520px);padding:20px;border:2px solid var(--color-line);border-radius:var(--radius-card);background:var(--color-white);color:var(--color-text)}
+dialog::backdrop{background:rgba(48,85,126,.55)}
+dialog h3{margin:0 0 8px;font-size:18px}
+dialog .note{font-size:14px}dialog .note ul{margin:6px 0;padding-left:1.4em}dialog .note li{margin:4px 0}
+dialog .toggle{padding:8px 0;font-size:14px;gap:10px}
+dialog .toggle input{-webkit-appearance:none;appearance:none;flex:none;width:22px;height:22px;padding:0;border:2px solid var(--color-primary);border-radius:4px;background:var(--color-white)}
+dialog .toggle input:checked{background:var(--color-primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat}
+.dialog-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}.dialog-actions button{margin:0;min-height:44px}
 tr.excluded td{color:var(--color-text-muted);background:var(--tint-primary-08)}.badge{display:inline-block;font-size:11px;border:2px solid var(--color-secondary);border-radius:var(--radius-pill);padding:0 6px;color:var(--color-text-muted);background:var(--color-white)}
 .done{color:var(--color-primary);background:var(--tint-accent-22);border-radius:var(--radius-pill);padding:1px 8px;white-space:nowrap;font-weight:700}
 /* スマートフォンでは表を横スクロールにし、日時・IDは折り返さない。ブラウザ情報の元の文字列は、PCでマウスを重ねると表示 */

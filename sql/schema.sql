@@ -12,6 +12,7 @@
 --   登録されていないコードの読み取りは、record_scan が 'invalid_stamp' を返して、何も記録しない。
 --   スタンプを取るたびに、図鑑の魚（コイ・ドジョウ・ナマズ・ハゼ・フナ・メダカの6種類）が、決まった順番で増えていく
 --   （取った掲示板には関係なく、順番は固定）。この順番は、管理画面の「スタンプ設定」で変えられる（rally_settings）。
+--   参加者のスタンプは、管理画面から、参加者ごとにリセット（0個に戻す）できる（admin_reset_progress / participant_resets）。
 --   旧版（river / bridge / fish / island / water / goal の6か所すべてを集める方式）からの更新にも対応しています。
 begin;
 
@@ -121,6 +122,17 @@ create table if not exists public.rally_settings (
 insert into public.rally_settings (id, fish_order)
 values (1, public.rally_default_fish_order())
 on conflict (id) do nothing;
+
+-- 参加者のスタンプを、管理者がリセットした回数。リセットすると、サーバー側のスタンプと読み取り履歴は削除されるが、
+-- 参加者の端末には、スタンプの記録が残っている。端末が覚えている回数より、ここの回数が多いとき、端末は自分の記録を消す。
+-- （消さないと、端末が、リセット前のスタンプを、サーバーに送り直してしまう）
+-- 参加者は rally_reset_count()、管理者は admin_reset_progress() を通してだけ、読み書きする。
+create table if not exists public.participant_resets (
+  participant_id text primary key,
+  reset_count integer not null default 1 check (reset_count >= 1),
+  last_reset_at timestamptz not null default now(),
+  last_reset_by uuid
+);
 
 -- アンケートの回答。氏名・住所などの個人情報は、別テーブル prize_shipping に分けて保存する。
 create table if not exists public.survey_responses (
@@ -260,6 +272,7 @@ alter table public.excluded_participants enable row level security;
 alter table public.admin_users enable row level security;
 alter table public.stamp_boards enable row level security;
 alter table public.rally_settings enable row level security;
+alter table public.participant_resets enable row level security;
 
 create or replace function public.is_admin()
 returns boolean
@@ -309,7 +322,7 @@ create policy "stamp_boards_admin_select" on public.stamp_boards
 for select to authenticated using ((select public.is_admin()));
 
 revoke all on public.scan_events, public.stamp_claims, public.survey_responses, public.admin_users,
-  public.prize_shipping, public.excluded_participants, public.stamp_boards, public.rally_settings from public, anon, authenticated;
+  public.prize_shipping, public.excluded_participants, public.stamp_boards, public.rally_settings, public.participant_resets from public, anon, authenticated;
 grant select on public.scan_events, public.stamp_claims, public.survey_responses,
   public.prize_shipping, public.excluded_participants, public.stamp_boards to authenticated;
 
@@ -483,21 +496,41 @@ $$;
 revoke all on function public.rally_config() from public;
 grant execute on function public.rally_config() to anon, authenticated;
 
+-- この参加者のスタンプが、管理者にリセットされた回数（一度もなければ 0）。参加者の端末が、自分の記録が古くなっていないかを確かめる。
+create or replace function public.rally_reset_count(p_participant_id text)
+returns integer
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select r.reset_count from public.participant_resets r where r.participant_id = p_participant_id), 0);
+$$;
+
+revoke all on function public.rally_reset_count(text) from public;
+grant execute on function public.rally_reset_count(text) to anon, authenticated;
+
 -- QRコードの読み取りを記録する。戻り値：
---   status          'ok'（記録した）／'invalid_stamp'（登録されていないQRコード。何も記録しない）
+--   status          'ok'（記録した）／'invalid_stamp'（登録されていないQRコード。何も記録しない）／
+--                   'reset'（管理者がスタンプをリセットしたあとなのに、端末の記録が古い。何も記録しない）
 --   claimed         初回取得なら true、取得済みの再スキャンなら false
 --   claim_sequence  何個目に取得したスタンプか
 --   completed       景品を希望できる条件（rally_required_stamps() 個以上）を満たしているか
 --   stamps          取得済みのスタンプの数
--- 戻り値の形を変えたので、旧版の関数を先に削除する（呼び出し側は、同じ引数のまま使える）。
+--   reset_count     この参加者がリセットされた回数（'ok' と 'reset' のとき）
+-- p_reset_count は、端末が最後に確かめたリセット回数。サーバーの回数より少ないとき、'reset' を返して何も記録しない
+-- （リセット前の記録を持った端末が、スタンプを送り直して、リセットを無効にしてしまわないため）。省略（null）すると、確かめない。
+-- 戻り値の形・引数を変えたので、旧版の関数を先に削除する（旧版の画面からの呼び出しも、同じ引数のまま使える）。
 drop function if exists public.record_scan(text, text, text);
+drop function if exists public.record_scan(text, text, text, integer);
 
 create function public.record_scan(
   p_participant_id text,
   p_stamp_code text,
-  p_user_agent text default null
+  p_user_agent text default null,
+  p_reset_count integer default null
 )
-returns table (status text, claimed boolean, claim_sequence integer, completed boolean, stamps integer)
+returns table (status text, claimed boolean, claim_sequence integer, completed boolean, stamps integer, reset_count integer)
 language plpgsql
 security definer
 set search_path = public
@@ -505,6 +538,7 @@ as $$
 declare
   v_code text := lower(btrim(coalesce(p_stamp_code, '')));
   inserted_claim integer;
+  v_reset integer;
 begin
   if length(coalesce(p_participant_id, '')) not between 4 and 64 then
     raise exception 'invalid scan';
@@ -512,11 +546,24 @@ begin
 
   -- 登録されたQRコード（掲示板）だけを受け付ける。違うコードは、何も記録せずに知らせる。
   if not exists (select 1 from public.stamp_boards b where b.code = v_code) then
-    return query select 'invalid_stamp'::text, false, null::integer, false, null::integer;
+    return query select 'invalid_stamp'::text, false, null::integer, false, null::integer, null::integer;
     return;
   end if;
 
+  -- 同じ参加者の、読み取り・リセットが、同時に走らないようにする（リセットの前後で、記録が混ざらないように）
   perform pg_advisory_xact_lock(hashtext(p_participant_id));
+
+  select coalesce(max(r.reset_count), 0) into v_reset
+  from public.participant_resets r
+  where r.participant_id = p_participant_id;
+
+  if p_reset_count is not null and p_reset_count < v_reset then
+    return query
+    select 'reset'::text, false, null::integer, false,
+           (select count(distinct sc.stamp_code)::integer from public.stamp_claims sc where sc.participant_id = p_participant_id),
+           v_reset;
+    return;
+  end if;
 
   -- 初回取得なら stamp_claims に順番付きで保存（2回目以降は何もしない）
   if not exists (
@@ -548,12 +595,13 @@ begin
           where sc.participant_id = p_participant_id),
          (select count(distinct sc.stamp_code)::integer
           from public.stamp_claims sc
-          where sc.participant_id = p_participant_id);
+          where sc.participant_id = p_participant_id),
+         v_reset;
 end;
 $$;
 
-revoke all on function public.record_scan(text, text, text) from public;
-grant execute on function public.record_scan(text, text, text) to anon, authenticated;
+revoke all on function public.record_scan(text, text, text, integer) from public;
+grant execute on function public.record_scan(text, text, text, integer) to anon, authenticated;
 
 -- アンケート送信。景品を希望できる条件（スタンプの個数）をサーバー側で確認してから保存する。
 -- 回答は survey_responses に、景品を希望した場合の発送先は prize_shipping に、同じ処理の中で保存する。
@@ -953,6 +1001,57 @@ begin
 end;
 $$;
 
+-- 参加者のスタンプを、0個に戻す（リセット）。その参加者の「取得したスタンプ」と「読み取り履歴」を削除する（元に戻せない）。
+-- p_delete_survey が true のときは、アンケートの回答と、景品の発送先（個人情報）も削除する（既定は、残す）。
+-- 除外の設定は、そのまま残る。リセットした回数を記録するので、その参加者の端末は、次に開いたとき（または、次にQRを読み取ったとき）に、
+-- 自分の記録を消して、0個に戻る（rally_reset_count / record_scan を参照）。
+-- 戻り値：{participant_id, stamps（削除したスタンプの数）, scans（削除した読み取り履歴の数）, surveys（削除した回答の数）, reset_count}
+create or replace function public.admin_reset_progress(
+  p_participant_id text,
+  p_delete_survey boolean default false
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id text := btrim(coalesce(p_participant_id, ''));
+  v_stamps integer;
+  v_scans integer;
+  v_surveys integer := 0;
+  v_count integer;
+begin
+  if not public.is_admin() then
+    raise exception 'admin only' using errcode = '42501';
+  end if;
+  if length(v_id) not between 4 and 64 then
+    raise exception 'invalid participant id';
+  end if;
+
+  -- record_scan と同じ鍵で、読み取りの途中に割り込まないようにする
+  perform pg_advisory_xact_lock(hashtext(v_id));
+
+  with gone as (delete from public.stamp_claims where participant_id = v_id returning 1)
+  select count(*)::integer into v_stamps from gone;
+  with gone as (delete from public.scan_events where participant_id = v_id returning 1)
+  select count(*)::integer into v_scans from gone;
+  if coalesce(p_delete_survey, false) then
+    -- prize_shipping（発送先）は、回答に連動して削除される
+    with gone as (delete from public.survey_responses where participant_id = v_id returning 1)
+    select count(*)::integer into v_surveys from gone;
+  end if;
+
+  insert into public.participant_resets as r (participant_id, reset_count, last_reset_at, last_reset_by)
+  values (v_id, 1, now(), auth.uid())
+  on conflict (participant_id) do update
+    set reset_count = r.reset_count + 1, last_reset_at = excluded.last_reset_at, last_reset_by = excluded.last_reset_by
+  returning r.reset_count into v_count;
+
+  return jsonb_build_object('participant_id', v_id, 'stamps', v_stamps, 'scans', v_scans, 'surveys', v_surveys, 'reset_count', v_count);
+end;
+$$;
+
 -- 参加者を集計から除外する／除外を解除する。戻り値は、実際に変更があったか。
 create or replace function public.admin_set_excluded(
   p_participant_id text,
@@ -1043,11 +1142,13 @@ $$;
 
 revoke all on function public.admin_stats() from public, anon;
 revoke all on function public.admin_set_fish_order(text[]) from public, anon;
+revoke all on function public.admin_reset_progress(text, boolean) from public, anon;
 revoke all on function public.admin_set_excluded(text, boolean, text) from public, anon;
 revoke all on function public.admin_exclude_before(timestamptz, text) from public, anon;
 revoke all on function public.admin_clear_excluded() from public, anon;
 grant execute on function public.admin_stats() to authenticated;
 grant execute on function public.admin_set_fish_order(text[]) to authenticated;
+grant execute on function public.admin_reset_progress(text, boolean) to authenticated;
 grant execute on function public.admin_set_excluded(text, boolean, text) to authenticated;
 grant execute on function public.admin_exclude_before(timestamptz, text) to authenticated;
 grant execute on function public.admin_clear_excluded() to authenticated;
@@ -1133,6 +1234,9 @@ comment on function public.rally_required_stamps() is '景品を希望できる�
 comment on table public.rally_settings is 'スタンプラリーの設定（1行）。魚が増えていく順番。参加者は rally_config()、管理者は admin_set_fish_order() で読み書きする';
 comment on function public.rally_config() is '参加者の画面が読み込む設定（景品の条件・魚の順番）。誰でも読める';
 comment on function public.admin_set_fish_order(text[]) is '魚が増えていく順番を保存する（管理者のみ）';
+comment on table public.participant_resets is '管理者が参加者のスタンプをリセットした回数。参加者の端末が、自分の記録を消すかどうかの判断に使う。参加者は rally_reset_count()、管理者は admin_reset_progress() で読み書きする';
+comment on function public.rally_reset_count(text) is '参加者のスタンプが、管理者にリセットされた回数（なければ 0）。誰でも呼べる';
+comment on function public.admin_reset_progress(text, boolean) is '参加者のスタンプと読み取り履歴を削除して、0個に戻す（管理者のみ）。第2引数が true なら、アンケートの回答・発送先も削除する';
 comment on table public.survey_responses is 'アンケートの回答（個人情報は含まない）。発送先は prize_shipping';
 comment on column public.survey_responses.participant_id is '参加者ID（stamp_claims・scan_events と同じ）';
 comment on column public.survey_responses.memorable_spot is '【廃止】印象に残ったスポット（旧版の6か所の名前）。この版では保存しない';

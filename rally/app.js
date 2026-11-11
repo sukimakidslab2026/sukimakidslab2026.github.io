@@ -21,6 +21,7 @@ const pendingKey = "stamp_rally_pending";
 const stampsKey = "stamp_rally_stamps";
 const surveyKey = "stamp_rally_survey_submitted";
 const fishOrderKey = "stamp_rally_fish_order";   // 最後に読み込んだ、魚が増えていく順番（通信できなくても、同じ順番で表示するため）
+const resetKey = "stamp_rally_reset_count";      // 管理者によるスタンプのリセットを、この端末が最後に確かめた回数
 const memoryStore = new Map();
 let storageBlocked = false;
 const store = {
@@ -376,14 +377,25 @@ async function callRpc(name,body){
   }
 }
 
+// 管理画面で、この参加者のスタンプがリセットされた回数を、この端末が最後に確かめた値（確かめていなければ 0）。
+// 参加者IDと一緒に保存する（端末のデータを消して、別のIDになったあとに、前のIDの回数が残らないように）
+const localResetCount=()=>{
+  try{ const saved=JSON.parse(store.get(resetKey)||"null"); return saved&&saved.id===participantId?Number(saved.count)||0:0; }
+  catch(error){ return 0; }
+};
+const saveResetCount=count=>store.set(resetKey,JSON.stringify({id:participantId,count}));
+
 // 有効なQRコードか、初回取得か再スキャンかは、サーバー側（record_scan）で判定・記録されます。
-// 戻り値：{status:"ok"|"invalid_stamp", claimed, claim_sequence, completed, stamps}
+// 戻り値：{status:"ok"|"invalid_stamp"|"reset", claimed, claim_sequence, completed, stamps, reset_count}
+// "reset"：管理者がスタンプをリセットしたのに、この端末の記録が古い（サーバーは何も記録しない）。applyReset で端末の記録を消す。
 async function recordServerScan(code,resend=false){
   const rows=await callRpc("record_scan",{
     p_participant_id:participantId,
     p_stamp_code:code,
     // 通信失敗後の再送は管理画面で見分けられるよう印を付けます。
-    p_user_agent:navigator.userAgent+(resend?" [resend]":"")
+    p_user_agent:navigator.userAgent+(resend?" [resend]":""),
+    // リセット前の記録を持った端末が、スタンプを送り直して、リセットを無効にしてしまわないように、確かめた回数を一緒に送る
+    p_reset_count:localResetCount()
   });
   const row=Array.isArray(rows)?rows[0]:null;
   if(!row) throw new Error("record_scan: 結果が空です");
@@ -401,6 +413,31 @@ function getPending(){
 function setPending(list){
   if(list.length) store.set(pendingKey,JSON.stringify(list));
   else store.remove(pendingKey);
+}
+
+// 管理者がこの参加者のスタンプをリセットした。端末に残っている記録（スタンプ・未送信・アンケート送信済みの印）を消して、0個に戻す。
+// quiet：知らせの表示を省く（QRコードを読み取った直後は、すぐに、新しい結果が出るため）。戻り値：端末にスタンプがあったか
+function applyReset(serverCount,quiet=false){
+  const had=readStampList(stampsKey).length>0||getPending().length>0;
+  [stampsKey,timesKey,pendingKey,surveyKey].forEach(key=>store.remove(key));
+  saveResetCount(serverCount);
+  $("surveyLink").hidden=true;
+  render([]);
+  if(had&&!quiet) showResult({tone:"info",seal:null,kicker:"RESET",title:phrases("スタンプを","最初に戻しました"),
+    body:"管理者が、この端末のスタンプの記録をリセットしました。掲示板のQRコードを読み取って、もういちど集めよう！"});
+  return had;
+}
+
+// 管理者によるリセットが、この端末の記録より新しくないかを、サーバーに確かめる。戻り値：リセットされていて、端末の記録を消したか
+async function syncReset(quiet=false){
+  if(!isSupabaseConfigured()) return false;
+  try{
+    const count=Number(await callRpc("rally_reset_count",{p_participant_id:participantId}));
+    if(Number.isFinite(count)&&count>localResetCount()){ applyReset(count,quiet); return true; }
+  } catch(error){
+    console.error(error);
+  }
+  return false;
 }
 
 function showSurveyLink(){
@@ -453,6 +490,11 @@ async function recordStamp(code){
     return {completed:false,failed:true};
   }
 
+  if(result.status==="reset"){
+    // 管理者がリセットしたあとなのに、この端末にはリセット前の記録が残っていた。消してから、このスタンプを最初の1個として記録し直す
+    applyReset(result.reset_count,true);
+    return recordStamp(code);
+  }
   if(result.status==="invalid_stamp"){
     showResult(invalidMessage());
     return {completed:false,failed:false};
@@ -465,22 +507,24 @@ async function recordStamp(code){
   return {completed:result.completed,failed:false};
 }
 
-// 未送信のスタンプを再送する。戻り値：{completed: 条件達成を確認, dropped: 登録されていないQRとして取り除いた数}
+// 未送信のスタンプを再送する。戻り値：{completed: 条件達成を確認, dropped: 登録されていないQRとして取り除いた数, reset: リセットされていて、端末の記録を消した}
 async function resendPending(){
   let completed=false, dropped=0;
   for(const code of getPending()){
     const result=await recordServerScan(code,true);
+    if(result.status==="reset"){ applyReset(result.reset_count); return {completed:false,dropped,reset:true}; }
     setPending(getPending().filter(c=>c!==code));
     if(result.status==="invalid_stamp"){ removeLocalStamp(code); dropped++; continue; }
     completed=completed||result.completed===true;
   }
-  return {completed,dropped};
+  return {completed,dropped,reset:false};
 }
 
 async function retryPending(){
   updateResult({sync:"saving"});
   try{
     const resent=await resendPending();
+    if(resent.reset) return;   // 端末の記録を消して、知らせを表示した
     if(resent.dropped) render(await getLocalStamps());
     const completed=resent.completed || await isServerCompleted();
     if(completed) showSurveyLink();
@@ -498,6 +542,7 @@ async function restoreCompletion(){
   const quiet=!resultEl.hidden; // 直前の読み取り結果を表示中なら上書きしない
   try{
     const resent=await resendPending();
+    if(resent.reset) return;
     if(resent.dropped) render(await getLocalStamps());
     if(hadPending && !quiet){
       showResult({tone:"info",seal:"check",kicker:"未送信のスタンプ",title:phrases("前回送信できなかった","スタンプを","記録しました"),sync:"saved",surveyReady:resent.completed});
@@ -509,6 +554,7 @@ async function restoreCompletion(){
     // 端末では条件の個数がそろっているのにサーバーに記録が足りない場合は、取得順に再送します。
     setPending(current);
     const again=await resendPending();
+    if(again.reset) return;
     if(again.dropped) render(await getLocalStamps());
     if(again.completed) showSurveyLink();
   } catch(error){
@@ -546,9 +592,12 @@ async function init(){
   const params=new URLSearchParams(location.search);
   // QRコードの作成ツールなどで、大文字や前後の空白が入っていても、同じスタンプとして扱う
   const code=(params.get("stamp")||"").trim().toLowerCase();
+  // 管理者がスタンプをリセットしていないかの確認も、並行して始める（最大2.5秒だけ待つ。リセットされていたら、端末の記録を消す）
+  const resetReady=Promise.race([syncReset(!!code),new Promise(resolve=>setTimeout(resolve,2500))]);
   const current=await getLocalStamps();
   render(current);
   if(storageBlocked) $("storageNote").hidden=false;
+  await resetReady;   // スタンプの記録や、未送信分の再送は、リセットの確認のあとに行う（リセット前の記録を、送り直さないように）
   let result={completed:false,failed:false};
   if(code){
     // 再読み込みで同じ読み取りが二重に記録されないよう、URLからstampを外します。
@@ -562,7 +611,7 @@ async function init(){
   if(!result.completed && !result.failed) await restoreCompletion();
 }
 init();
-// 開いたままにしていたページを、また見たとき（アプリの切り替えなどから戻ったとき）も、1分以上たっていれば、魚の順番を読み込み直す
+// 開いたままにしていたページを、また見たとき（アプリの切り替えなどから戻ったとき）も、1分以上たっていれば、魚の順番とリセットの有無を読み込み直す
 document.addEventListener("visibilitychange",()=>{
-  if(!document.hidden&&Date.now()-lastConfigAt>60000) loadFishOrder();
+  if(!document.hidden&&Date.now()-lastConfigAt>60000){ loadFishOrder(); syncReset(); }
 });

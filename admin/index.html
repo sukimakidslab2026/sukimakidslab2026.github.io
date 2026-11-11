@@ -3,7 +3,7 @@
 <title>QRスタンプラリー 管理画面</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=6d2f0d40">
+<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=d4023e9e">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="../js/config.js?v=aae7ba99"></script>
 <script src="../js/fish-data.js?v=df730605"></script><script src="../js/fish.js?v=cd62bab2"></script></head><body>
@@ -61,6 +61,7 @@
 </details>
 
 <h2>参加者 <span class="count" id="participantCount"></span></h2>
+<p class="note">「リセット」は、その参加者のスタンプを0個に戻します（テストで集めたスタンプを消したいときや、最初からやり直してもらうときに使います）。集計から外すだけなら、「除外」を使います。</p>
 <div class="filters">
 <label>検索<input id="participantSearch" placeholder="参加者ID（部分一致）"></label>
 <label>状態<select id="participantStatus"><option value="">すべて</option><option value="done">コンプリート</option><option value="going">途中</option></select></label>
@@ -131,4 +132,14 @@
 <button id="logoutBtnStamps" class="secondary">ログアウト</button>
 </div>
 <p id="fishStatus" class="note" role="status"></p>
-</section></main><script src="app.js?v=108c417c"></script></body></html>
+</section>
+
+<!-- 参加者のスタンプのリセット：確認（アンケートに回答済みの参加者では、回答も削除するかを選べる） -->
+<dialog id="resetDialog" aria-labelledby="resetTitle">
+<form method="dialog">
+<h3 id="resetTitle">スタンプをリセットしますか？</h3>
+<div id="resetBody" class="note"></div>
+<label id="resetSurveyRow" class="toggle" hidden><input type="checkbox" id="resetSurvey"> アンケートの回答（景品の発送先を含む）も削除する</label>
+<div class="dialog-actions"><button type="submit" value="ok" class="danger">リセットする</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
+</form>
+</dialog></main><script src="app.js?v=f7ecd772"></script></body></html>

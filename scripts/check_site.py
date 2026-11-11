@@ -20,6 +20,7 @@
  13. 旧仕様（6か所の名前付きスタンプ）の記述が残っていないか
  14. 魚の図鑑：画像・名前・順番が、JavaScript・SQL・画像の変換スクリプトで一致しているか
  15. 元の画像のフォルダ（fish-stamp-images など）が、GitHubに送られないようになっているか
+ 16. 参加者のスタンプのリセット：SQLの関数・権限と、参加者の画面・管理画面の呼び出しが、そろっているか
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -236,6 +237,33 @@ def check_fish():
             else f"{rel}: fish-data.js → fish.js → app.js の順に読み込んでいません")
 
 
+def check_reset():
+    """参加者のスタンプのリセット：SQLの関数・権限と、参加者の画面・管理画面の呼び出しが、そろっているか"""
+    sql = read("sql/schema.sql")
+    problems = []
+    if not re.search(r"alter table public\.participant_resets enable row level security", sql):
+        problems.append("participant_resets の行レベルセキュリティ（RLS）が有効になっていません")
+    if not re.search(r"revoke all on [^;]*public\.participant_resets[^;]*from public, anon, authenticated", sql):
+        problems.append("participant_resets への直接のアクセスが、取り消されていません（revoke）")
+    admin = re.search(r"function public\.admin_reset_progress\(.*?\n\$\$;", sql, flags=re.S)
+    if not admin or "public.is_admin()" not in admin.group(0):
+        problems.append("admin_reset_progress が、管理者かどうかを確かめていません（is_admin）")
+    if not re.search(r"revoke all on function public\.admin_reset_progress\(text, boolean\) from public, anon", sql) \
+            or not re.search(r"grant execute on function public\.admin_reset_progress\(text, boolean\) to authenticated", sql):
+        problems.append("admin_reset_progress の実行権限（anon は不可・ログイン済みのみ）が、正しくありません")
+    if not re.search(r"grant execute on function public\.rally_reset_count\(text\) to anon", sql):
+        problems.append("rally_reset_count を、参加者（anon）が呼べません")
+    if not re.search(r"function public\.record_scan\([^)]*p_reset_count integer default null", sql, flags=re.S) \
+            or not re.search(r"drop function if exists public\.record_scan\(text, text, text\);", sql):
+        problems.append("record_scan に p_reset_count がない、または旧版の関数を削除していません")
+    rally, adm = read("rally/app.js"), read("admin/app.js")
+    if '"rally_reset_count"' not in rally or "p_reset_count" not in rally:
+        problems.append("rally/app.js が、rally_reset_count の確認と、record_scan への p_reset_count の送信をしていません")
+    if '"admin_reset_progress"' not in adm or "p_delete_survey" not in adm:
+        problems.append("admin/app.js が、admin_reset_progress（p_delete_survey つき）を呼んでいません")
+    (bad if problems else ok)("；".join(problems) if problems else "スタンプのリセット：SQLの関数・権限（管理者のみ・RLS）と、画面からの呼び出しが、そろっています")
+
+
 def check_sources_ignored():
     for folder in ("fish-stamp-images", "logo-banner-images"):
         tracked = subprocess.run(["git", "ls-files", folder], cwd=ROOT, capture_output=True, text=True).stdout.strip()
@@ -438,6 +466,9 @@ def main():
 
     print("15. 元の画像のフォルダ")
     check_sources_ignored()
+
+    print("16. 参加者のスタンプのリセット")
+    check_reset()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

@@ -49,7 +49,7 @@ function loginErrorMessage(error){
 }
 function dbHint(error){
  const m=String(error?.message||error);
- return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|rally_config|admin_set_fish_order|rally_settings|schema cache|does not exist/.test(m)
+ return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|rally_config|admin_set_fish_order|rally_settings|admin_reset_progress|participant_resets|schema cache|does not exist/.test(m)
   ?`${m}（Supabaseで最新の sql/schema.sql を実行したか確認してください）`:m;
 }
 
@@ -145,7 +145,8 @@ function renderParticipants(){
   <td><ol class="route">${(p.claims||[]).map(c=>`<li>${esc(c.stamp_name)} <span class="muted">${fmtShort(c.at)}</span></li>`).join("")}</ol></td>
   <td>${fmt(p.first_scan_at)}</td><td>${fmt(p.last_scan_at)}</td>
   <td>${p.total_scans}（${p.rescans}）</td><td>${esc(p.device)}</td>
-  <td><button class="mini${p.is_excluded?" secondary":""}" data-exclude="${esc(p.participant_id)}" data-to="${p.is_excluded?"0":"1"}">${p.is_excluded?"除外を解除":"除外"}</button></td></tr>`).join("")
+  <td><span class="row-actions"><button class="mini${p.is_excluded?" secondary":""}" data-exclude="${esc(p.participant_id)}" data-to="${p.is_excluded?"0":"1"}">${p.is_excluded?"除外を解除":"除外"}</button>
+  <button class="mini danger" data-reset="${esc(p.participant_id)}" aria-label="参加者 ${esc(p.participant_id)} のスタンプをリセット">リセット</button></span></td></tr>`).join("")
   ||`<tr><td colspan="9" class="muted">該当する参加者はいません。</td></tr>`;
 }
 
@@ -246,8 +247,38 @@ $("csvSurveyBtn").onclick=()=>exportCsv($("csvSurveyBtn"),async()=>{
  notify(`アンケートCSVを出力しました（${rows.length}件${svs.length-rows.length?`。除外した${svs.length-rows.length}件は含みません`:""}）。`);
 });
 
+// ---- 参加者のスタンプのリセット ----
+// その参加者の「取得したスタンプ」と「読み取り履歴」を削除して、0個に戻す。参加者の端末は、次に開いたとき（または次にQRを読み取ったとき）に、0個に戻る。
+// アンケートの回答（景品の発送先を含む）は、残す。回答済みの参加者では、確認の画面で、回答も削除するかを選べる。
+const resetDialog=$("resetDialog");
+let resetTarget="";
+function openReset(id){
+ const p=participants.find(x=>x.participant_id===id);
+ const hasSurvey=surveys.some(s=>s.participant_id===id);
+ resetTarget=id;
+ $("resetBody").innerHTML=`<p>参加者 <strong>${esc(id)}</strong> のスタンプを、0個に戻します。</p><ul>
+  <li>取得済みのスタンプ ${p?p.stamps:0}個と、読み取り履歴 ${p?p.total_scans:0}件を削除します（<strong>元に戻せません</strong>）。</li>
+  <li>この参加者の端末は、次にページを開いたとき（または次にQRコードを読み取ったとき）に、0個に戻ります。</li>
+  <li>除外の設定は、そのまま残ります。</li>
+  <li>${hasSurvey?"アンケートの回答と景品の発送先は、残します（下の項目を選ぶと、削除します）。":"この参加者は、アンケートに回答していません。"}</li></ul>`;
+ $("resetSurveyRow").hidden=!hasSurvey;$("resetSurvey").checked=false;
+ resetDialog.returnValue="";
+ if(typeof resetDialog.showModal==="function")resetDialog.showModal();
+ else if(confirm(`参加者 ${id} のスタンプを0個に戻します。元に戻せません。よろしいですか？`)){resetDialog.returnValue="ok";doReset();}
+}
+async function doReset(){
+ const id=resetTarget,withSurvey=!$("resetSurveyRow").hidden&&$("resetSurvey").checked;
+ if(!id)return;
+ const {data,error}=await db.rpc("admin_reset_progress",{p_participant_id:id,p_delete_survey:withSurvey});
+ if(error){console.error(error);return notify(`リセットできませんでした：${dbHint(error)}`,true);}
+ notify(`${id} のスタンプをリセットしました（スタンプ${data.stamps}個・読み取り履歴${data.scans}件${withSurvey?`・アンケート${data.surveys}件`:""}を削除）。`);
+ await loadDashboard(true);
+}
+resetDialog.addEventListener("close",()=>{if(resetDialog.returnValue==="ok")doReset();});
+
 // ---- テスト参加者の除外 ----
 $("participantBody").onclick=async e=>{
+ const r=e.target.closest("button[data-reset]");if(r)return openReset(r.dataset.reset);
  const b=e.target.closest("button[data-exclude]");if(!b)return;
  const id=b.dataset.exclude,flag=b.dataset.to==="1";
  if(flag&&!confirm(`参加者 ${id} を、集計・CSV・スプレッドシートから除外します。\n（データは削除されず、いつでも解除できます）`))return;
