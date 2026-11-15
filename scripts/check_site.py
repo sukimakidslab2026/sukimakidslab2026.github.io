@@ -21,6 +21,8 @@
  14. 魚の図鑑：画像・名前・順番が、JavaScript・SQL・画像の変換スクリプトで一致しているか
  15. 元の画像のフォルダ（fish-stamp-images など）が、GitHubに送られないようになっているか
  16. 参加者のスタンプのリセット：SQLの関数・権限と、参加者の画面・管理画面の呼び出しが、そろっているか
+ 17. スタンプラリー画面のバナー（中央）・獲得の演出（後光）・ルール説明のポップアップ（「次回からは表示しない」の保存）が、そろっているか
+     （ルール説明が、仮の内容のままのときは、注意として表示します）
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -156,7 +158,7 @@ def check_header():
     for rel, (_, block, _) in blocks.items():
         if block.find("「すきまキッズラボ」とは？") == -1 or block.find("menu-instagram") < block.find("「すきまキッズラボ」とは？"):
             bad(f"{rel}: メニューで、「すきまキッズラボ」とは？ の下にInstagramがありません")
-    for name in ("logo.webp", "banner.webp", "apple-touch-icon.png", "favicon-64.png", "favicon-32.png"):
+    for name in ("logo.webp", "banner.webp", "banner-rally.webp", "apple-touch-icon.png", "favicon-64.png", "favicon-32.png"):
         (ok if os.path.exists(os.path.join(ROOT, "assets", name)) else bad)(f"assets/{name}" + ("" if os.path.exists(os.path.join(ROOT, "assets", name)) else " がありません"))
 
 
@@ -262,6 +264,55 @@ def check_reset():
     if '"admin_reset_progress"' not in adm or "p_delete_survey" not in adm:
         problems.append("admin/app.js が、admin_reset_progress（p_delete_survey つき）を呼んでいません")
     (bad if problems else ok)("；".join(problems) if problems else "スタンプのリセット：SQLの関数・権限（管理者のみ・RLS）と、画面からの呼び出しが、そろっています")
+
+
+def check_popups():
+    """スタンプラリー画面：バナー（中央）・獲得の演出（後光）・ルール説明のポップアップ"""
+    html, css, js = read("rally/index.html"), read("rally/style.css"), read("rally/app.js")
+    problems = []
+
+    # バナー：「スタンプラリー」の文字つきの画像が、h1 の中にあり、左右の中央に置かれている
+    h1 = re.search(r"<h1[^>]*>(.*?)</h1>", html, flags=re.S)
+    img = re.search(r"<img\b[^>]*>", h1.group(1)) if h1 else None
+    attrs = dict(re.findall(r'([\w-]+)="([^"]*)"', img.group(0))) if img else {}
+    if attrs.get("src") != "../assets/banner-rally.webp" or "スタンプラリー" not in attrs.get("alt", ""):
+        problems.append("rally/index.html の h1 に、バナー（assets/banner-rally.webp。alt に「スタンプラリー」を含む）がありません")
+    else:
+        path = os.path.join(ROOT, "assets", "banner-rally.webp")
+        try:
+            from PIL import Image
+            with Image.open(path) as im:
+                if (str(im.width), str(im.height)) != (attrs.get("width"), attrs.get("height")):
+                    problems.append(f"バナーの width / height（{attrs.get('width')}×{attrs.get('height')}）が、画像の大きさ {im.width}×{im.height} と違います")
+        except ImportError:
+            pass
+    if not re.search(r"\.hero-banner\.rally\{[^}]*margin-left:auto[^}]*margin-right:auto", css):
+        problems.append("rally/style.css: バナー（.hero-banner.rally）が、左右の中央（margin-left / margin-right:auto）になっていません")
+
+    # ポップアップ：<dialog> と、その見出し（aria-labelledby）。閉じているときは、見えないこと
+    for dialog_id in ("getDialog", "rulesDialog"):
+        m = re.search(r'<dialog id="' + dialog_id + r'"[^>]*aria-labelledby="([^"]+)"', html)
+        if not m or f'id="{m.group(1)}"' not in html:
+            problems.append(f"rally/index.html: {dialog_id} がない、または、見出し（aria-labelledby）の先が、ありません")
+    if not re.search(r"dialog:not\(\[open\]\)\{display:none\}", css):
+        problems.append("rally/style.css: dialog:not([open]){display:none} がありません（古いブラウザで、閉じているはずの中身が見えてしまいます）")
+    if "prefers-reduced-motion" not in css:
+        problems.append("rally/style.css: 「視差効果を減らす」設定への対応（prefers-reduced-motion）がありません")
+
+    # ルール説明：「次回からは表示しない」を、端末に保存し（参加者IDと同じ store）、獲得の演出のあとに出す
+    if not re.search(r'const\s+rulesKey\s*=\s*"stamp_rally_hide_rules"', js) or "store.set(rulesKey" not in js or "store.remove(rulesKey" not in js:
+        problems.append("rally/app.js: 「次回からは表示しない」を、store（端末への保存）に保存・解除していません")
+    if "await celebration" not in js or "showRules()" not in js:
+        problems.append("rally/app.js: 獲得の演出が終わってから、ルール説明を出す流れ（await celebration → showRules）がありません")
+    if "showModal" not in js:
+        problems.append("rally/app.js: ポップアップを、<dialog> の showModal() で開いていません")
+
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok("バナーは左右の中央・獲得の演出・ルール説明（「次回からは表示しない」を端末に保存）が、そろっています")
+    if 'class="rules-draft"' in html:
+        warn("ルール説明（rally/index.html の rules-draft の段落）が、仮の内容のままです。正式な内容にしたら、この「仮の説明です」の一文（class=\"rules-draft\"）を消してください")
 
 
 def check_sources_ignored():
@@ -469,6 +520,9 @@ def main():
 
     print("16. 参加者のスタンプのリセット")
     check_reset()
+
+    print("17. バナー・獲得の演出・ルール説明")
+    check_popups()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

@@ -22,6 +22,7 @@ const stampsKey = "stamp_rally_stamps";
 const surveyKey = "stamp_rally_survey_submitted";
 const fishOrderKey = "stamp_rally_fish_order";   // 最後に読み込んだ、魚が増えていく順番（通信できなくても、同じ順番で表示するため）
 const resetKey = "stamp_rally_reset_count";      // 管理者によるスタンプのリセットを、この端末が最後に確かめた回数
+const rulesKey = "stamp_rally_hide_rules";       // ルール説明の「次回からは表示しない」にチェックを入れたか（"1" のとき、ページを開いても、ルール説明を自動では出さない）
 const memoryStore = new Map();
 let storageBlocked = false;
 const store = {
@@ -291,6 +292,92 @@ function drawResult(settled){
   if(retry) retry.onclick=retryPending;
 }
 
+// ---- ポップアップ：スタンプを獲得した瞬間の演出（後光つき）と、ルール説明 ----
+// どちらも <dialog> です。<dialog> に未対応の古いブラウザでは、ポップアップは出さず、ほかの表示だけで進みます。
+const getDialog=$("getDialog"), rulesDialog=$("rulesDialog");
+const supportsDialog=dlg=>!!dlg&&typeof dlg.showModal==="function";
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function openDialog(dlg){
+  try{ dlg.showModal(); document.documentElement.classList.add("modal-open"); return true; }
+  catch(error){ console.error(error); return false; }
+}
+// 閉じたら（Escキー・×・OKのどれでも）、ページのスクロールを元に戻す
+[getDialog,rulesDialog].forEach(dlg=>dlg.addEventListener("close",()=>document.documentElement.classList.remove("modal-open")));
+
+// 獲得の演出が終わるまで待つための記録。演出を出したら、その Promise（閉じたら true になる）に入れ替える
+let celebration=Promise.resolve(false);
+
+// スタンプのまわりに飛び散る星と丸。角度をずらして並べるので、毎回、同じ形になる。dx・dy は、スタンプの直径に対する距離
+function burstHtml(count){
+  const colors=["var(--color-mustard)","var(--color-white)","var(--color-accent)"], sizes=[9,13,17];
+  return Array.from({length:count},(_,i)=>{
+    const angle=i*137.508*Math.PI/180, far=.85+((i*.382)%1)*.95;
+    const dx=(Math.cos(angle)*far).toFixed(2), dy=(Math.sin(angle)*far).toFixed(2);
+    const turn=(i%2?1:-1)*(120+(i*37)%200), delay=(.5+(i%5)*.03).toFixed(2);
+    return `<i class="${i%2?"":"star"}" style="--dx:${dx};--dy:${dy};--s:${sizes[i%3]+(i%2?0:4)}px;--c:${colors[i%3]};--d:${delay}s;--r:${turn}deg"></i>`;
+  }).join("");
+}
+
+// message：scanMessage の結果（新しいスタンプのもの）、n：何個目か。画面を閉じたら true になる Promise を返す（出せなかったときは false）
+function celebrate(message,n){
+  const dlg=getDialog, f=FISH[message.fish];
+  if(!supportsDialog(dlg)||dlg.open||!f) return Promise.resolve(false);
+  const big=n===PRIZE_REQUIRED||n===RIVER_TOTAL;   // 景品の条件の達成（3個目）・川の完成（6個目）は、飾りを増やす
+  dlg.querySelector(".get-stage").dataset.tone=big?"complete":"new";
+  $("getBadge").textContent=n===RIVER_TOTAL?"COMPLETE!":n===PRIZE_REQUIRED?"ACHIEVED!":"GET!";
+  const img=$("getFish");
+  img.src=Fish.url(f.stamp); img.width=f.width; img.height=f.height;
+  $("getKicker").textContent=message.kicker;
+  $("getTitle").innerHTML=big?message.title:phrases(`「${f.name}」を`,"ゲット！");
+  $("getBody").textContent=message.body;
+  $("getPips").innerHTML=Array.from({length:RIVER_TOTAL},(_,i)=>`<i class="${i<n?"on":""}${i===n-1?" is-new":""}"></i>`).join("");
+  $("getBurst").innerHTML=burstHtml(big?46:26);
+  dlg.classList.remove("is-leaving");
+  if(!openDialog(dlg)) return Promise.resolve(false);
+  return new Promise(resolve=>{
+    const openedAt=Date.now();
+    let leaving=false;
+    // 画面のどこをタップしても閉じる。ただし、QRコードを読み取った直後の指の動きや、連打で、演出が途中で消えてしまわないよう、
+    // 演出の見せ場（後光・札・文字のカード・ゲージ）が出そろう、最初の1.4秒は無視する
+    const dismiss=()=>{
+      if(leaving||Date.now()-openedAt<1400) return;
+      leaving=true;
+      dlg.classList.add("is-leaving");
+      setTimeout(()=>{ if(dlg.open) dlg.close(); },220);
+    };
+    dlg.onclick=dismiss;
+    $("getOk").onclick=event=>{ event.stopPropagation(); dismiss(); };
+    dlg.addEventListener("close",()=>{ dlg.classList.remove("is-leaving"); resolve(true); },{once:true});
+  });
+}
+
+// 演出の画面が閉じたあとに、ページの中の動き（数字・ゲージ・川の魚・図鑑のカード）を、もういちど見せる
+// （はじめの動きは、演出の画面の裏で終わってしまい、見えないため）
+function replayFx(){
+  const q=selector=>document.querySelector(selector);
+  replay($("progressBanner"),"is-new"); replay($("count"),"bump"); replay($("remain"),"bump");
+  [q("#bannerBar .seg.is-new"),q("#riverFish img.is-new"),q("#stamps .stamp.is-new")].forEach(el=>{ if(el) replay(el,"is-new"); });
+}
+
+// ルール説明。「次回からは表示しない」は、端末に保存する（参加者IDと同じしくみ）。保存できない端末では、チェック欄を出さない
+const rulesHidden=()=>store.get(rulesKey)==="1";
+function showRules(){
+  const dlg=rulesDialog;
+  if(!supportsDialog(dlg)||dlg.open) return Promise.resolve();
+  $("rulesHide").checked=rulesHidden();
+  $("rulesHideRow").hidden=storageBlocked;
+  dlg.querySelector(".rules-body").scrollTop=0;
+  if(!openDialog(dlg)) return Promise.resolve();
+  return new Promise(resolve=>dlg.addEventListener("close",resolve,{once:true}));
+}
+$("rulesHide").addEventListener("change",event=>{
+  if(event.target.checked) store.set(rulesKey,"1"); else store.remove(rulesKey);
+});
+$("rulesClose").onclick=$("rulesOk").onclick=()=>{ if(rulesDialog.open) rulesDialog.close(); };
+// ポップアップの外（暗い部分）をタップしても閉じる
+rulesDialog.addEventListener("click",event=>{ if(event.target===rulesDialog) rulesDialog.close(); });
+$("rulesOpen").onclick=()=>showRules();
+
 // 読み取った結果の文言。again＝すでに取得済み。新しいスタンプでは、そのスタンプで現れた魚（fish）の名前と絵を出す
 function scanMessage({code,again,current}){
   const total=RIVER_TOTAL, n=current.length;
@@ -452,7 +539,10 @@ function applyScan(code,again,before,current,patch){
   const riverNow=!again&&before.length<RIVER_TOTAL&&current.length>=RIVER_TOTAL;
   render(current,{code,kind:again?"again":"new"});
   haptic(prizeNow||riverNow ? [18,70,18,70,36] : again ? 8 : 24);
-  showResult({...scanMessage({code,again,current}),...patch});
+  const message=scanMessage({code,again,current});
+  showResult({...message,...patch});
+  // 新しい魚が増えたとき（川が完成したあとのスタンプでは、魚は増えない）だけ、後光つきの演出の画面を出す
+  if(!again&&message.fish) celebration=celebrate(message,current.length);
 }
 
 // 戻り値：{completed: サーバーで条件達成を確認, failed: 通信に失敗}
@@ -607,8 +697,16 @@ async function init(){
     result=await recordStamp(code);
     if(storageBlocked) $("storageNote").hidden=false;
   }
+  // 獲得の演出の画面があれば、それが終わってから、ルール説明を出す（「次回からは表示しない」にした端末には、出さない）。
+  // 画面の裏で、未送信分の再送などを、並行して進める。演出もルール説明も終わったら、ページの中の動きを見せる
+  const popups=(async()=>{
+    const celebrated=await celebration;
+    if(!rulesHidden()){ await sleep(celebrated?400:700); await showRules(); }
+    if(celebrated) replayFx();
+  })();
   // 通信に失敗した直後は「再送する」ボタンに任せます。
   if(!result.completed && !result.failed) await restoreCompletion();
+  await popups;
 }
 init();
 // 開いたままにしていたページを、また見たとき（アプリの切り替えなどから戻ったとき）も、1分以上たっていれば、魚の順番とリセットの有無を読み込み直す

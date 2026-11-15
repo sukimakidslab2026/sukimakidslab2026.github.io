@@ -10,10 +10,12 @@
   fish-stamp-images/スタンプ/○○.png                       図鑑に出す、色つきの魚（獲得したとき）
   fish-stamp-images/シルエット/シルエット_○○.png          図鑑に出す、シルエット（まだ獲得していないとき）
   logo-banner-images/logo.png, banner.png                  ロゴ（アイコン）とバナー
+  logo-banner-images/banner-rally.png                      スタンプラリー画面のバナー（「スタンプラリー」の文字つき）
 
 出力（サイトが読み込む画像。これはGitHubに送ります）
   assets/fish/scene.webp, layer-○○.webp, stamp-○○.webp, silhouette-○○.webp
-  assets/logo.webp（ヘッダーのロゴ）, assets/banner.webp（ページ上部のバナー）
+  assets/logo.webp（ヘッダーのロゴ）, assets/banner.webp（トップページ・アンケート画面のバナー）
+  assets/banner-rally.webp（スタンプラリー画面のバナー）
   assets/favicon-32.png, favicon-64.png, apple-touch-icon.png（ブラウザのタブ・ホーム画面のアイコン）
   js/fish-data.js（魚の名前・画像の名前と大きさ。自動で作られるので、手で編集しないでください）
 
@@ -130,12 +132,14 @@ def main():
     logo = logo.resize((logo_w, LOGO_HEIGHT), Image.LANCZOS)
     sizes["logo.webp"] = save_webp(logo, os.path.join(OUT, "logo.webp"), 92)
 
-    # バナー（透明な余白を切り取って、横幅をそろえる）
-    banner_src = Image.open(need(os.path.join(SRC_LOGO, "banner.png"))).convert("RGBA")
-    banner = banner_src.crop(banner_src.getchannel("A").getbbox())
-    banner_h = round(banner.height * BANNER_WIDTH / banner.width)
-    banner = banner.resize((BANNER_WIDTH, banner_h), Image.LANCZOS)
-    sizes["banner.webp"] = save_webp(banner, os.path.join(OUT, "banner.webp"), 92)
+    # バナー（透明な余白を切り取って、横幅をそろえる）。切り取るので、画像の左右の中心が、そのまま、見た目の中心になる
+    for src_name, out_name in (("banner.png", "banner.webp"), ("banner-rally.png", "banner-rally.webp")):
+        banner_src = Image.open(need(os.path.join(SRC_LOGO, src_name))).convert("RGBA")
+        banner = banner_src.crop(banner_src.getchannel("A").getbbox())
+        banner_h = round(banner.height * BANNER_WIDTH / banner.width)
+        banner = banner.resize((BANNER_WIDTH, banner_h), Image.LANCZOS)
+        sizes[out_name] = save_webp(banner, os.path.join(OUT, out_name), 92)
+        print(f"  {out_name}: {BANNER_WIDTH} × {banner_h}（HTMLの width / height に使う値）")
 
     # アイコン（ブラウザのタブ・スマートフォンのホーム画面）。ロゴは横長なので、正方形の中央に置く
     def square(side, fill, margin):
