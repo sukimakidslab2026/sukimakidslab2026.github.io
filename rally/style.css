@@ -5,7 +5,7 @@
 /* ヘッダー：バナー（「スタンプラリー」の文字つき）・見出しの下の線・説明文を、左右の中央にそろえる */
 .hero{max-width:560px;margin:auto;padding:var(--space-5) 20px var(--space-3);text-align:center}
 .hero h1{font-weight:700;font-size:clamp(26px,7.4vw,34px);letter-spacing:.02em;line-height:1.3;margin:0 0 var(--space-3)}
-.hero-banner.rally{width:min(100%,420px);margin-left:auto;margin-right:auto}
+.hero-banner.rally{width:min(82%,340px);margin-left:auto;margin-right:auto}
 .hero-title:after{margin-left:auto;margin-right:auto}
 .hero .lead{margin:0;color:var(--color-text-muted);font-size:14px;line-height:1.8}
 .hero-actions{margin:var(--space-3) 0 0}

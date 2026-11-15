@@ -94,7 +94,7 @@ function bannerContent(got){
   const toPrize=Math.max(PRIZE_REQUIRED-got,0), toRiver=Math.max(RIVER_TOTAL-got,0);
   if(got>=RIVER_TOTAL) return {state:"complete",doneLabel:"COMPLETE",message:["川が完成しました！","ありがとう！"]};
   if(got>=PRIZE_REQUIRED) return {state:"achieved",doneLabel:"ACHIEVED",message:["景品を希望できる","条件を達成したよ！",`あと${toRiver}個で、`,"川が完成するよ！"]};
-  if(got===0) return {state:"empty",message:["スタンプを集めて、","景品の希望に進もう！"]};
+  if(got===0) return {state:"empty",message:["スタンプを集めて、","景品をゲットしよう！"]};
   if(toPrize===1) return {state:"almost",message:["あと1個！","景品の希望まで、","あと少し！"]};
   return {state:"progress",message:[`あと${toPrize}個で、`,"景品を希望できるよ！"]};
 }
