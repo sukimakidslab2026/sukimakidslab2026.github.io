@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-魚のスタンプ画像・ロゴ・バナーを、サイトで使う「軽い画像」に変換する。
+魚のスタンプ画像・ロゴ・バナー・「すきまキッズラボとは？」の画像を、サイトで使う「軽い画像」に変換する。
 
   python3 scripts/make_fish_assets.py
 
@@ -11,11 +11,13 @@
   fish-stamp-images/シルエット/シルエット_○○.png          図鑑に出す、シルエット（まだ獲得していないとき）
   logo-banner-images/logo.png, banner.png                  ロゴ（アイコン）とバナー
   logo-banner-images/banner-rally.png                      スタンプラリー画面のバナー（「スタンプラリー」の文字つき）
+  about-images/logo_touka.png, ankyo.jpg, 2025.jpg          「すきまキッズラボとは？」の画像（団体のロゴ・暗渠の写真・2025年のワークショップの写真）
 
 出力（サイトが読み込む画像。これはGitHubに送ります）
   assets/fish/scene.webp, layer-○○.webp, stamp-○○.webp, silhouette-○○.webp
   assets/logo.webp（ヘッダーのロゴ）, assets/banner.webp（トップページ・アンケート画面のバナー）
   assets/banner-rally.webp（スタンプラリー画面のバナー）
+  assets/about/logo-touka.webp, ankyo.webp, 2025.webp（「すきまキッズラボとは？」の画像。画面に出す大きさに縮小）
   assets/favicon-32.png, favicon-64.png, apple-touch-icon.png（ブラウザのタブ・ホーム画面のアイコン）
   js/fish-data.js（魚の名前・画像の名前と大きさ。自動で作られるので、手で編集しないでください）
 
@@ -31,15 +33,17 @@ import sys
 import unicodedata
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageOps
 except ImportError:
     sys.exit("Pillow が必要です。次を実行してから、もう一度お試しください：  pip3 install pillow")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_FISH = os.path.join(ROOT, "fish-stamp-images")
 SRC_LOGO = os.path.join(ROOT, "logo-banner-images")
+SRC_ABOUT = os.path.join(ROOT, "about-images")
 OUT = os.path.join(ROOT, "assets")
 OUT_FISH = os.path.join(OUT, "fish")
+OUT_ABOUT = os.path.join(OUT, "about")
 
 # 魚の一覧（キー, 名前, 元の画像の名前）。キーは、サイト・データベースで魚を見分ける名前です（半角の英小文字）。
 FISH = [
@@ -55,6 +59,9 @@ SCENE_WIDTH = 1500          # 川の背景・魚の重ね画像の横幅（px）
 STAMP_LONG_SIDE = 480       # 図鑑の魚の、長いほうの辺（px）
 LOGO_HEIGHT = 144           # ヘッダーのロゴの高さ（px）。表示は48pxなので、3倍
 BANNER_WIDTH = 1000         # バナーの横幅（px）
+# 「すきまキッズラボとは？」の画像（元の画像の名前 → 出力の名前・横幅px）。表示は最大でも 700px ほどなので、高精細の画面でも足りる大きさにする
+ABOUT_LOGO = ("logo_touka.png", "logo-touka.webp", 960)
+ABOUT_PHOTOS = (("ankyo.jpg", "ankyo.webp", 1200), ("2025.jpg", "2025.webp", 1600))
 
 
 def need(path):
@@ -140,6 +147,21 @@ def main():
         banner = banner.resize((BANNER_WIDTH, banner_h), Image.LANCZOS)
         sizes[out_name] = save_webp(banner, os.path.join(OUT, out_name), 92)
         print(f"  {out_name}: {BANNER_WIDTH} × {banner_h}（HTMLの width / height に使う値）")
+
+    # 「すきまキッズラボとは？」の画像。ロゴは、透明な余白を切り取って、劣化のない形式（lossless）で。写真は、横幅をそろえて縮小する
+    os.makedirs(OUT_ABOUT, exist_ok=True)
+    src_name, out_name, width = ABOUT_LOGO
+    about_src = Image.open(need(os.path.join(SRC_ABOUT, src_name))).convert("RGBA")
+    about_logo = about_src.crop(about_src.getchannel("A").getbbox())
+    about_logo = about_logo.resize((width, round(about_logo.height * width / about_logo.width)), Image.LANCZOS)
+    about_logo.save(os.path.join(OUT_ABOUT, out_name), "WEBP", lossless=True, quality=100, method=6)
+    sizes[f"about/{out_name}"] = os.path.getsize(os.path.join(OUT_ABOUT, out_name))
+    print(f"  about/{out_name}: {about_logo.width} × {about_logo.height}（HTMLの width / height に使う値）")
+    for src_name, out_name, width in ABOUT_PHOTOS:
+        photo = ImageOps.exif_transpose(Image.open(need(os.path.join(SRC_ABOUT, src_name)))).convert("RGB")
+        photo = photo.resize((width, round(photo.height * width / photo.width)), Image.LANCZOS)
+        sizes[f"about/{out_name}"] = save_webp(photo, os.path.join(OUT_ABOUT, out_name), 82)
+        print(f"  about/{out_name}: {photo.width} × {photo.height}（HTMLの width / height に使う値）")
 
     # アイコン（ブラウザのタブ・スマートフォンのホーム画面）。ロゴは横長なので、正方形の中央に置く
     def square(side, fill, margin):

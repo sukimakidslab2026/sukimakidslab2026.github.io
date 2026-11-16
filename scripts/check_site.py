@@ -23,6 +23,8 @@
  16. 参加者のスタンプのリセット：SQLの関数・権限と、参加者の画面・管理画面の呼び出しが、そろっているか
  17. スタンプラリー画面のバナー（中央）・獲得の演出（後光）・ルール説明のポップアップ（「次回からは表示しない」の保存）が、そろっているか
      （ルール説明が、仮の内容のままのときは、注意として表示します）
+ 18. トップページ（「すきまキッズラボとは？」）：紹介文・画像・スクロールで順番に現れる動き（js/reveal.js）が、そろっているか。
+     公開ページの画像の width / height が、実際の画像の大きさと同じか
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -315,8 +317,71 @@ def check_popups():
         warn("ルール説明（rally/index.html の rules-draft の段落）が、仮の内容のままです。正式な内容にしたら、この「仮の説明です」の一文（class=\"rules-draft\"）を消してください")
 
 
+def image_size_problems(rel):
+    """<img> の width / height が、画像ファイルの実際の大きさと同じか（Pillow があるときだけ確認する。違うと、読み込み中に、レイアウトがずれる）"""
+    try:
+        from PIL import Image
+    except ImportError:
+        return []
+    out = []
+    base = os.path.dirname(rel)
+    for tag in re.findall(r"<img\b[^>]*>", read(rel)):
+        attrs = dict(re.findall(r'([\w-]+)="([^"]*)"', tag))
+        src = attrs.get("src", "")
+        if not src or src.startswith(("http", "data:")):
+            continue
+        path = os.path.normpath(os.path.join(ROOT, base, src))
+        if not os.path.isfile(path):
+            out.append(f"{rel}: 画像 {src} がありません")
+            continue
+        with Image.open(path) as im:
+            if (str(im.width), str(im.height)) != (attrs.get("width"), attrs.get("height")):
+                out.append(f"{rel}: {src} の width / height（{attrs.get('width')}×{attrs.get('height')}）が、画像の大きさ {im.width}×{im.height} と違います")
+    return out
+
+
+def check_story():
+    """トップページ：紹介文（段落）・画像・スクロールで順番に現れる動き"""
+    html, css = read("index.html"), read("style.css")
+    problems = []
+    m = re.search(r'<div class="story">(.*?)\n  </div>', html, flags=re.S)
+    if not m:
+        bad("index.html: 紹介文の入れもの（<div class=\"story\">）がありません")
+        return
+    block = m.group(1)
+    tags = re.findall(r"<(?:p|figure)\b[^>]*>", block)
+    missing = [t for t in tags if "data-reveal" not in t]
+    if not tags:
+        problems.append("紹介文の段落（<p>）や画像（<figure>）が、1つもありません")
+    if missing:
+        problems.append(f"data-reveal がない段落・画像があります（スクロールで現れる動きが付きません）：{missing[:2]}")
+    for tag in re.findall(r"<img\b[^>]*>", block):
+        attrs = dict(re.findall(r'([\w-]+)="([^"]*)"', tag))
+        if len(attrs.get("alt", "")) < 3:
+            problems.append(f"画像 {attrs.get('src')} に、alt（画像の説明）がありません")
+        if attrs.get("loading") != "lazy":
+            problems.append(f"画像 {attrs.get('src')} が、遅延読み込み（loading=\"lazy\"）になっていません")
+    # 動きの部品：ちらつかないよう、<head> で、そのまま（defer・asyncなしで）読み込む
+    head = re.search(r"<head>.*?</head>", html, flags=re.S)
+    tag = re.search(r'<script\b[^>]*src="js/reveal\.js[^"]*"[^>]*>', head.group(0)) if head else None
+    if not tag or re.search(r"\b(defer|async)\b", tag.group(0)):
+        problems.append("index.html: js/reveal.js を、<head> の中で、defer・asyncなしで読み込んでいません")
+    js = read("js/reveal.js")
+    if "prefers-reduced-motion" not in js or '"IntersectionObserver" in window' not in js:
+        problems.append("js/reveal.js: 「視差効果を減らす」・IntersectionObserver がないときに、動きを止める処理がありません")
+    if not re.search(r"\.reveal-on \[data-reveal\]\{", css) or "prefers-reduced-motion" not in css:
+        problems.append("style.css: スクロールで現れる動き（.reveal-on [data-reveal]）、または、「視差効果を減らす」への対応が、ありません")
+    for rel in PUBLIC_PAGES:
+        problems += image_size_problems(rel)
+    if problems:
+        bad("；".join(problems))
+    else:
+        n_p, n_f = len(re.findall(r"<p\b", block)), len(re.findall(r"<figure\b", block))
+        ok(f"トップページの紹介文（段落 {n_p}・画像 {n_f}）は、すべて、スクロールで順番に現れる設定で、画像の説明（alt）・大きさ（width/height）も、そろっています")
+
+
 def check_sources_ignored():
-    for folder in ("fish-stamp-images", "logo-banner-images"):
+    for folder in ("fish-stamp-images", "logo-banner-images", "about-images"):
         tracked = subprocess.run(["git", "ls-files", folder], cwd=ROOT, capture_output=True, text=True).stdout.strip()
         if tracked:
             warn(f"{folder}/ の元の画像が、すでにGitに登録されています（公開サイトが重くなります。git rm -r --cached {folder} で外してください）")
@@ -523,6 +588,9 @@ def main():
 
     print("17. バナー・獲得の演出・ルール説明")
     check_popups()
+
+    print("18. トップページの紹介文・画像・スクロールで現れる動き")
+    check_story()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

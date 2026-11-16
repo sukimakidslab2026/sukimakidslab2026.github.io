@@ -4,10 +4,39 @@
 .hero h1{font-weight:700;font-size:clamp(22px,6.3vw,29px);letter-spacing:.02em;line-height:1.3;margin:0 0 var(--space-4)}
 
 .container{max-width:560px;margin:auto;padding:var(--space-2) var(--space-4) var(--space-5)}
-.card{background:var(--color-surface);border:2px solid var(--color-line);border-radius:var(--radius-card);padding:20px;margin-bottom:var(--space-4)}
-.about p{margin:0;line-height:1.9}
-.about p+p{margin-top:var(--space-4)}
-.placeholder{color:var(--color-text-muted)}
+
+/* 紹介文と画像。スクロールすると、順番にふわっと現れます（動きは、下の「スクロールで現れる動き」と、js/reveal.js） */
+.story{padding:var(--space-2) 4px var(--space-5)}   /* 左右の4pxは、ヘッダー（20px）と、文字の左端をそろえるため */
+.story p{margin:0 0 1.4em;font-size:16px;line-height:2.05;letter-spacing:.04em;word-break:auto-phrase;text-wrap:pretty}
+/* 章の始まりや、言い切りの段落：大きく太く、上に、差し色（マスタード）の短い線 */
+.story .story-lead{margin:2.6em 0 1.1em;font-size:19px;font-weight:700;line-height:1.9;letter-spacing:.03em}
+.story .story-lead:first-child{margin-top:0}
+.story .story-lead:first-child:before{display:none}   /* 最初の段落の上には、見出しの下の線が、すでにある */
+.story .story-lead:before{content:"";display:block;width:32px;height:5px;margin-bottom:14px;border-radius:3px;background:var(--color-mustard)}
+/* マーカー（言葉の下半分に、マスタードの線。文字は主色のまま。複数行にまたがっても、各行に引く） */
+.mk{padding:0 .1em;background:linear-gradient(transparent 58%,rgba(222,198,50,.55) 58%) no-repeat 0 0/100% 100%;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+
+.story-figure{margin:2.6rem 0}
+.story-logo{padding:28px 24px;border:2px solid var(--color-line);border-radius:var(--radius-card);background:var(--color-white)}
+.story-logo img{display:block;width:100%;max-width:400px;height:auto;margin:0 auto}
+.story-photo{overflow:hidden;isolation:isolate;border-radius:var(--radius-card);background:var(--tint-accent-22);box-shadow:0 14px 32px rgba(48,85,126,.14);line-height:0}
+.story-photo img{display:block;width:100%;height:auto}
+/* 広い画面では、横長の写真だけ、文章の幅より、少し広げる */
+@media(min-width:900px){.story-wide{margin-left:-72px;margin-right:-72px}}
+.story+.rally-link{margin-top:var(--space-4)}
+
+/* スクロールで現れる動き：js/reveal.js が html に reveal-on を付けたときだけ、最初は隠す（JavaScriptが動かない・「視差効果を減らす」の端末では、最初から全部見える）。
+   画面に入った要素には is-in が付き、--d の秒数ぶん遅れて現れる（同時に入った要素が、上から順に、次々と現れる） */
+.reveal-on [data-reveal]{--d:0s;opacity:0;transform:translateY(28px);transition:opacity .9s var(--ease) var(--d),transform .9s var(--ease) var(--d)}
+.reveal-on [data-reveal].is-in{opacity:1;transform:none}
+.reveal-on .story-photo img{transform:scale(1.14);transition:transform 1.9s var(--ease) var(--d)}   /* 写真は、少し拡大した状態から、ゆっくり、収まる */
+.reveal-on .story-photo.is-in img{transform:none}
+.reveal-on .mk{background-size:0 100%}                                                                   /* マーカーは、文章が現れたあとに、左から引かれる */
+.reveal-on .is-in .mk{background-size:100% 100%;transition:background-size 1.1s var(--ease) calc(var(--d) + .5s)}
+@media(prefers-reduced-motion:reduce),print{
+  .reveal-on [data-reveal],.reveal-on .story-photo img{opacity:1!important;transform:none!important;transition:none!important}
+  .reveal-on .mk{background-size:100% 100%!important;transition:none!important}
+}
 
 /* スタンプラリーへの導線 */
 .rally-link{display:block;position:relative;margin-bottom:var(--space-4);padding:18px 48px 18px 20px;border-radius:var(--radius-card);border:2px solid var(--color-primary);

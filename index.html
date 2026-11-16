@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#30557e">
   <meta name="color-scheme" content="light">
   <title>「すきまキッズラボ」とは？｜すきまキッズラボ</title>
-  <meta name="description" content="すきまキッズラボの紹介ページです。">
+  <meta name="description" content="すきまキッズラボは、千代田区が進める「ウォーカブルなまちづくり」の一環として、2025年にスタートしたプロジェクトです。">
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <!-- 欧文・数字：Josefin Sans Bold（Google Fonts / SIL Open Font License） -->
@@ -17,13 +17,15 @@
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
   <link rel="stylesheet" href="brand.css?v=f27f7b5f">
-  <link rel="stylesheet" href="style.css?v=98d1d89f">
+  <link rel="stylesheet" href="style.css?v=13c93e71">
   <!-- 念のための転送：スタンプラリーのQRコードのURLが、このページ（トップ）の形（/?stamp=…）で開かれたときは、スタンプラリーのページに移す -->
   <script>
     (function () {
       if (/[?&]stamp=/.test(location.search)) location.replace("rally/" + location.search + location.hash);
     })();
   </script>
+  <!-- スクロールしたときに、段落や画像が、順番にふわっと現れる動き（data-reveal を付けた要素が対象）。ちらつかないよう、head で読み込みます -->
+  <script src="js/reveal.js?v=8db939a3"></script>
 </head>
 <body>
 <noscript><p style="margin:16px;font-size:14px">このページのメニューを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
@@ -49,12 +51,40 @@
 </header>
 
 <main class="container">
-  <!-- ▼ プロジェクトの紹介文（内容は準備中です）。確定したら、この <section> の中身を書き換えてください。 -->
-  <section class="card about">
-    <p class="placeholder">プロジェクトの紹介は、ただいま準備中です。</p>
-  </section>
+  <!-- ▼ プロジェクトの紹介文と画像。段落（<p>）と画像（<figure>）に付けた data-reveal が、スクロールしたときに、順番にふわっと現れる動きの目印です（js/reveal.js）。
+       ・文章を直すとき：<p> の中の文を、書きかえます。
+       ・段落を足すとき：<p data-reveal>…</p> を、足したい位置に、コピーして足します。大きく目立たせたい段落は、class="story-lead" を付けます。
+       ・文章の中の、マーカー（黄色の線）を引いた言葉は、<span class="mk">…</span> です。いらないときは、<span> のタグだけを消します。
+       ・画像を足すとき：下の <figure> のまとまりをコピーして、src・width・height・alt を変えます（画像は、assets/about/ に置きます。README参照）。 -->
+  <div class="story">
+    <p class="story-lead" data-reveal>すきまキッズラボは、千代田区が進める「ウォーカブルなまちづくり」の一環として、2025年にスタートしたプロジェクトです。</p>
+    <p data-reveal>千代田区では、道路などの公共空間に人と人とのつながりを生み出し、誰もが心地よく過ごせるまちを目指しています。</p>
+    <p data-reveal>その考えに共感したポンドデザイン研究所と、東京都立大学インテリデザインスタジオがタッグを組み、2025年から活動を始めました。</p>
 
-  <a class="rally-link" href="rally/">
+    <figure class="story-figure story-logo" data-reveal>
+      <img src="assets/about/logo-touka.webp" width="960" height="201" alt="Pond Design Laboratory × INTERIOR DESIGN STUDIO" loading="lazy" decoding="async">
+    </figure>
+
+    <p class="story-lead" data-reveal>わたしたちが注目したのは、街のすきまにある道、<span class="mk">暗渠（あんきょ）</span>です。</p>
+    <p data-reveal>暗渠とは、かつて川が流れていた場所を埋め立ててできた道のこと。街の中にありながら人目につきにくく、路上喫煙やポイ捨てなどの問題を抱えている場所もあります。</p>
+
+    <figure class="story-figure story-photo" data-reveal>
+      <img src="assets/about/ankyo.webp" width="1200" height="1200" alt="高い建物にはさまれた、細くてまっすぐな暗渠の道" loading="lazy" decoding="async">
+    </figure>
+
+    <p data-reveal>そんな街のすきまを、<span class="mk">子どもたちの自由な発想や遊びの力</span>を通じて、もっと楽しく魅力的な場所にできないだろうか？</p>
+    <p class="story-lead" data-reveal>そのアイデアがすきまキッズラボとして形になりました。</p>
+    <p data-reveal>2025年には、暗渠を舞台に、遊びながら子どもたちの想像力や表現力を育むワークショップを開催。「パタパタおもちゃづくり」「スライドパズル」「立体パズル」「チョークお絵描き」といった、つくることや描くことを楽しみながら、自由に表現できるプログラムを実施しました。</p>
+
+    <figure class="story-figure story-photo story-wide" data-reveal>
+      <img src="assets/about/2025.webp" width="1600" height="900" alt="暗渠の道で、子どもたちや保護者が集まり、地面にチョークで絵を描いているようす（2025年のワークショップ）" loading="lazy" decoding="async">
+    </figure>
+
+    <p data-reveal>たくさんの方にご参加いただき、普段は人通りの少ない道が、子どもたちの笑顔や遊びで彩られた、明るく楽しい場所に変わりました。</p>
+    <p class="story-lead" data-reveal>街のすきまに、まだ知られていない楽しさや可能性を見つけていくため、<span class="mk">2026年も活動を続けています！</span></p>
+  </div>
+
+  <a class="rally-link" href="rally/" data-reveal>
     <span class="rally-link-title">スタンプラリー</span>
     <span class="rally-link-sub"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">進み具合を見る</span></span>
   </a>

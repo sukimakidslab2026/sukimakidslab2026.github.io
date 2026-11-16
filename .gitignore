@@ -7,3 +7,4 @@ qr/boards/
 # デザインの元の画像（大きいので、GitHubには送りません。サイトで使う軽い画像は assets/ にあり、scripts/make_fish_assets.py で作ります）
 fish-stamp-images/
 logo-banner-images/
+about-images/

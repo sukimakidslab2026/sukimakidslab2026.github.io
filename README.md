@@ -24,13 +24,13 @@ Googleスプレッドシートは閲覧・集計用の同期先にしていま�
 | `rally/` | スタンプラリー（`index.html`・`app.js`・`style.css`） |
 | `survey/` | アンケート・プライバシー規約 |
 | `admin/` | 管理画面 |
-| `assets/` | サイトで使う画像（ロゴ・バナー・アイコン、`assets/fish/`＝川の背景と魚の画像）。変換済みの軽い画像です（約400KB） |
-| `js/` | `config.js`（Supabaseの接続設定）、`rally-data.js`（場所・景品の補足の設定）、`site-nav.js`（メニューの開閉）、`fish.js`・`fish-data.js`（魚の図鑑・川の共通の部品。`fish-data.js` は自動で作られます） |
+| `assets/` | サイトで使う画像（ロゴ・バナー・アイコン、`assets/fish/`＝川の背景と魚の画像、`assets/about/`＝「すきまキッズラボとは？」の画像）。変換済みの軽い画像です（約800KB） |
+| `js/` | `config.js`（Supabaseの接続設定）、`rally-data.js`（場所・景品の補足の設定）、`site-nav.js`（メニューの開閉）、`reveal.js`（トップページで、スクロールすると、段落や画像が順番に現れる動き）、`fish.js`・`fish-data.js`（魚の図鑑・川の共通の部品。`fish-data.js` は自動で作られます） |
 | `brand.css` | 色・フォント・共通ヘッダー（ロゴ・メニュー）のスタイル |
 | `sql/schema.sql` | データベースの定義（Supabaseで実行） |
 | `gas/sheets-sync.gs` | スプレッドシートへの自動同期（Google Apps Script） |
 | `scripts/` | `make_boards.py`（掲示板のQRコードを作る）、`make_fish_assets.py`（魚・ロゴ・バナーの画像を、サイト用に変換する）、`stamp_assets.py`・`check_site.py`（公開前のチェック） |
-| `fish-stamp-images/`, `logo-banner-images/` | デザインの元の画像（大きいため、**GitHubには送られません**＝`.gitignore`）。パソコンの中に置いて、`make_fish_assets.py` で変換します（3章） |
+| `fish-stamp-images/`, `logo-banner-images/`, `about-images/` | デザインの元の画像（大きいため、**GitHubには送られません**＝`.gitignore`）。パソコンの中に置いて、`make_fish_assets.py` で変換します（3章） |
 | `qr/` | QRコードの画像。**`qr/boards/`（掲示板のQRコード）は、GitHubに公開されません**（4章） |
 
 ## 2. Supabase設定
@@ -102,14 +102,14 @@ Supabaseのダッシュボード（Table Editor・SQL Editor）からは、こ�
   - 手順が増えて、画面に収まらなくなったときは、ポップアップの中が、スクロールできます。
 
 ### 画像（assets）と、元の画像
-- サイトが読み込む画像は、`assets/` にあります（WebP形式。合計で約400KB）：`assets/fish/`（`scene.webp`＝川の背景、`layer-○○.webp`＝川に重ねる魚、`stamp-○○.webp`＝図鑑の色つきの魚、`silhouette-○○.webp`＝図鑑のシルエット）、`assets/logo.webp`（ヘッダーのロゴ）、`assets/banner.webp`（トップ・アンケートの上部のバナー）、`assets/banner-rally.webp`（スタンプラリー画面のバナー。「スタンプラリー」の文字つき）、`assets/favicon-32.png`・`favicon-64.png`・`apple-touch-icon.png`（ブラウザのタブ・ホーム画面のアイコン）。
-- これらは、デザインの元の画像（`fish-stamp-images/`・`logo-banner-images/`。大きいので、GitHubには送りません）から、**`python3 scripts/make_fish_assets.py`** で作ります（最初に `pip3 install pillow`）。魚の名前・画像の大きさなどが入った `js/fish-data.js` も、同時に自動で作られます。
+- サイトが読み込む画像は、`assets/` にあります（WebP形式。合計で約800KB）：`assets/fish/`（`scene.webp`＝川の背景、`layer-○○.webp`＝川に重ねる魚、`stamp-○○.webp`＝図鑑の色つきの魚、`silhouette-○○.webp`＝図鑑のシルエット）、`assets/logo.webp`（ヘッダーのロゴ）、`assets/banner.webp`（トップ・アンケートの上部のバナー）、`assets/banner-rally.webp`（スタンプラリー画面のバナー。「スタンプラリー」の文字つき）、`assets/about/`（`logo-touka.webp`・`ankyo.webp`・`2025.webp`＝「すきまキッズラボとは？」のロゴと写真）、`assets/favicon-32.png`・`favicon-64.png`・`apple-touch-icon.png`（ブラウザのタブ・ホーム画面のアイコン）。
+- これらは、デザインの元の画像（`fish-stamp-images/`・`logo-banner-images/`・`about-images/`。大きいので、GitHubには送りません）から、**`python3 scripts/make_fish_assets.py`** で作ります（最初に `pip3 install pillow`）。魚の名前・画像の大きさなどが入った `js/fish-data.js` も、同時に自動で作られます。
 - **画像を差し替えるとき：** 元の画像のフォルダの中身を、**同じファイル名で**入れ替える → `python3 scripts/make_fish_assets.py` → `python3 scripts/stamp_assets.py` → `python3 scripts/check_site.py` → コミットして push。
-  元の画像の決まり：`fish-stamp-images/スタンプ背景.png`（川の背景）、`川魚onスタンプ背景/川魚-○○.png`（背景と**同じ大きさ**の透明な画像に、魚を置いたもの）、`スタンプ/○○.png`（色つきの魚）、`シルエット/シルエット_○○.png`、`logo-banner-images/logo.png`・`banner.png`・`banner-rally.png`（スタンプラリー画面のバナー）。魚の名前（○○）は、コイ・ドジョウ・ナマズ・ハゼ・フナ・メダカ。
+  元の画像の決まり：`fish-stamp-images/スタンプ背景.png`（川の背景）、`川魚onスタンプ背景/川魚-○○.png`（背景と**同じ大きさ**の透明な画像に、魚を置いたもの）、`スタンプ/○○.png`（色つきの魚）、`シルエット/シルエット_○○.png`、`logo-banner-images/logo.png`・`banner.png`・`banner-rally.png`（スタンプラリー画面のバナー）、`about-images/logo_touka.png`（団体のロゴ。透明な背景）・`ankyo.jpg`（暗渠の道の写真）・`2025.jpg`（2025年のワークショップの写真）。魚の名前（○○）は、コイ・ドジョウ・ナマズ・ハゼ・フナ・メダカ。
 - **ロゴ・バナー・アイコンには、枠線も背景もありません**（透明な画像を、そのまま置いています）。変換のとき、バナーは、透明な余白を切り取るので、画像の左右の中心が、そのまま、見た目の中心になります。
 - **スタンプラリー画面のバナー**は、画像そのものが、ページの見出し（`h1`。読み上げでは「すきまキッズラボ スタンプラリー」）で、**左右の中央**に置かれています（`rally/style.css` の `.hero-banner.rally`）。その下の見出しの線・説明文・「ルールを見る」ボタンも、中央にそろえています。
 - 魚の名前を変える、種類を増やす・減らす場合は、`scripts/make_fish_assets.py` の `FISH` を編集します。種類を増やす・減らすときは、さらに、`sql/schema.sql` の `rally_fish_keys()` と `rally_default_fish_order()`、`js/fish.js` の `RALLY_FISH_DEFAULT_ORDER`、`rally/index.html` の初期表示（`total`・`riverTotal`・`aria-valuemax`）、`rally/style.css` の `.gauge` の `--segs` も合わせます（`check_site.py` が、一致を確認します）。川が完成する個数は、魚の種類の数です。
-- 元の画像のフォルダは、`.gitignore` で、GitHubに送られないようにしています。元の画像もGitHubで管理したい場合は、`.gitignore` の2行を削除してください（公開サイトが、約8MB重くなるわけではありませんが、元の画像が、誰でもダウンロードできる状態になります）。
+- 元の画像のフォルダは、`.gitignore` で、GitHubに送られないようにしています。元の画像もGitHubで管理したい場合は、`.gitignore` の3行を削除してください（公開サイトが、約8MB重くなるわけではありませんが、元の画像が、誰でもダウンロードできる状態になります）。
 
 ## 4. 掲示板のQRコード
 
@@ -333,7 +333,29 @@ Googleの既知の不具合で、ブラウザで複数のGoogleアカウント�
 
 ## 9. 更新手順（すでに運用している場合）
 
-### 9-1. スタンプラリー画面のバナー・獲得の演出・ルール説明を加えた更新（最新）
+### 9-1. 「すきまキッズラボとは？」の紹介文・画像・スクロールで現れる動きを加えた更新（最新）
+
+**データベース（SQL）・Apps Script の変更はありません。** 画面（HTML・CSS・JavaScript）と、新しい画像（`assets/about/` の3枚）だけの更新です。
+
+1. （元の画像を差し替えたときだけ）`about-images/` の画像を入れ替えて、`python3 scripts/make_fish_assets.py`。今回は、変換済みで、`assets/about/` ができています
+2. ターミナルで、次を実行して、公開する（GitHub Pagesに反映されるまで1〜3分）：
+   ```
+   python3 scripts/stamp_assets.py
+   python3 scripts/check_site.py       # 「0 件の問題」を確認（ルール説明が仮の内容のあいだは、注意が1件出ます）
+   git add -A
+   git commit -m "トップページの紹介文・画像・スクロールで現れる動き"
+   git push
+   ```
+   （`assets/about/` の画像が、`git add -A` で、追加されます。元の画像のフォルダ `about-images/` は、GitHubには送られません）
+3. スマートフォンで、トップページ（`https://sukimakidslab2026.github.io/`）を開いて、確認する：
+   - 開いたとき、上の段落から順に、ふわっと現れること
+   - スクロールすると、ロゴ・写真・次の段落が、順番に現れること（写真が、少し拡大した状態から、ゆっくり収まること）
+   - 3枚の画像が、すべて表示されること
+4. 文章を直したいときは、上の「文章・画像を直す」を参照
+
+公開の直後に、すでにページを開いている端末は、開き直すまで、古い画面のままです。
+
+### 9-2. スタンプラリー画面のバナー・獲得の演出・ルール説明を加えた更新（以前）
 
 **データベース（SQL）・Apps Script の変更はありません。** 画面（HTML・CSS・JavaScript）と、新しい画像（`assets/banner-rally.webp`）だけの更新です。
 
@@ -354,7 +376,7 @@ Googleの既知の不具合で、ブラウザで複数のGoogleアカウント�
 
 公開の直後に、すでにページを開いている端末は、開き直すまで、古い画面のままです。
 
-### 9-2. 管理画面の「参加者のスタンプのリセット」を加えた更新（以前）
+### 9-3. 管理画面の「参加者のスタンプのリセット」を加えた更新（以前）
 
 データベースに、リセットの記録のテーブルと関数が追加され、`record_scan` 関数が**置き換わります**（既存のデータ・掲示板の登録・管理者の登録は、そのままです）。**必ず、SQL → 公開（push）の順**に行ってください。
 
@@ -374,7 +396,7 @@ Googleの既知の不具合で、ブラウザで複数のGoogleアカウント�
 
 **公開の直後だけ、注意：** 更新前の画面を開いたままの端末は、リセットに対応していません（そのままでは、リセット後に、古い記録を送り直すことがあります）。ページを開き直せば、新しい画面になります。
 
-### 9-3. 魚の図鑑・川・管理画面の「スタンプ設定」を加えた更新（以前）
+### 9-4. 魚の図鑑・川・管理画面の「スタンプ設定」を加えた更新（以前）
 
 データベースに、設定のテーブルと関数が**追加**されます（既存のデータ・掲示板の登録・管理者の登録は、そのままです）。次の順に行ってください。
 
@@ -393,7 +415,7 @@ Googleの既知の不具合で、ブラウザで複数のGoogleアカウント�
 4. 管理画面にログインし、メニューから「スタンプ設定」を開いて、魚の順番を確認・変更する（2章の手順）。「アンケート・集計」も、これまでどおり開けることを確認する
 5. Googleスプレッドシート連携（Apps Script）は、今回の更新では、変更はありません
 
-### 9-4. 掲示板3個の方式に変えた更新（以前）
+### 9-5. 掲示板3個の方式に変えた更新（以前）
 
 1. （推奨）バックアップ：管理画面で、アンケートCSV・景品発送CSVを保存する
 2. SupabaseのSQL Editorで、新しい `sql/schema.sql` の全体を貼り付けて実行する（エラーが出ないことを確認）
@@ -460,19 +482,32 @@ Googleの既知の不具合で、ブラウザで複数のGoogleアカウント�
   - 実際にどのフォントで表示されているかは、ブラウザの開発者ツール（要素 > フォント）で確認できます。
   - QRコードの画像（`scripts/make_boards.py` で作る題名つきのもの）の題名には、Macに入っている筑紫A丸ゴシックを使います。**印刷物など、配布するものにフォントを使ってよいかは、フォントの提供元（Fontworks）とAppleの利用条件で、ご確認ください。** 不安な場合は、題名なしの画像（`board_01.png` など）を使い、ご自身で契約したフォントで題名を付けてください。
 
-## 11. トップページ（「すきまキッズラボ」とは？）の内容を書く
+## 11. トップページ（「すきまキッズラボ」とは？）の内容
 
-`index.html` の次の部分に、プロジェクトの紹介文を書きます（現在は、「ただいま準備中です。」）：
+`index.html` の `<div class="story">` の中に、プロジェクトの紹介文（段落 `<p>`）と、画像（`<figure>`）が並んでいます。段落10個・画像3個（ロゴ → 暗渠の写真 → 2025年のワークショップの写真）です。
 
-```html
-<section class="card about">
-  <p class="placeholder">プロジェクトの紹介は、ただいま準備中です。</p>
-</section>
-```
+### スクロールで、順番に現れる動き
 
-- `<p class="placeholder">…</p>` を、本文の `<p>…</p>` に置き換えます（段落ごとに `<p>` を増やします。見出しは `<h2>`）。
-- 画像を載せる場合は、`assets/` に画像を入れて、`<img src="./assets/○○.jpg" alt="（画像の説明）" width="…" height="…">` と書きます。
-- ページの題名・説明文（検索結果に出る文）は、`<title>` と `<meta name="description">` です。
+- **スクロールすると、段落と画像が、下から上がりながら、順番に、ふわっと現れます。** `data-reveal` が付いた要素が、画面に入ったときに現れます（同時に入った要素は、上から順に、0.14秒ずつ遅れて現れます）。
+  - 写真は、少し拡大した状態から、ゆっくり収まります。マーカー（黄色の線）は、文章が現れたあとに、左から引かれます。
+  - 動きの部品は `js/reveal.js`、見た目は `style.css` の「スクロールで現れる動き」です。動きの速さ・距離を変えるときは、`style.css` の `.reveal-on [data-reveal]`（`.9s`＝速さ、`28px`＝動く距離）と、`js/reveal.js` の `0.14`（遅れ。秒）を変えます。
+  - **JavaScriptが動かないとき・古いブラウザ・OSで「視差効果を減らす」を選んでいるとき・印刷のときは、動きなしで、最初から全部が見えます。** 速いスクロールで飛ばした段落は、あとで上に戻ったときに、空白にならないよう、すぐに現れる状態にします。
+
+### 文章・画像を直す
+
+- **文章を直す：** `<p>` の中の文を、書きかえます。
+- **段落を足す：** `<p data-reveal>…</p>` を、足したい位置に足します。章の始まりや、言い切りの文は、`<p class="story-lead" data-reveal>…</p>` にすると、大きく太くなり、上に黄色の短い線が付きます（いちばん最初の段落は、見出しの下に線があるので、付きません）。
+- **マーカー：** `<span class="mk">…</span>` で挟んだ言葉に、マーカーが引かれます（いま3か所）。いらないときは、`<span>` のタグだけを消します。
+- **画像を足す：** 次のまとまりを、足したい位置にコピーして、`src`・`width`・`height`・`alt` を変えます。
+  ```html
+  <figure class="story-figure story-photo" data-reveal>
+    <img src="assets/about/○○.webp" width="1200" height="800" alt="（画像の説明）" loading="lazy" decoding="async">
+  </figure>
+  ```
+  - 団体のロゴのように、白い枠に入れたい画像は `story-logo`、横長で、広い画面では文章より少し広げたい写真は `story-photo story-wide` にします。
+  - **画像は、元の画像を `about-images/` に置いて、`python3 scripts/make_fish_assets.py` で変換します**（`assets/about/` に、軽いWebPができます。表示された「width × height」を、HTMLに書きます）。画像を増やすときは、`scripts/make_fish_assets.py` の `ABOUT_PHOTOS` に、「元の名前・出力の名前・横幅」を足します。
+  - **`alt`（見えない人に読み上げられる説明）は、必ず書いてください。** `python3 scripts/check_site.py` が、`alt` の有無・`width` / `height` が画像と合っているか・`data-reveal` の付け忘れを確認します。
+- ページの題名・説明文（検索結果やSNSに出る文）は、`<title>` と `<meta name="description">` です（説明文は、1つ目の段落と同じにしています）。
 - このページ（`https://sukimakidslab2026.github.io/`）は、ロゴ・メニューの「「すきまキッズラボ」とは？」の行き先です。
 - スタンプラリーのQRコードのURLが、誤って `https://sukimakidslab2026.github.io/?stamp=…` の形で開かれたときは、自動で `rally/` のページに移動します。
 
