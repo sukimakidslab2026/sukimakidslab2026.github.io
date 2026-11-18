@@ -133,6 +133,10 @@ create table if not exists public.participant_resets (
   last_reset_at timestamptz not null default now(),
   last_reset_by uuid
 );
+-- 管理画面の「完全リセット」が最後に行われたときの、reset_count の値（完全リセットがまだなら 0）。
+-- 端末は、自分が覚えている回数より、ここの値が大きいとき、端末のサイトの履歴を、すべて消す（「次回からは表示しない」の設定なども）。
+-- 通常のリセットだけのときは、スタンプの記録だけを消す。完全リセットのあとに通常のリセットがあっても、見逃した完全リセットは、判定できる。
+alter table public.participant_resets add column if not exists last_full_reset_count integer not null default 0;
 
 -- アンケートの回答。氏名・住所などの個人情報は、別テーブル prize_shipping に分けて保存する。
 create table if not exists public.survey_responses (
@@ -514,6 +518,28 @@ $$;
 
 revoke all on function public.rally_reset_count(text) from public;
 grant execute on function public.rally_reset_count(text) to anon, authenticated;
+
+-- 参加者の端末が、開いたとき・読み取ったときに確かめる、サーバー側の状態（誰でも呼べる。自分の参加者IDの分だけを確かめる）。
+-- 戻り値：{reset_count（リセットされた回数）, full_reset_count（最後の完全リセットの時点の回数。なければ 0）, survey_submitted（アンケートの回答が、サーバーにあるか）}
+--  ・reset_count が端末の記録より大きく、full_reset_count も端末の記録より大きい → 端末のサイトの履歴を、すべて消す（完全リセット）
+--  ・reset_count だけが大きい → スタンプの記録だけを消す（通常のリセット）
+--  ・survey_submitted が false なのに、端末に「回答済み」の印が残っている → 印を消す（管理者がアンケートを削除したあと、答え直せるようにする）
+-- 旧版の画面は rally_reset_count だけを使う（通常のリセットとしてだけ、扱われる）。
+create or replace function public.rally_reset_state(p_participant_id text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'reset_count', coalesce((select r.reset_count from public.participant_resets r where r.participant_id = p_participant_id), 0),
+    'full_reset_count', coalesce((select r.last_full_reset_count from public.participant_resets r where r.participant_id = p_participant_id), 0),
+    'survey_submitted', exists (select 1 from public.survey_responses s where s.participant_id = p_participant_id)
+  );
+$$;
+revoke all on function public.rally_reset_state(text) from public;
+grant execute on function public.rally_reset_state(text) to anon, authenticated;
 
 -- QRコードの読み取りを記録する。戻り値：
 --   status          'ok'（記録した）／'invalid_stamp'（登録されていないQRコード。何も記録しない）／
@@ -1260,8 +1286,49 @@ begin
 end;
 $$;
 
+-- 参加者の「完全リセット」：通常のリセット（スタンプ・読み取り履歴の削除。admin_reset_progress）に加えて、
+-- 参加者の端末のサイトの履歴を、すべて消させる（「次回からは表示しない」の設定・参加者ID・アンケート回答済みの印など。新しい参加者として、はじめからになる）。
+-- p_delete_survey（既定 true）：アンケートの回答と、景品の発送先（個人情報）も削除する。false なら、残す。
+-- 端末は、次に開いたとき（または次にQRを読み取ったとき）に、rally_reset_state で完全リセットを知って、自分の履歴を消す。
+-- 除外の設定は、古い参加者IDに残る（端末は新しい参加者IDになるため、新しいIDは除外されない）。
+-- 戻り値：{participants, stamps, scans, surveys, full: true}
+create or replace function public.admin_full_reset_many(
+  p_participant_ids text[],
+  p_delete_survey boolean default true
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ids text[];
+  v_id text;
+  v_one jsonb;
+  v_stamps integer := 0;
+  v_scans integer := 0;
+  v_surveys integer := 0;
+begin
+  if not public.is_admin() then
+    raise exception 'admin only' using errcode = '42501';
+  end if;
+  v_ids := public.admin_clean_ids(p_participant_ids);
+
+  foreach v_id in array v_ids loop
+    v_one := public.admin_reset_progress(v_id, coalesce(p_delete_survey, true));
+    update public.participant_resets set last_full_reset_count = reset_count where participant_id = v_id;
+    v_stamps := v_stamps + (v_one ->> 'stamps')::integer;
+    v_scans := v_scans + (v_one ->> 'scans')::integer;
+    v_surveys := v_surveys + (v_one ->> 'surveys')::integer;
+  end loop;
+
+  return jsonb_build_object('participants', cardinality(v_ids), 'stamps', v_stamps, 'scans', v_scans, 'surveys', v_surveys, 'full', true);
+end;
+$$;
+
 -- アンケートの回答を、参加者ごとに削除する（景品の発送先（個人情報）も、回答に連動して削除される。元に戻せない）。
--- スタンプ・読み取り履歴・除外の設定は、そのまま残る。サーバーの記録だけを消すので、回答済みの端末の「回答済み」の印は、残る。
+-- スタンプ・読み取り履歴・除外の設定は、そのまま残る。参加者の端末の「回答済み」の印は、参加者が次にアンケート画面（または、スタンプラリーの画面）を開いたとき、
+-- rally_reset_state で、サーバーに回答がないことを確かめて、消える（その参加者は、アンケートに答え直せる）。
 -- 戻り値：{surveys（削除した回答の数）, shipping（削除した発送先の数）}
 create or replace function public.admin_delete_surveys(p_participant_ids text[])
 returns jsonb
@@ -1299,6 +1366,7 @@ revoke all on function public.admin_clean_ids(text[]) from public, anon, authent
 revoke all on function public.admin_set_excluded_many(text[], boolean, text) from public, anon;
 revoke all on function public.admin_reset_progress_many(text[], boolean) from public, anon;
 revoke all on function public.admin_delete_surveys(text[]) from public, anon;
+revoke all on function public.admin_full_reset_many(text[], boolean) from public, anon;
 grant execute on function public.admin_stats() to authenticated;
 grant execute on function public.admin_set_fish_order(text[]) to authenticated;
 grant execute on function public.admin_reset_progress(text, boolean) to authenticated;
@@ -1308,6 +1376,7 @@ grant execute on function public.admin_clear_excluded() to authenticated;
 grant execute on function public.admin_set_excluded_many(text[], boolean, text) to authenticated;
 grant execute on function public.admin_reset_progress_many(text[], boolean) to authenticated;
 grant execute on function public.admin_delete_surveys(text[]) to authenticated;
+grant execute on function public.admin_full_reset_many(text[], boolean) to authenticated;
 
 -- ============================================================
 -- 9. Supabaseのダッシュボード（Table Editor）で読みやすくするための日本語ビュー
@@ -1393,10 +1462,12 @@ comment on function public.rally_config() is '参加者の画面が読み込む�
 comment on function public.admin_set_fish_order(text[]) is '魚が増えていく順番を保存する（管理者のみ）';
 comment on table public.participant_resets is '管理者が参加者のスタンプをリセットした回数。参加者の端末が、自分の記録を消すかどうかの判断に使う。参加者は rally_reset_count()、管理者は admin_reset_progress() で読み書きする';
 comment on function public.rally_reset_count(text) is '参加者のスタンプが、管理者にリセットされた回数（なければ 0）。誰でも呼べる';
+comment on function public.rally_reset_state(text) is '参加者の端末が確かめる状態：リセットの回数・完全リセットの回数・アンケートの回答の有無（jsonb）。誰でも呼べる';
+comment on function public.admin_full_reset_many(text[], boolean) is '参加者の完全リセット（管理者のみ。1000人まで）：スタンプ・読み取り履歴（と、既定ではアンケート・発送先）を削除し、端末のサイトの履歴もすべて消させる';
 comment on function public.admin_reset_progress(text, boolean) is '参加者のスタンプと読み取り履歴を削除して、0個に戻す（管理者のみ）。第2引数が true なら、アンケートの回答・発送先も削除する';
 comment on function public.admin_set_excluded_many(text[], boolean, text) is '参加者をまとめて、除外する／除外を解除する（管理者のみ。1000人まで）。戻り値は、変更した人数';
 comment on function public.admin_reset_progress_many(text[], boolean) is '参加者のスタンプを、まとめて0個に戻す（管理者のみ。1000人まで）。第2引数が true なら、アンケートの回答・発送先も削除する';
-comment on function public.admin_delete_surveys(text[]) is 'アンケートの回答と、景品の発送先（個人情報）を、参加者ごとに削除する（管理者のみ。1000人まで。元に戻せない）';
+comment on function public.admin_delete_surveys(text[]) is 'アンケートの回答と、景品の発送先（個人情報）を、参加者ごとに削除する（管理者のみ。1000人まで。元に戻せない）。参加者は、アンケートに答え直せる';
 comment on table public.survey_responses is 'アンケートの回答（個人情報は含まない）。発送先は prize_shipping';
 comment on column public.survey_responses.participant_id is '参加者ID（stamp_claims・scan_events と同じ）';
 comment on column public.survey_responses.memorable_spot is '【廃止】印象に残ったスポット（旧版の6か所の名前）。この版では保存しない';

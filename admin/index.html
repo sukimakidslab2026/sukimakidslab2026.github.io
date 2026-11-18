@@ -62,7 +62,7 @@
 </details>
 
 <h2>参加者 <span class="count" id="participantCount"></span></h2>
-<p class="note">「リセット」は、その参加者のスタンプを0個に戻します（テストで集めたスタンプを消したいときや、最初からやり直してもらうときに使います）。集計から外すだけなら、「除外」を使います。
+<p class="note">「リセット」は、その参加者のスタンプを0個に戻します（テストで集めたスタンプを消したいときや、最初からやり直してもらうときに使います）。<strong>「完全リセット」は、さらに、その参加者の端末のサイトの履歴（「次回からは表示しない」の設定・参加者IDなど）もすべて消して、はじめて開いたときの状態に戻します</strong>（動作確認の端末を、まっさらにしたいときに使います）。集計から外すだけなら、「除外」を使います。
 <strong>左のチェックボックスで、複数の参加者を選ぶと、画面の下に、まとめて「除外」「リセット」するボタンが出ます</strong>（見出しのチェックボックスで、表示中の参加者をすべて選べます）。</p>
 <div class="filters">
 <label>検索<input id="participantSearch" placeholder="参加者ID（部分一致）"></label>
@@ -74,6 +74,7 @@
 <button id="bulkExclude" class="mini">除外する</button>
 <button id="bulkRelease" class="mini secondary">除外を解除</button>
 <button id="bulkReset" class="mini danger">リセット…</button>
+<button id="bulkFullReset" class="mini danger">完全リセット…</button>
 <button id="bulkClearParticipants" class="mini secondary">選択を解除</button>
 </div>
 
@@ -155,7 +156,7 @@
 <h3 id="resetTitle">スタンプをリセットしますか？</h3>
 <div id="resetBody" class="note"></div>
 <label id="resetSurveyRow" class="toggle" hidden><input type="checkbox" id="resetSurvey"> アンケートの回答（景品の発送先を含む）も削除する</label>
-<div class="dialog-actions"><button type="submit" value="ok" class="danger">リセットする</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
+<div class="dialog-actions"><button type="submit" value="ok" class="danger" id="resetOk">リセットする</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
 </form>
 </dialog>
 
@@ -166,4 +167,4 @@
 <div id="surveyDeleteBody" class="note"></div>
 <div class="dialog-actions"><button type="submit" value="ok" class="danger">削除する</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
 </form>
-</dialog></main><script src="app.js?v=fbb6d8db"></script></body></html>
+</dialog></main><script src="app.js?v=9ca4ddb4"></script></body></html>

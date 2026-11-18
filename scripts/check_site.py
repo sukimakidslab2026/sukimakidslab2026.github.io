@@ -30,6 +30,7 @@
  20. メールアドレス：アンケートの入力欄・JavaScript・SQL（列・検査・関数の引数と権限）・管理画面の表とCSVが、そろっているか
  21. 管理画面の一括操作：参加者・アンケートのチェックボックス、一括の除外・リセット、アンケートの削除が、SQL（関数・管理者のみ・権限）と、画面で、そろっているか
  22. この端末の履歴の完全リセット（reset/）：サイトが端末に保存している履歴の名前が、すべて載っているか、消す処理・別のタブの開き直し・管理画面のリンクが、そろっているか
+ 23. 管理画面の「完全リセット」（参加者の端末のサイトの履歴も消す）と、アンケートを削除したあとの答え直し：SQL（列・関数・権限）・スタンプラリー画面・アンケート画面・管理画面が、そろっているか
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -523,6 +524,46 @@ def check_device_reset():
         ok(f"履歴のリセット：サイトが保存している履歴 {len(used)} 種類が、すべて reset/app.js に載っていて、まるごと消す処理・別のタブの開き直し・管理画面のリンクが、そろっています")
 
 
+def check_full_reset():
+    """管理画面の「完全リセット」と、アンケート削除後の答え直し：SQL・スタンプラリー画面・アンケート画面・管理画面"""
+    sql, rally, survey, adm, html = read("sql/schema.sql"), read("rally/app.js"), read("survey/app.js"), read("admin/app.js"), read("admin/index.html")
+    problems = []
+    if "add column if not exists last_full_reset_count integer not null default 0" not in sql:
+        problems.append("sql/schema.sql: participant_resets に last_full_reset_count 列がありません")
+    state = re.search(r"function public\.rally_reset_state\(.*?\n\$\$;", sql, flags=re.S)
+    if not state or "security definer" not in state.group(0) or "survey_submitted" not in state.group(0) or "full_reset_count" not in state.group(0):
+        problems.append("sql/schema.sql: rally_reset_state が、リセットの回数・完全リセット・アンケートの有無を返していません（security definer）")
+    if not re.search(r"revoke all on function public\.rally_reset_state\(text\) from public;", sql) or not re.search(r"grant execute on function public\.rally_reset_state\(text\) to anon, authenticated;", sql):
+        problems.append("sql/schema.sql: rally_reset_state の実行権限（誰でも呼べる）が、そろっていません")
+    full = re.search(r"function public\.admin_full_reset_many\(.*?\n\$\$;", sql, flags=re.S)
+    if not full or "public.is_admin()" not in full.group(0) or "public.admin_clean_ids(" not in full.group(0) or "last_full_reset_count = reset_count" not in full.group(0) or "public.admin_reset_progress(" not in full.group(0):
+        problems.append("sql/schema.sql: admin_full_reset_many が、管理者の確認・IDの検査・通常のリセット・完全リセットの印をそろえていません")
+    if not re.search(r"revoke all on function public\.admin_full_reset_many\(text\[\], boolean\) from public, anon", sql) or not re.search(r"grant execute on function public\.admin_full_reset_many\(text\[\], boolean\) to authenticated", sql):
+        problems.append("sql/schema.sql: admin_full_reset_many の実行権限（anon は不可・ログイン済みのみ）が、正しくありません")
+    # スタンプラリー画面：状態の確認・完全リセットの判定・端末の履歴の消去・書き戻しの防止・旧い関数への切り替え
+    for needed in ('"rally_reset_state"', "function wipeDevice(", "state.full>localResetCount()", "async function applyServerReset(", "let wiping", '"rally_reset_count"'):
+        if needed not in rally:
+            problems.append(f"rally/app.js に {needed} がありません")
+    if "if(wiping) return;" not in rally or not re.search(r"set\(k,v\)\{ if\(wiping\) return;", rally):
+        problems.append("rally/app.js: 完全リセットで開き直している間に、記録を書き戻さない処理（wiping）がありません")
+    if "localStorage.clear()" not in rally:
+        problems.append("rally/app.js の wipeDevice が、localStorage をまるごと消していません")
+    if "surveyStillSubmitted" not in survey or '"rally_reset_state"' not in survey or "survey_submitted===false" not in survey:
+        problems.append("survey/app.js が、端末の「回答済み」の印を、サーバーに回答がないときに消す処理（surveyStillSubmitted）を持っていません")
+    for needed in ('"admin_full_reset_many"', "data-fullreset", "resetFull"):
+        if needed not in adm:
+            problems.append(f"admin/app.js に {needed} がありません")
+    for needed in ('id="bulkFullReset"', 'id="resetOk"'):
+        if needed not in html:
+            problems.append(f"admin/index.html に {needed} がありません")
+    if "答え直せません" in adm:
+        problems.append("admin/app.js: アンケート削除の確認に、「答え直せません」という古い説明が残っています（いまは、答え直せます）")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok("完全リセット・答え直し：SQL（列・rally_reset_state・admin_full_reset_many・権限）と、スタンプラリー画面・アンケート画面・管理画面が、そろっています")
+
+
 def check_sources_ignored():
     for folder in ("fish-stamp-images", "logo-banner-images", "about-images"):
         tracked = subprocess.run(["git", "ls-files", folder], cwd=ROOT, capture_output=True, text=True).stdout.strip()
@@ -746,6 +787,9 @@ def main():
 
     print("22. この端末の履歴の完全リセット（reset/）")
     check_device_reset()
+
+    print("23. 管理画面の完全リセットと、アンケート削除後の答え直し")
+    check_full_reset()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

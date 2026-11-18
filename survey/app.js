@@ -128,6 +128,19 @@ document.querySelectorAll("[data-open-privacy]").forEach(button=>button.onclick=
 document.querySelectorAll("[data-close-privacy]").forEach(button=>button.onclick=()=>privacyDialog.close());
 privacyDialog.addEventListener("click",e=>{ if(e.target===privacyDialog) privacyDialog.close(); }); // 背景のタップで閉じる
 
+// 端末に「回答済み」の印があるとき、サーバーに回答が、本当にあるかを確かめる。管理者がアンケートの回答を削除していたら、印を消して、答え直せるようにする。
+// 確かめられないとき（通信できない・新しい関数がまだない）は、これまでどおり、回答済みとして扱う。
+async function surveyStillSubmitted(){
+	try{
+		const state=await db.rpc("rally_reset_state",{p_participant_id:participant});
+		if(!state.error&&state.data&&state.data.survey_submitted===false){
+			try{ localStorage.removeItem(submittedKey); }catch(e){ /* 消せなくても、このページは、答え直せる */ }
+			return false;
+		}
+	}catch(e){ console.error(e); }
+	return true;
+}
+
 async function start(){
 	if(wantsPreview&&await isAdminSession()){
 		previewMode=true;
@@ -140,7 +153,7 @@ async function start(){
 	}
 	const previewHint=wantsPreview?" 管理者プレビューを使うには、先に管理画面（admin/）でログインしてください。":"";
 	if(!participant) return block(RESULT_MESSAGES.invalid_participant+previewHint);
-	if(safeGet(submittedKey)===participant) return block(RESULT_MESSAGES.already_submitted);
+	if(safeGet(submittedKey)===participant && await surveyStillSubmitted()) return block(RESULT_MESSAGES.already_submitted);
 	const completion=await db.rpc("is_completed",{p_participant_id:participant});
 	if(completion.error){
 		console.error(completion.error);

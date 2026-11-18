@@ -25,10 +25,11 @@ const resetKey = "stamp_rally_reset_count";      // 管理者によるスタン�
 const rulesKey = "stamp_rally_hide_rules";       // ルール説明の「次回からは表示しない」にチェックを入れたか（"1" のとき、ページを開いても、ルール説明を自動では出さない）
 const memoryStore = new Map();
 let storageBlocked = false;
+let wiping = false;   // 完全リセットで、端末の履歴を消して、開き直している最中（このあいだは、何も保存しない：消した記録を、書き戻さないように）
 const store = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ storageBlocked=true; return memoryStore.has(k)?memoryStore.get(k):null; } },
-  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ storageBlocked=true; memoryStore.set(k,String(v)); } },
-  remove(k){ try{ localStorage.removeItem(k); }catch(e){ storageBlocked=true; memoryStore.delete(k); } }
+  set(k,v){ if(wiping) return; try{ localStorage.setItem(k,v); }catch(e){ storageBlocked=true; memoryStore.set(k,String(v)); } },
+  remove(k){ if(wiping) return; try{ localStorage.removeItem(k); }catch(e){ storageBlocked=true; memoryStore.delete(k); } }
 };
 // 保存されたスタンプの一覧を読む。壊れた値や、形式に合わない値は取り除く
 function readStampList(key){
@@ -472,6 +473,31 @@ const localResetCount=()=>{
 };
 const saveResetCount=count=>store.set(resetKey,JSON.stringify({id:participantId,count}));
 
+// 管理画面の「完全リセット」：この端末に保存された、サイトの履歴を、すべて消して、はじめて開いたときの状態（新しい参加者）で開き直す。
+// 「次回からは表示しない」の設定・参加者ID・スタンプ・アンケート回答済みの印など、すべてが消える（reset/ ページと同じ）。
+// 開き直したあとに知らせを出すため、消したあとの sessionStorage に印を付ける（知らせを出したら、印を消す）。
+// keepStamp：QRコードを読み取った直後だったときは、そのスタンプのURLで開き直して、新しい参加者の最初のスタンプとして記録する
+const fullResetNoticeKey="full_reset_notice";
+function wipeDevice(keepStamp=""){
+  wiping=true;
+  try{ localStorage.clear(); }catch(e){ /* 保存できない設定のブラウザでは、メモリ上の記録だけが、あった */ }
+  try{ sessionStorage.clear(); sessionStorage.setItem(fullResetNoticeKey,"1"); }catch(e){ /* 知らせが出ないだけ */ }
+  memoryStore.clear();
+  location.replace(location.pathname+(keepStamp?`?stamp=${encodeURIComponent(keepStamp)}`:""));
+}
+
+// サーバー側の、この参加者の状態：{count: リセットされた回数, full: 最後の完全リセットの時点の回数, surveyDone: アンケートの回答がサーバーにあるか（旧い関数では null）}
+// 新しい関数（rally_reset_state）がまだない（SQL未実行）、または、通信に失敗したときは、旧い関数（rally_reset_count）で、回数だけを確かめる。
+async function fetchResetState(){
+  try{
+    const state=await callRpc("rally_reset_state",{p_participant_id:participantId});
+    if(state&&typeof state==="object") return {count:Number(state.reset_count),full:Number(state.full_reset_count)||0,surveyDone:state.survey_submitted===true};
+  } catch(error){
+    console.error(error);
+  }
+  return {count:Number(await callRpc("rally_reset_count",{p_participant_id:participantId})),full:0,surveyDone:null};
+}
+
 // 有効なQRコードか、初回取得か再スキャンかは、サーバー側（record_scan）で判定・記録されます。
 // 戻り値：{status:"ok"|"invalid_stamp"|"reset", claimed, claim_sequence, completed, stamps, reset_count}
 // "reset"：管理者がスタンプをリセットしたのに、この端末の記録が古い（サーバーは何も記録しない）。applyReset で端末の記録を消す。
@@ -515,12 +541,29 @@ function applyReset(serverCount,quiet=false){
   return had;
 }
 
+// サーバーが「リセット済み」と返した（record_scan が reset を返した）とき：完全リセットなら、端末の履歴をすべて消して開き直す。通常のリセットなら、スタンプの記録だけを消す。
+// 戻り値：完全リセットで、開き直す（このあとの処理は、続けない）か
+async function applyServerReset(serverCount,quiet,keepStamp=""){
+  let full=false;
+  try{ full=(await fetchResetState()).full>localResetCount(); } catch(error){ console.error(error); }
+  if(full){ wipeDevice(keepStamp); return true; }
+  applyReset(serverCount,quiet);
+  return false;
+}
+
 // 管理者によるリセットが、この端末の記録より新しくないかを、サーバーに確かめる。戻り値：リセットされていて、端末の記録を消したか
-async function syncReset(quiet=false){
+//  ・完全リセット（端末の記録より新しい完全リセットがある）：端末の履歴をすべて消して、開き直す
+//  ・通常のリセット：スタンプの記録だけを消す（「次回からは表示しない」の設定などは、残る）
+// あわせて、管理者がアンケートの回答を削除していたら（サーバーに回答がないのに、端末に「回答済み」の印がある）、印を消して、答え直せるようにする。
+async function syncReset(quiet=false,keepStamp=""){
   if(!isSupabaseConfigured()) return false;
   try{
-    const count=Number(await callRpc("rally_reset_count",{p_participant_id:participantId}));
-    if(Number.isFinite(count)&&count>localResetCount()){ applyReset(count,quiet); return true; }
+    const state=await fetchResetState();
+    if(Number.isFinite(state.count)&&state.count>localResetCount()){
+      if(state.full>localResetCount()){ wipeDevice(keepStamp); return true; }
+      applyReset(state.count,quiet); return true;
+    }
+    if(state.surveyDone===false&&store.get(surveyKey)) store.remove(surveyKey);
   } catch(error){
     console.error(error);
   }
@@ -586,7 +629,8 @@ async function recordStamp(code){
 
   if(result.status==="reset"){
     // 管理者がリセットしたあとなのに、この端末にはリセット前の記録が残っていた。消してから、このスタンプを最初の1個として記録し直す
-    applyReset(result.reset_count,true);
+    // （完全リセットだったときは、端末の履歴をすべて消して開き直す。このスタンプは、開き直したあと、新しい参加者の最初のスタンプとして記録される）
+    if(await applyServerReset(result.reset_count,true,code)) return {completed:false,failed:false};
     return recordStamp(code);
   }
   if(result.status==="invalid_stamp"){
@@ -606,7 +650,7 @@ async function resendPending(){
   let completed=false, dropped=0;
   for(const code of getPending()){
     const result=await recordServerScan(code,true);
-    if(result.status==="reset"){ applyReset(result.reset_count); return {completed:false,dropped,reset:true}; }
+    if(result.status==="reset"){ await applyServerReset(result.reset_count,false); return {completed:false,dropped,reset:true}; }
     setPending(getPending().filter(c=>c!==code));
     if(result.status==="invalid_stamp"){ removeLocalStamp(code); dropped++; continue; }
     completed=completed||result.completed===true;
@@ -687,11 +731,17 @@ async function init(){
   // QRコードの作成ツールなどで、大文字や前後の空白が入っていても、同じスタンプとして扱う
   const code=(params.get("stamp")||"").trim().toLowerCase();
   // 管理者がスタンプをリセットしていないかの確認も、並行して始める（最大2.5秒だけ待つ。リセットされていたら、端末の記録を消す）
-  const resetReady=Promise.race([syncReset(!!code),new Promise(resolve=>setTimeout(resolve,2500))]);
+  const resetReady=Promise.race([syncReset(!!code,code),new Promise(resolve=>setTimeout(resolve,2500))]);
   const current=await getLocalStamps();
   render(current);
   if(storageBlocked) $("storageNote").hidden=false;
   await resetReady;   // スタンプの記録や、未送信分の再送は、リセットの確認のあとに行う（リセット前の記録を、送り直さないように）
+  if(wiping) return;  // 完全リセットで、開き直している最中
+  // 管理者の完全リセットで、この端末の履歴がすべて消えて、開き直したあと：知らせを出す（QRを読み取ったときは、その結果を出す）
+  let fullResetNotice=false;
+  try{ fullResetNotice=sessionStorage.getItem(fullResetNoticeKey)==="1"; sessionStorage.removeItem(fullResetNoticeKey); } catch(e){ /* なし */ }
+  if(fullResetNotice&&!code) showResult({tone:"info",seal:null,kicker:"RESET",title:phrases("最初の状態に","戻しました"),
+    body:"管理者が、この端末の記録をすべてリセットしました。新しい参加者として、はじめからやり直せます。掲示板のQRコードを読み取って、集めよう！"});
   let result={completed:false,failed:false};
   if(code){
     // 再読み込みで同じ読み取りが二重に記録されないよう、URLからstampを外します。
@@ -699,6 +749,7 @@ async function init(){
     const query=params.toString();
     history.replaceState(null,"",location.pathname+(query?`?${query}`:"")+location.hash);
     result=await recordStamp(code);
+    if(wiping) return;  // 読み取り中に、完全リセットだと分かった：開き直している最中
     if(storageBlocked) $("storageNote").hidden=false;
   }
   // 獲得の演出の画面があれば、それが終わってから、ルール説明を出す（「次回からは表示しない」にした端末には、出さない）。
