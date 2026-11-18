@@ -80,10 +80,19 @@ function normalizePhone(value){
 	return /^0\d{9,10}$/.test(digits) ? digits : null;
 }
 
-prizeRequested.onchange=()=>{
+// 景品を希望する場合は、規約への同意（最後のチェックボックス）にチェックを入れるまで、「送信する」を押せない。
+// 景品を希望しない場合は、同意の欄が表示されないので、そのまま送信できる。
+function syncSubmit(){
+	submitBtn.disabled=prizeRequested.checked && !consent.checked;
+}
+function syncPrize(){
 	// disabledの間は必須チェックの対象外になります。
 	shipping.hidden=shipping.disabled=!prizeRequested.checked;
-};
+	syncSubmit();
+}
+prizeRequested.onchange=syncPrize;
+consent.onchange=syncSubmit;
+syncPrize(); // 再読み込みで、ブラウザがチェックの状態を戻した場合にも、画面とボタンの状態をそろえる
 
 // プライバシー規約：privacy.html の本文をモーダルで表示します（入力中の内容はそのまま残ります）。
 async function loadPrivacy(){
@@ -159,8 +168,8 @@ surveyForm.onsubmit=async e=>{
 		p_workshop_participation:surveyForm.elements.workshop.value||null,
 		p_privacy_version:prize ? privacyVersion : null
 	});
-	submitBtn.disabled=false;
 	submitBtn.textContent="送信する";
+	syncSubmit();
 
 	if(result.error){
 		console.error(result.error);

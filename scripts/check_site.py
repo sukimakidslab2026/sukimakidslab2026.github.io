@@ -25,6 +25,8 @@
      （ルール説明が、仮の内容のままのときは、注意として表示します）
  18. トップページ（「すきまキッズラボとは？」）：紹介文・画像・スクロールで順番に現れる動き（js/reveal.js）が、そろっているか。
      公開ページの画像の width / height が、実際の画像の大きさと同じか
+ 19. アンケート・プライバシー規約・フッター：規約の項の番号と版が正しいか（【要確認】が残っていると注意として表示）、
+     景品を希望するときに、規約への同意にチェックを入れるまで「送信する」を押せないか、フッターが小文字か
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -380,6 +382,41 @@ def check_story():
         ok(f"トップページの紹介文（段落 {n_p}・画像 {n_f}）は、すべて、スクロールで順番に現れる設定で、画像の説明（alt）・大きさ（width/height）も、そろっています")
 
 
+def check_policy():
+    """プライバシー規約（survey/privacy.html）・アンケートの同意・フッターの表記"""
+    policy, survey, js = read("survey/privacy.html"), read("survey/index.html"), read("survey/app.js")
+    problems = []
+    # 規約：項の番号が、1から順に並んでいるか。版（data-version）と、本文の「版：」が同じか
+    nums = [int(n) for n in re.findall(r"<h2>(\d+)\. ", policy)]
+    if nums != list(range(1, len(nums) + 1)) or not nums:
+        problems.append(f"survey/privacy.html: 項の番号が、1から順に並んでいません（{nums}）")
+    version = re.search(r'data-version="([^"]+)"', policy)
+    shown = re.search(r"版：([\w-]+)", policy)
+    if not version or not shown or version.group(1) != shown.group(1):
+        problems.append(f"survey/privacy.html: data-version（{version.group(1) if version else 'なし'}）と、本文の「版：」（{shown.group(1) if shown else 'なし'}）が違います")
+    # アンケート：要点の枠は削除済み。規約の全文は、同意欄のリンクから開く
+    if "privacy-summary" in survey or "個人情報の取り扱い（要点）" in survey:
+        problems.append("survey/index.html: 「個人情報の取り扱い（要点）」の枠が残っています（削除する指示です）")
+    consent = re.search(r'<label class="check consent">.*?</label>', survey, flags=re.S)
+    if not consent or "data-open-privacy" not in consent.group(0):
+        problems.append("survey/index.html: 同意の欄から、プライバシー規約の全文を開けません")
+    # 景品を希望するときは、同意にチェックを入れるまで「送信する」を押せない
+    if "submitBtn.disabled=prizeRequested.checked && !consent.checked" not in js or "consent.onchange=syncSubmit" not in js or "submitBtn.disabled=false" in js:
+        problems.append("survey/app.js: 景品を希望するとき、規約への同意にチェックを入れるまで「送信する」を押せない処理が、そろっていません")
+    # フッター：小文字
+    for rel in ("index.html", "rally/index.html"):
+        m = re.search(r'<footer class="en">([^<]*)</footer>', read(rel))
+        if not m or m.group(1) != m.group(1).lower():
+            problems.append(f"{rel}: フッターの文字が、小文字になっていません（{m.group(1) if m else 'なし'}）")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok(f"規約は {len(nums)} 項・版 {version.group(1)}、同意にチェックするまで「送信する」を押せず、フッターは小文字です")
+    todo = len(re.findall(r'<mark class="todo">', policy)) + len(re.findall(r'<mark class="todo">', survey))
+    if todo:
+        warn(f"プライバシー規約に【要確認】が {todo} か所残っています。記入したら、「下書き」の注意書き（class=\"draft-banner\"）も消してください")
+
+
 def check_sources_ignored():
     for folder in ("fish-stamp-images", "logo-banner-images", "about-images"):
         tracked = subprocess.run(["git", "ls-files", folder], cwd=ROOT, capture_output=True, text=True).stdout.strip()
@@ -591,6 +628,9 @@ def main():
 
     print("18. トップページの紹介文・画像・スクロールで現れる動き")
     check_story()
+
+    print("19. アンケート・プライバシー規約・フッター")
+    check_policy()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

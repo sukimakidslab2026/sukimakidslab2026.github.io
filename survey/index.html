@@ -5,7 +5,7 @@
 <!-- 欧文・数字：Josefin Sans Bold（Google Fonts / SIL Open Font License）。日本語：筑紫A丸ゴシック（Webフォント未契約のため、brand.css の代替フォントで表示） -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=ab3e98cf">
+<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=47b1c076">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script><script src="../js/config.js?v=aae7ba99"></script></head><body>
 <!-- 共通ヘッダー：ロゴ（トップページへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
 <header class="site-header">
@@ -39,17 +39,6 @@
 <label class="check prize"><input id="prizeRequested" type="checkbox"> 景品を希望する</label>
 <p class="note">希望する場合は、発送先の入力と、個人情報の取り扱いへの同意が必要です。希望しない場合、氏名・住所などの個人情報はお預かりしません。</p>
 <fieldset id="shipping" hidden disabled><legend>景品発送情報</legend>
-<div class="privacy-summary">
-<p class="ps-title">個人情報の取り扱い（要点）</p>
-<dl>
-<dt>運営者</dt><dd><mark class="todo">【要確認：運営者側で正式情報を入力】</mark></dd>
-<dt>収集する情報</dt><dd>氏名・郵便番号・住所・電話番号</dd>
-<dt>利用目的</dt><dd>景品の発送のため</dd>
-<dt>閲覧できる人</dt><dd>運営の担当者のみ（他の参加者や一般の方は閲覧できません）</dd>
-<dt>保管期間</dt><dd><mark class="todo">【要確認：運営者側で正式情報を入力】</mark></dd>
-</dl>
-<button type="button" class="text-button" data-open-privacy>プライバシー規約の全文を読む</button>
-</div>
 <label>氏名<input id="name" required maxlength="100" autocomplete="name"></label>
 <label>郵便番号<input id="postal" required inputmode="numeric" autocomplete="postal-code" placeholder="例：101-0032"></label>
 <label>住所<input id="address" required maxlength="300" autocomplete="street-address"></label>
@@ -64,4 +53,4 @@
 <div id="privacyContent" class="dialog-body policy" tabindex="-1" autofocus><p>読み込み中…</p></div>
 <div class="dialog-foot"><button type="button" data-close-privacy>閉じてアンケートに戻る</button></div>
 </dialog>
-<script src="app.js?v=cb39b31c"></script><script src="../js/site-nav.js?v=d37142eb"></script></body></html>
+<script src="app.js?v=0ddc1720"></script><script src="../js/site-nav.js?v=d37142eb"></script></body></html>

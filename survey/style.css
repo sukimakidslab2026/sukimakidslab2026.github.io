@@ -15,7 +15,7 @@ input[readonly]{background:var(--tint-primary-08);border-color:var(--color-line)
 select{-webkit-appearance:none;appearance:none;min-height:48px;padding-right:40px;background:var(--color-white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2330557e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 16px center}
 input:not([type=checkbox]):not([type=radio]){min-height:48px}
 button{background:var(--color-primary);border-color:var(--color-primary);color:var(--color-on-primary);font-weight:700;cursor:pointer;padding:14px}
-button:disabled{opacity:.6;cursor:wait}
+button:disabled{opacity:.6;cursor:not-allowed}
 #submitBtn{margin-top:4px;min-height:52px}
 .hint{display:block;margin-top:6px;font-size:13px;font-weight:400;color:var(--color-text-muted)}
 .note{font-size:13px;color:var(--color-text-muted);margin:0 0 14px;line-height:1.7}
@@ -40,13 +40,7 @@ legend{font-weight:700;padding:0;margin:var(--space-4) 0 10px;font-size:15px;lin
 .option:has(input:checked){border-color:var(--color-primary);background:var(--tint-accent-12)}
 .choice .note{margin:10px 0 4px}
 
-/* 個人情報の取り扱い（要点） */
-.privacy-summary{background:var(--tint-primary-08);border:2px solid var(--color-line);border-radius:var(--radius-control);padding:14px 16px;margin:4px 0 6px}
-.ps-title{margin:0 0 var(--space-2);font-weight:700;font-size:14px}
-.privacy-summary dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:13px}
-.privacy-summary dt{color:var(--color-text-muted);white-space:nowrap}
-.privacy-summary dd{margin:0}
-.text-button{width:auto;min-height:44px;margin:4px 0 -6px;padding:0;border:0;background:none;color:var(--color-primary);font-size:14px;font-weight:700;text-decoration:underline;text-decoration-color:var(--color-secondary);text-decoration-thickness:2px;text-underline-offset:3px}
+/* 個人情報の取り扱い：同意欄（規約の全文は、「プライバシー規約」のリンクから開く） */
 .inline-link{display:inline;width:auto;margin:0;padding:0;border:0;background:none;color:var(--color-primary);font-size:inherit;font-weight:700;text-decoration:underline;text-decoration-color:var(--color-secondary);text-decoration-thickness:2px;text-underline-offset:3px}
 .consent{margin-top:20px;padding:14px;border:2px solid var(--color-line);border-radius:var(--radius-control);background:var(--color-white)}
 .consent:has(input:checked){border-color:var(--color-primary);background:var(--tint-accent-12)}
