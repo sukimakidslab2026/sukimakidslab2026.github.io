@@ -32,6 +32,16 @@ button.mini{padding:6px 10px;font-size:13px;margin:0;white-space:nowrap}
 .row-actions{display:flex;gap:6px;flex-wrap:wrap}
 button.danger{background:var(--color-error);border-color:var(--color-error);color:var(--color-white)}
 button.mini.danger{background:var(--color-white);color:var(--color-error)}
+/* 表のチェックボックス（複数の参加者・回答を選んで、まとめて操作する）。タップしやすいよう、セル全体を押せる大きさにする */
+th.sel,td.sel{width:1%;padding:0}
+.selcell{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;margin:0;cursor:pointer}
+.selcell input{width:20px;height:20px;margin:0;padding:0;accent-color:var(--color-primary);cursor:pointer}
+/* 選んだものをまとめて操作するバー：選んだあと、表が長くても、画面の下に付いてくる */
+.bulkbar{position:sticky;bottom:10px;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0;padding:10px 14px;border:2px solid var(--color-primary);border-radius:var(--radius-control);background:var(--color-white);box-shadow:0 6px 18px rgba(48,85,126,.22)}
+.bulkbar[hidden]{display:none}
+.bulkbar>span{margin-right:auto;font-size:14px;font-weight:700;white-space:nowrap}
+.bulkbar button{margin:0}
+.bulkbar button:disabled{cursor:not-allowed}
 dialog{width:min(92vw,520px);padding:20px;border:2px solid var(--color-line);border-radius:var(--radius-card);background:var(--color-white);color:var(--color-text)}
 dialog::backdrop{background:rgba(48,85,126,.55)}
 dialog h3{margin:0 0 8px;font-size:18px}
@@ -44,13 +54,14 @@ tr.excluded td{color:var(--color-text-muted);background:var(--tint-primary-08)}.
 .done{color:var(--color-primary);background:var(--tint-accent-22);border-radius:var(--radius-pill);padding:1px 8px;white-space:nowrap;font-weight:700}
 /* スマートフォンでは表を横スクロールにし、日時・IDは折り返さない。ブラウザ情報の元の文字列は、PCでマウスを重ねると表示 */
 #scanBody td{white-space:nowrap}
-#participantBody td:nth-child(1),#participantBody td:nth-child(5),#participantBody td:nth-child(6),#participantBody td:nth-child(7),#participantBody td:nth-child(8),#surveyBody td:nth-child(-n+3),#shippingBody td:nth-child(-n+2){white-space:nowrap}
-#surveyBody td:nth-child(4){min-width:200px}#shippingBody td:nth-child(5){min-width:220px}
+#participantBody td:nth-child(2),#participantBody td:nth-child(6),#participantBody td:nth-child(7),#participantBody td:nth-child(8),#participantBody td:nth-child(9),#surveyBody td:nth-child(-n+4),#shippingBody td:nth-child(-n+2){white-space:nowrap}
+#surveyBody td:nth-child(5){min-width:200px}#shippingBody td:nth-child(5){min-width:220px}
 @media(max-width:700px){
  .container{padding:16px 12px}section{padding:16px 14px}
  .cards{grid-template-columns:repeat(2,1fr);gap:8px}.card{padding:12px}.card strong{font-size:24px}
  .grid2{grid-template-columns:minmax(0,1fr)}
  button.mini{min-height:40px;padding:8px 12px}
+ .bulkbar{bottom:6px;padding:8px 10px}.bulkbar>span{flex:1 0 100%}
  table{font-size:13px}
  .filters label{flex:1 1 140px}.filters input,.filters select{width:100%;min-height:40px}
 }

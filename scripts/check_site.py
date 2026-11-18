@@ -28,6 +28,8 @@
  19. アンケート・プライバシー規約・フッター：規約の項の番号と版が正しいか（【要確認】が残っていると注意として表示）、
      景品を希望するときに、規約への同意にチェックを入れるまで「送信する」を押せないか、フッターが小文字か
  20. メールアドレス：アンケートの入力欄・JavaScript・SQL（列・検査・関数の引数と権限）・管理画面の表とCSVが、そろっているか
+ 21. 管理画面の一括操作：参加者・アンケートのチェックボックス、一括の除外・リセット、アンケートの削除が、SQL（関数・管理者のみ・権限）と、画面で、そろっているか
+ 22. この端末の履歴の完全リセット（reset/）：サイトが端末に保存している履歴の名前が、すべて載っているか、消す処理・別のタブの開き直し・管理画面のリンクが、そろっているか
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -42,7 +44,7 @@ SKIP_DIRS = {".git", "node_modules", "scripts"}
 VOID = {"meta", "link", "br", "hr", "img", "input", "source", "area", "base", "col", "embed", "param", "track", "wbr", "path", "circle", "use", "rect", "stop"}
 
 INSTAGRAM_URL = "https://www.instagram.com/sukima.kids.lab/"
-PUBLIC_PAGES = ["index.html", "rally/index.html", "survey/index.html", "survey/privacy.html"]   # 共通ヘッダーを入れるページ（管理画面は除く）
+PUBLIC_PAGES = ["index.html", "rally/index.html", "survey/index.html", "survey/privacy.html", "reset/index.html"]   # 共通ヘッダーを入れるページ（管理画面は除く）
 BRAND_COLORS = {"#30557e", "#4d89b7", "#62adca", "#dec632", "#ffffff", "#fff"}      # 主色・サブ・アクセント・差し色（マスタード）・白
 TINTS = {"#ecf5f9", "#dcedf3", "#c8e2ec", "#d2e2ed", "#eef1f5", "#4f6e91", "#f8f4d6"}   # 上の色を白に重ねた色／補助の文字色（brand.css で定義）
 ADMIN_ERROR = {"#b42318", "#fdecea", "#f3b8b2"}                                     # 管理画面のエラー表示だけの例外
@@ -453,6 +455,74 @@ def check_email():
         ok("メールアドレス：入力欄（電話番号の次・必須）→ submit_survey（13引数・検査・権限）→ prize_shipping.email → 管理画面の表・CSV・規約が、そろっています")
 
 
+def check_bulk():
+    """管理画面：チェックボックスで複数選んで、まとめて除外・リセット・アンケートの削除（SQLの関数と、画面の呼び出し）"""
+    sql, adm, html, css = read("sql/schema.sql"), read("admin/app.js"), read("admin/index.html"), read("admin/style.css")
+    problems = []
+    # SQL：3つの関数は、管理者だけ（is_admin）・anonは実行できない・ログイン済みのみ。内部の関数は、誰も直接は呼べない
+    for name, sig in (("admin_set_excluded_many", "text[], boolean, text"), ("admin_reset_progress_many", "text[], boolean"), ("admin_delete_surveys", "text[]")):
+        body = re.search(rf"function public\.{name}\(.*?\n\$\$;", sql, flags=re.S)
+        if not body or "public.is_admin()" not in body.group(0) or "public.admin_clean_ids(" not in body.group(0):
+            problems.append(f"{name} が、管理者の確認（is_admin）と、IDの検査（admin_clean_ids）をしていません")
+        if not re.search(rf"revoke all on function public\.{name}\({re.escape(sig)}\) from public, anon", sql) \
+                or not re.search(rf"grant execute on function public\.{name}\({re.escape(sig)}\) to authenticated", sql):
+            problems.append(f"{name} の実行権限（anon は不可・ログイン済みのみ）が、正しくありません")
+    if not re.search(r"revoke all on function public\.admin_clean_ids\(text\[\]\) from public, anon, authenticated", sql):
+        problems.append("admin_clean_ids（内部用）が、管理画面から直接呼べる状態です")
+    clean = re.search(r"function public\.admin_clean_ids\(.*?\n\$\$;", sql, flags=re.S)
+    if not clean or "> 1000" not in clean.group(0) or "not between 4 and 64" not in clean.group(0):
+        problems.append("admin_clean_ids に、件数の上限（1000件）と、参加者IDの長さの検査がありません")
+    # 画面：RPCの呼び出し・チェックボックス・バー・ダイアログ・上限
+    for rpc in ("admin_set_excluded_many", "admin_reset_progress_many", "admin_delete_surveys"):
+        if f'"{rpc}"' not in adm:
+            problems.append(f"admin/app.js が、{rpc} を呼んでいません")
+    for needed in ('id="participantAll"', 'id="surveyAll"', 'id="participantBulk"', 'id="surveyBulk"', 'id="surveyDeleteDialog"', 'id="bulkExclude"', 'id="bulkRelease"', 'id="bulkReset"', 'id="bulkDeleteSurvey"'):
+        if needed not in html:
+            problems.append(f"admin/index.html に {needed} がありません")
+    if "BULK_LIMIT=1000" not in adm or "pruneSelection" not in adm:
+        problems.append("admin/app.js に、1回の上限（BULK_LIMIT=1000）、または、見えなくなった行を選択から外す処理（pruneSelection）がありません")
+    if not re.search(r"\.bulkbar\[hidden\]\{display:none\}", css):
+        problems.append("admin/style.css: 一括操作のバーが hidden のときに、隠れない（.bulkbar[hidden]）")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok("管理画面の一括操作：SQLの3つの関数（管理者のみ・1000件まで・まとめて1回の処理）と、チェックボックス・バー・確認の画面が、そろっています")
+
+
+def check_device_reset():
+    """この端末の履歴の完全リセット（reset/）：サイトが localStorage に保存している履歴の名前が、すべて reset/app.js に載っているか"""
+    app, html, rally, admin_html = read("reset/app.js"), read("reset/index.html"), read("rally/app.js"), read("admin/index.html")
+    problems = []
+    # サイトが保存している履歴の名前（"stamp_rally_…"）。JavaScriptのどこかに出てくるものを、すべて集める
+    used = set()
+    for rel in ("rally/app.js", "survey/app.js", "admin/app.js"):
+        used |= set(re.findall(r"[\"']((?:stamp_rally)_[a-z_]+)[\"']", read(rel)))
+    listed = set(re.findall(r'key: "([a-z_]+)"', app))
+    missing = sorted(used - listed)
+    if not used:
+        problems.append("サイトが保存している履歴の名前を、見つけられませんでした（この確認の正規表現を見直してください）")
+    if missing:
+        problems.append(f"reset/app.js の LABELS に、サイトが保存している履歴 {missing} が載っていません（消えますが、名前なしの「その他の履歴」になります）")
+    stale = sorted(listed - used)
+    if stale:
+        problems.append(f"reset/app.js の LABELS に、サイトが使っていない履歴 {stale} が載っています")
+    if "localStorage.clear()" not in app or "sessionStorage.clear()" not in app:
+        problems.append("reset/app.js が、localStorage・sessionStorage を、まるごと消していません")
+    if 'name="robots" content="noindex"' not in html:
+        problems.append("reset/index.html が、検索エンジンに載らない設定（noindex）になっていません")
+    if 'href="../reset/"' not in admin_html:
+        problems.append("admin/index.html のメニューに、reset/ へのリンクがありません")
+    if not re.search(r"addEventListener\(\"storage\",event=>\{ if\(event\.key===null\) location\.reload\(\)", rally):
+        problems.append("rally/app.js が、別のタブで履歴が消されたときに、開き直す処理（storage イベント）を持っていません")
+    for rel in ("index.html", "rally/index.html", "survey/index.html", "survey/privacy.html"):
+        if "reset/" in read(rel):
+            problems.append(f"{rel} に、reset/ へのリンクがあります（参加者の画面には、載せない決まりです）")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok(f"履歴のリセット：サイトが保存している履歴 {len(used)} 種類が、すべて reset/app.js に載っていて、まるごと消す処理・別のタブの開き直し・管理画面のリンクが、そろっています")
+
+
 def check_sources_ignored():
     for folder in ("fish-stamp-images", "logo-banner-images", "about-images"):
         tracked = subprocess.run(["git", "ls-files", folder], cwd=ROOT, capture_output=True, text=True).stdout.strip()
@@ -670,6 +740,12 @@ def main():
 
     print("20. メールアドレス（アンケート → SQL → 管理画面）")
     check_email()
+
+    print("21. 管理画面の一括操作（選んで、まとめて除外・リセット・アンケートの削除）")
+    check_bulk()
+
+    print("22. この端末の履歴の完全リセット（reset/）")
+    check_device_reset()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

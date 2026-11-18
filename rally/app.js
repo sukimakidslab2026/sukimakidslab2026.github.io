@@ -527,6 +527,10 @@ async function syncReset(quiet=false){
   return false;
 }
 
+// 別のタブで、この端末の履歴がすべて消された（reset/ ページ）ときは、このタブも開き直す
+// （開いたままだと、消えたはずの古いスタンプや参加者IDを、書き戻してしまうため）。localStorage.clear() が呼ばれたとき、storage イベントの key は null になる。
+window.addEventListener("storage",event=>{ if(event.key===null) location.reload(); });
+
 function showSurveyLink(){
   const link=document.getElementById("surveyLink");
   link.href=surveyUrl();

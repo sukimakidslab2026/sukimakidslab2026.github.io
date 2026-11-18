@@ -1158,18 +1158,156 @@ begin
 end;
 $$;
 
+-- ------------------------------------------------------------
+-- 管理画面の一括操作（参加者・アンケートを、チェックボックスで複数選んで、まとめて処理する）
+-- どれも、管理者だけが呼べる。1回の呼び出しは、1つのトランザクション：途中で失敗したら、全体を取り消す（一部だけ処理されない）。
+-- ------------------------------------------------------------
+-- 参加者IDの配列を検査して、前後の空白を取り、重複を除いて、並べ替えて返す（内部用。管理画面から直接は呼べない）。
+-- 1〜1000件。1件でも不正な参加者IDがあれば、何も処理せずに、エラーにする。
+create or replace function public.admin_clean_ids(p_ids text[])
+returns text[]
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_ids text[];
+begin
+  if p_ids is null or cardinality(p_ids) = 0 then
+    raise exception 'no participant ids';
+  end if;
+  if cardinality(p_ids) > 1000 then
+    raise exception 'too many participant ids (max 1000)';
+  end if;
+  select array_agg(distinct btrim(coalesce(x, '')) order by btrim(coalesce(x, ''))) into v_ids
+  from unnest(p_ids) as x;
+  if exists (select 1 from unnest(v_ids) as i where length(i) not between 4 and 64) then
+    raise exception 'invalid participant id';
+  end if;
+  return v_ids;
+end;
+$$;
+
+-- 参加者を、まとめて、集計から除外する（p_excluded = true）／除外を解除する（false）。戻り値は、実際に変更した人数。
+create or replace function public.admin_set_excluded_many(
+  p_participant_ids text[],
+  p_excluded boolean,
+  p_reason text default null
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ids text[];
+  v_count integer;
+begin
+  if not public.is_admin() then
+    raise exception 'admin only' using errcode = '42501';
+  end if;
+  v_ids := public.admin_clean_ids(p_participant_ids);
+
+  if coalesce(p_excluded, false) then
+    with added as (
+      insert into public.excluded_participants (participant_id, reason)
+      select i, left(nullif(btrim(coalesce(p_reason, '')), ''), 200) from unnest(v_ids) as i
+      on conflict (participant_id) do nothing
+      returning 1
+    )
+    select count(*)::integer into v_count from added;
+  else
+    with removed as (
+      delete from public.excluded_participants where participant_id = any (v_ids) returning 1
+    )
+    select count(*)::integer into v_count from removed;
+  end if;
+  return v_count;
+end;
+$$;
+
+-- 参加者のスタンプを、まとめて、0個に戻す（admin_reset_progress を、参加者ごとに実行する。端末が自分で記録を消すしくみも、同じ）。
+-- 戻り値：{participants（処理した人数）, stamps, scans, surveys（削除した数の合計）}
+create or replace function public.admin_reset_progress_many(
+  p_participant_ids text[],
+  p_delete_survey boolean default false
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ids text[];
+  v_id text;
+  v_one jsonb;
+  v_stamps integer := 0;
+  v_scans integer := 0;
+  v_surveys integer := 0;
+begin
+  if not public.is_admin() then
+    raise exception 'admin only' using errcode = '42501';
+  end if;
+  v_ids := public.admin_clean_ids(p_participant_ids);   -- 並べ替え済み：同時に別の一括操作があっても、ロックの順番が同じなので、行き詰まらない
+
+  foreach v_id in array v_ids loop
+    v_one := public.admin_reset_progress(v_id, coalesce(p_delete_survey, false));
+    v_stamps := v_stamps + (v_one ->> 'stamps')::integer;
+    v_scans := v_scans + (v_one ->> 'scans')::integer;
+    v_surveys := v_surveys + (v_one ->> 'surveys')::integer;
+  end loop;
+
+  return jsonb_build_object('participants', cardinality(v_ids), 'stamps', v_stamps, 'scans', v_scans, 'surveys', v_surveys);
+end;
+$$;
+
+-- アンケートの回答を、参加者ごとに削除する（景品の発送先（個人情報）も、回答に連動して削除される。元に戻せない）。
+-- スタンプ・読み取り履歴・除外の設定は、そのまま残る。サーバーの記録だけを消すので、回答済みの端末の「回答済み」の印は、残る。
+-- 戻り値：{surveys（削除した回答の数）, shipping（削除した発送先の数）}
+create or replace function public.admin_delete_surveys(p_participant_ids text[])
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ids text[];
+  v_shipping integer;
+  v_surveys integer;
+begin
+  if not public.is_admin() then
+    raise exception 'admin only' using errcode = '42501';
+  end if;
+  v_ids := public.admin_clean_ids(p_participant_ids);
+
+  select count(*)::integer into v_shipping from public.prize_shipping where participant_id = any (v_ids);
+  with gone as (
+    delete from public.survey_responses where participant_id = any (v_ids) returning 1
+  )
+  select count(*)::integer into v_surveys from gone;
+
+  return jsonb_build_object('surveys', v_surveys, 'shipping', v_shipping);
+end;
+$$;
+
 revoke all on function public.admin_stats() from public, anon;
 revoke all on function public.admin_set_fish_order(text[]) from public, anon;
 revoke all on function public.admin_reset_progress(text, boolean) from public, anon;
 revoke all on function public.admin_set_excluded(text, boolean, text) from public, anon;
 revoke all on function public.admin_exclude_before(timestamptz, text) from public, anon;
 revoke all on function public.admin_clear_excluded() from public, anon;
+revoke all on function public.admin_clean_ids(text[]) from public, anon, authenticated;
+revoke all on function public.admin_set_excluded_many(text[], boolean, text) from public, anon;
+revoke all on function public.admin_reset_progress_many(text[], boolean) from public, anon;
+revoke all on function public.admin_delete_surveys(text[]) from public, anon;
 grant execute on function public.admin_stats() to authenticated;
 grant execute on function public.admin_set_fish_order(text[]) to authenticated;
 grant execute on function public.admin_reset_progress(text, boolean) to authenticated;
 grant execute on function public.admin_set_excluded(text, boolean, text) to authenticated;
 grant execute on function public.admin_exclude_before(timestamptz, text) to authenticated;
 grant execute on function public.admin_clear_excluded() to authenticated;
+grant execute on function public.admin_set_excluded_many(text[], boolean, text) to authenticated;
+grant execute on function public.admin_reset_progress_many(text[], boolean) to authenticated;
+grant execute on function public.admin_delete_surveys(text[]) to authenticated;
 
 -- ============================================================
 -- 9. Supabaseのダッシュボード（Table Editor）で読みやすくするための日本語ビュー
@@ -1256,6 +1394,9 @@ comment on function public.admin_set_fish_order(text[]) is '魚が増えてい�
 comment on table public.participant_resets is '管理者が参加者のスタンプをリセットした回数。参加者の端末が、自分の記録を消すかどうかの判断に使う。参加者は rally_reset_count()、管理者は admin_reset_progress() で読み書きする';
 comment on function public.rally_reset_count(text) is '参加者のスタンプが、管理者にリセットされた回数（なければ 0）。誰でも呼べる';
 comment on function public.admin_reset_progress(text, boolean) is '参加者のスタンプと読み取り履歴を削除して、0個に戻す（管理者のみ）。第2引数が true なら、アンケートの回答・発送先も削除する';
+comment on function public.admin_set_excluded_many(text[], boolean, text) is '参加者をまとめて、除外する／除外を解除する（管理者のみ。1000人まで）。戻り値は、変更した人数';
+comment on function public.admin_reset_progress_many(text[], boolean) is '参加者のスタンプを、まとめて0個に戻す（管理者のみ。1000人まで）。第2引数が true なら、アンケートの回答・発送先も削除する';
+comment on function public.admin_delete_surveys(text[]) is 'アンケートの回答と、景品の発送先（個人情報）を、参加者ごとに削除する（管理者のみ。1000人まで。元に戻せない）';
 comment on table public.survey_responses is 'アンケートの回答（個人情報は含まない）。発送先は prize_shipping';
 comment on column public.survey_responses.participant_id is '参加者ID（stamp_claims・scan_events と同じ）';
 comment on column public.survey_responses.memorable_spot is '【廃止】印象に残ったスポット（旧版の6か所の名前）。この版では保存しない';

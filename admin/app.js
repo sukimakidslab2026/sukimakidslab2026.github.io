@@ -49,7 +49,7 @@ function loginErrorMessage(error){
 }
 function dbHint(error){
  const m=String(error?.message||error);
- return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|rally_config|admin_set_fish_order|rally_settings|admin_reset_progress|participant_resets|schema cache|does not exist/.test(m)
+ return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|rally_config|admin_set_fish_order|rally_settings|admin_reset_progress|admin_delete_surveys|participant_resets|schema cache|does not exist/.test(m)
   ?`${m}（Supabaseで最新の sql/schema.sql を実行したか確認してください）`:m;
 }
 
@@ -75,6 +75,36 @@ async function enter(){
 // 除外した参加者を表示するか（オフのときは、表・一覧から隠す）
 const visible=id=>$("showExcluded").checked||!excludedIds.has(id);
 const badge=excluded=>excluded?` <span class="badge">除外</span>`:"";
+
+// ---- 表のチェックボックス：複数の参加者・回答を選んで、まとめて操作する ----
+// 選べるのは、いま表に表示されている行だけ（絞り込みなどで見えなくなった行は、選択から外れる：見えていない行を、うっかり操作しない）。
+// 自動更新で表を描き直しても、選択は保たれる。参加者の選択とアンケートの選択は、同時には持たない（画面の下のバーが重ならないように）。
+const BULK_LIMIT=1000; // サーバー側（admin_clean_ids）の、1回の上限
+const selectedParticipants=new Set(),selectedSurveys=new Set();
+let visibleParticipantIds=[],visibleSurveyIds=[],bulkBusy=false;
+const checkCell=(set,id,label)=>`<td class="sel"><label class="selcell"><input type="checkbox" data-select="${esc(id)}" aria-label="${esc(label)}"${set.has(id)?" checked":""}></label></td>`;
+function pruneSelection(set,visibleIds){const keep=new Set(visibleIds);for(const id of [...set])if(!keep.has(id))set.delete(id);}
+function syncSelectAll(box,set,visibleIds){ // 見出しのチェックボックス：すべて／一部／なし
+ const n=visibleIds.filter(id=>set.has(id)).length;
+ box.checked=visibleIds.length>0&&n===visibleIds.length;box.indeterminate=n>0&&n<visibleIds.length;box.disabled=!visibleIds.length;
+}
+const idSummary=ids=>ids.length<=5?ids.map(esc).join("、"):`${ids.slice(0,5).map(esc).join("、")} ほか${ids.length-5}人`;
+function updateParticipantBar(){
+ const ids=[...selectedParticipants],toExclude=ids.filter(id=>!excludedIds.has(id)).length,toRelease=ids.length-toExclude;
+ $("participantBulk").hidden=!ids.length;
+ $("participantSelected").textContent=ids.length;
+ $("bulkExclude").textContent=`除外する（${toExclude}人）`;$("bulkExclude").disabled=bulkBusy||!toExclude;
+ $("bulkRelease").textContent=`除外を解除（${toRelease}人）`;$("bulkRelease").disabled=bulkBusy||!toRelease;
+ $("bulkReset").disabled=bulkBusy;$("bulkClearParticipants").disabled=bulkBusy;
+ syncSelectAll($("participantAll"),selectedParticipants,visibleParticipantIds);
+}
+function updateSurveyBar(){
+ $("surveyBulk").hidden=!selectedSurveys.size;
+ $("surveySelected").textContent=selectedSurveys.size;
+ $("bulkDeleteSurvey").disabled=bulkBusy;$("bulkClearSurveys").disabled=bulkBusy;
+ syncSelectAll($("surveyAll"),selectedSurveys,visibleSurveyIds);
+}
+function setBulkBusy(flag){bulkBusy=flag;updateParticipantBar();updateSurveyBar();}
 
 async function loadDashboard(silent=false){
  if(loading)return;
@@ -138,7 +168,9 @@ function renderParticipants(){
   &&(!q||p.participant_id.toUpperCase().includes(q))
   &&(status===""||(status==="done")===p.completed));
  $("participantCount").textContent=`${list.length}人`;
+ visibleParticipantIds=list.map(p=>p.participant_id);pruneSelection(selectedParticipants,visibleParticipantIds);
  $("participantBody").innerHTML=list.map(p=>`<tr class="${p.is_excluded?"excluded":""}">
+  ${checkCell(selectedParticipants,p.participant_id,`参加者 ${p.participant_id} を選択`)}
   <td>${esc(p.participant_id)}${badge(p.is_excluded)}</td>
   <td>${p.completed?`<span class="done">コンプリート</span>`:"途中"}</td>
   <td>${p.stamps}個</td>
@@ -147,7 +179,8 @@ function renderParticipants(){
   <td>${p.total_scans}（${p.rescans}）</td><td>${esc(p.device)}</td>
   <td><span class="row-actions"><button class="mini${p.is_excluded?" secondary":""}" data-exclude="${esc(p.participant_id)}" data-to="${p.is_excluded?"0":"1"}">${p.is_excluded?"除外を解除":"除外"}</button>
   <button class="mini danger" data-reset="${esc(p.participant_id)}" aria-label="参加者 ${esc(p.participant_id)} のスタンプをリセット">リセット</button></span></td></tr>`).join("")
-  ||`<tr><td colspan="9" class="muted">該当する参加者はいません。</td></tr>`;
+  ||`<tr><td colspan="10" class="muted">該当する参加者はいません。</td></tr>`;
+ updateParticipantBar();
 }
 
 // 日付の入力（YYYY-MM-DD）を、日本時間のその日の0時として扱う
@@ -190,10 +223,12 @@ function filteredSurveys(){
 function renderSurveys(){
  const list=filteredSurveys(),shipIds=new Set(shipping.map(s=>s.participant_id));
  $("surveyCount").textContent=`${list.length}件`;
- $("surveyBody").innerHTML=list.map(x=>`<tr class="${excludedIds.has(x.participant_id)?"excluded":""}"><td>${fmt(x.submitted_at)}</td><td>${esc(x.participant_id)}${badge(excludedIds.has(x.participant_id))}</td><td>${x.satisfaction??""}</td>
+ visibleSurveyIds=list.map(x=>x.participant_id);pruneSelection(selectedSurveys,visibleSurveyIds);
+ $("surveyBody").innerHTML=list.map(x=>`<tr class="${excludedIds.has(x.participant_id)?"excluded":""}">${checkCell(selectedSurveys,x.participant_id,`参加者 ${x.participant_id} の回答を選択`)}<td>${fmt(x.submitted_at)}</td><td>${esc(x.participant_id)}${badge(excludedIds.has(x.participant_id))}</td><td>${x.satisfaction??""}</td>
   <td>${esc(x.comment)}</td><td>${esc(workshopName(x.workshop_participation))}</td><td>${x.prize_requested?"希望":"—"}</td>
   <td>${shipIds.has(x.participant_id)?"登録あり":"—"}</td></tr>`).join("")
-  ||`<tr><td colspan="7" class="muted">該当する回答はありません。</td></tr>`;
+  ||`<tr><td colspan="8" class="muted">該当する回答はありません。</td></tr>`;
+ updateSurveyBar();
 }
 
 // Excelで開いたときに先頭の0が消えないよう、ハイフン区切りにします（区切り位置は目安）。
@@ -251,34 +286,47 @@ $("csvSurveyBtn").onclick=()=>exportCsv($("csvSurveyBtn"),async()=>{
 // その参加者の「取得したスタンプ」と「読み取り履歴」を削除して、0個に戻す。参加者の端末は、次に開いたとき（または次にQRを読み取ったとき）に、0個に戻る。
 // アンケートの回答（景品の発送先を含む）は、残す。回答済みの参加者では、確認の画面で、回答も削除するかを選べる。
 const resetDialog=$("resetDialog");
-let resetTarget="";
-function openReset(id){
- const p=participants.find(x=>x.participant_id===id);
- const hasSurvey=surveys.some(s=>s.participant_id===id);
- resetTarget=id;
- $("resetBody").innerHTML=`<p>参加者 <strong>${esc(id)}</strong> のスタンプを、0個に戻します。</p><ul>
-  <li>取得済みのスタンプ ${p?p.stamps:0}個と、読み取り履歴 ${p?p.total_scans:0}件を削除します（<strong>元に戻せません</strong>）。</li>
-  <li>この参加者の端末は、次にページを開いたとき（または次にQRコードを読み取ったとき）に、0個に戻ります。</li>
+let resetTargets=[];
+function openReset(ids){
+ const rows=ids.map(id=>participants.find(x=>x.participant_id===id));
+ const stamps=rows.reduce((n,p)=>n+(p?p.stamps:0),0),scans=rows.reduce((n,p)=>n+(p?p.total_scans:0),0);
+ const withSurvey=ids.filter(id=>surveys.some(s=>s.participant_id===id)).length,many=ids.length>1;
+ resetTargets=ids;
+ $("resetBody").innerHTML=`<p>${many?`選択した <strong>${ids.length}人</strong>`:`参加者 <strong>${esc(ids[0])}</strong>`} のスタンプを、0個に戻します。</p><ul>
+  ${many?`<li>対象：${idSummary(ids)}</li>`:""}
+  <li>取得済みのスタンプ ${stamps}個と、読み取り履歴 ${scans}件を削除します（<strong>元に戻せません</strong>）。</li>
+  <li>${many?"これらの参加者の端末は":"この参加者の端末は"}、次にページを開いたとき（または次にQRコードを読み取ったとき）に、0個に戻ります。</li>
   <li>除外の設定は、そのまま残ります。</li>
-  <li>${hasSurvey?"アンケートの回答と景品の発送先は、残します（下の項目を選ぶと、削除します）。":"この参加者は、アンケートに回答していません。"}</li></ul>`;
- $("resetSurveyRow").hidden=!hasSurvey;$("resetSurvey").checked=false;
+  <li>${withSurvey?(many?`アンケートに回答済みの参加者が ${withSurvey}人 います。回答と景品の発送先は、残します（下の項目を選ぶと、削除します）。`:"アンケートの回答と景品の発送先は、残します（下の項目を選ぶと、削除します）。"):(many?"アンケートに回答済みの参加者は、いません。":"この参加者は、アンケートに回答していません。")}</li></ul>`;
+ $("resetSurveyRow").hidden=!withSurvey;$("resetSurvey").checked=false;
  resetDialog.returnValue="";
  if(typeof resetDialog.showModal==="function")resetDialog.showModal();
- else if(confirm(`参加者 ${id} のスタンプを0個に戻します。元に戻せません。よろしいですか？`)){resetDialog.returnValue="ok";doReset();}
+ else if(confirm(`${many?`選択した ${ids.length}人`:`参加者 ${ids[0]}`} のスタンプを0個に戻します。元に戻せません。よろしいですか？`)){resetDialog.returnValue="ok";doReset();}
 }
 async function doReset(){
- const id=resetTarget,withSurvey=!$("resetSurveyRow").hidden&&$("resetSurvey").checked;
- if(!id)return;
- const {data,error}=await db.rpc("admin_reset_progress",{p_participant_id:id,p_delete_survey:withSurvey});
- if(error){console.error(error);return notify(`リセットできませんでした：${dbHint(error)}`,true);}
- notify(`${id} のスタンプをリセットしました（スタンプ${data.stamps}個・読み取り履歴${data.scans}件${withSurvey?`・アンケート${data.surveys}件`:""}を削除）。`);
+ const ids=resetTargets,withSurvey=!$("resetSurveyRow").hidden&&$("resetSurvey").checked;
+ if(!ids.length)return;
+ if(ids.length===1){
+  const id=ids[0];
+  const {data,error}=await db.rpc("admin_reset_progress",{p_participant_id:id,p_delete_survey:withSurvey});
+  if(error){console.error(error);return notify(`リセットできませんでした：${dbHint(error)}`,true);}
+  notify(`${id} のスタンプをリセットしました（スタンプ${data.stamps}個・読み取り履歴${data.scans}件${withSurvey?`・アンケート${data.surveys}件`:""}を削除）。`);
+ }else{
+  if(ids.length>BULK_LIMIT)return notify(`一度に処理できるのは、${BULK_LIMIT}人までです（いま ${ids.length}人）。`,true);
+  setBulkBusy(true);
+  const {data,error}=await db.rpc("admin_reset_progress_many",{p_participant_ids:ids,p_delete_survey:withSurvey});
+  setBulkBusy(false);
+  if(error){console.error(error);return notify(`リセットできませんでした：${dbHint(error)}`,true);}
+  selectedParticipants.clear();
+  notify(`${data.participants}人のスタンプをリセットしました（スタンプ${data.stamps}個・読み取り履歴${data.scans}件${withSurvey?`・アンケート${data.surveys}件`:""}を削除）。`);
+ }
  await loadDashboard(true);
 }
 resetDialog.addEventListener("close",()=>{if(resetDialog.returnValue==="ok")doReset();});
 
 // ---- テスト参加者の除外 ----
 $("participantBody").onclick=async e=>{
- const r=e.target.closest("button[data-reset]");if(r)return openReset(r.dataset.reset);
+ const r=e.target.closest("button[data-reset]");if(r)return openReset([r.dataset.reset]);
  const b=e.target.closest("button[data-exclude]");if(!b)return;
  const id=b.dataset.exclude,flag=b.dataset.to==="1";
  if(flag&&!confirm(`参加者 ${id} を、集計・CSV・スプレッドシートから除外します。\n（データは削除されず、いつでも解除できます）`))return;
@@ -288,6 +336,93 @@ $("participantBody").onclick=async e=>{
  notify(flag?`${id} を除外しました。`:`${id} の除外を解除しました。`);
  await loadDashboard(true);
 };
+
+// ---- 選んだ参加者・回答を、まとめて操作する ----
+$("participantBody").addEventListener("change",e=>{
+ const c=e.target.closest("input[data-select]");if(!c)return;
+ if(c.checked)selectedParticipants.add(c.dataset.select);else selectedParticipants.delete(c.dataset.select);
+ if(selectedSurveys.size){selectedSurveys.clear();renderSurveys();}
+ updateParticipantBar();
+});
+$("surveyBody").addEventListener("change",e=>{
+ const c=e.target.closest("input[data-select]");if(!c)return;
+ if(c.checked)selectedSurveys.add(c.dataset.select);else selectedSurveys.delete(c.dataset.select);
+ if(selectedParticipants.size){selectedParticipants.clear();renderParticipants();}
+ updateSurveyBar();
+});
+$("participantAll").onchange=e=>{
+ for(const id of visibleParticipantIds){if(e.target.checked)selectedParticipants.add(id);else selectedParticipants.delete(id);}
+ if(e.target.checked)selectedSurveys.clear();
+ renderParticipants();renderSurveys();
+};
+$("surveyAll").onchange=e=>{
+ for(const id of visibleSurveyIds){if(e.target.checked)selectedSurveys.add(id);else selectedSurveys.delete(id);}
+ if(e.target.checked)selectedParticipants.clear();
+ renderParticipants();renderSurveys();
+};
+$("bulkClearParticipants").onclick=()=>{selectedParticipants.clear();renderParticipants();};
+$("bulkClearSurveys").onclick=()=>{selectedSurveys.clear();renderSurveys();};
+async function bulkExclude(flag){
+ // すでにその状態の人（除外済みの人を、もう一度除外、など）は、対象に含めない
+ const ids=[...selectedParticipants].filter(id=>excludedIds.has(id)!==flag);
+ if(!ids.length||bulkBusy)return;
+ if(ids.length>BULK_LIMIT)return notify(`一度に処理できるのは、${BULK_LIMIT}人までです（いま ${ids.length}人）。`,true);
+ if(flag&&!confirm(`選択した ${ids.length}人 を、集計・CSV・スプレッドシートから除外します。\n（データは削除されず、いつでも解除できます）`))return;
+ setBulkBusy(true);
+ const {data,error}=await db.rpc("admin_set_excluded_many",{p_participant_ids:ids,p_excluded:flag,p_reason:"管理画面から一括で設定"});
+ setBulkBusy(false);
+ if(error){console.error(error);return notify(`${flag?"除外":"除外の解除"}できませんでした：${dbHint(error)}`,true);}
+ selectedParticipants.clear();
+ notify(flag?`${data}人を除外しました。`:`${data}人の除外を解除しました。`);
+ await loadDashboard(true);
+}
+$("bulkExclude").onclick=()=>bulkExclude(true);
+$("bulkRelease").onclick=()=>bulkExclude(false);
+$("bulkReset").onclick=()=>{
+ const ids=[...selectedParticipants];
+ if(!ids.length||bulkBusy)return;
+ if(ids.length>BULK_LIMIT)return notify(`一度に処理できるのは、${BULK_LIMIT}人までです（いま ${ids.length}人）。`,true);
+ openReset(ids);
+};
+
+// ---- アンケートの回答の削除 ----
+// 回答（満足度・自由記述など）と、景品の発送先（個人情報）を、参加者ごとに削除する。参加者のスタンプ・読み取り履歴・除外は、残る。
+// サーバーの記録だけを消すので、回答済みの端末の「回答済み」の印は、残る（その端末では、アンケートに答え直せない）。
+const surveyDeleteDialog=$("surveyDeleteDialog");
+let surveyDeleteTargets=[];
+function openSurveyDelete(ids){
+ const shipN=ids.filter(id=>shipping.some(x=>x.participant_id===id)).length;
+ surveyDeleteTargets=ids;
+ $("surveyDeleteBody").innerHTML=`<p>選択した <strong>${ids.length}件</strong> のアンケートの回答を削除します。</p><ul>
+  <li>対象：${idSummary(ids)}</li>
+  <li>満足度・自由記述・ワークショップの回答と、景品の発送先（氏名・住所・電話番号・メールアドレス）${shipN}件を削除します（<strong>元に戻せません</strong>。必要なら、先にCSVを保存してください）。</li>
+  <li>参加者のスタンプ・読み取り履歴・除外の設定は、そのまま残ります。</li>
+  <li>回答済みの端末には、「回答済み」の印が残るため、その端末では、アンケートに答え直せません（答え直してもらうときは、参加者の「リセット」で「アンケートの回答も削除する」を選びます。スタンプも0個に戻ります）。</li>
+  <li>スプレッドシートにも、次の同期で反映されます。</li></ul>`;
+ surveyDeleteDialog.returnValue="";
+ if(typeof surveyDeleteDialog.showModal==="function")surveyDeleteDialog.showModal();
+ else if(confirm(`選択した ${ids.length}件 のアンケートの回答（景品の発送先を含む）を削除します。元に戻せません。よろしいですか？`)){surveyDeleteDialog.returnValue="ok";doDeleteSurveys();}
+}
+async function doDeleteSurveys(){
+ const ids=surveyDeleteTargets;
+ if(!ids.length||bulkBusy)return;
+ if(ids.length>BULK_LIMIT)return notify(`一度に処理できるのは、${BULK_LIMIT}件までです（いま ${ids.length}件）。`,true);
+ setBulkBusy(true);
+ const {data,error}=await db.rpc("admin_delete_surveys",{p_participant_ids:ids});
+ setBulkBusy(false);
+ if(error){console.error(error);return notify(`削除できませんでした：${dbHint(error)}`,true);}
+ selectedSurveys.clear();
+ notify(`アンケートの回答${data.surveys}件を削除しました（景品の発送先${data.shipping}件を含む）。`);
+ await loadDashboard(true);
+}
+$("bulkDeleteSurvey").onclick=()=>{
+ const ids=[...selectedSurveys];
+ if(!ids.length||bulkBusy)return;
+ if(ids.length>BULK_LIMIT)return notify(`一度に処理できるのは、${BULK_LIMIT}件までです（いま ${ids.length}件）。`,true);
+ openSurveyDelete(ids);
+};
+surveyDeleteDialog.addEventListener("close",()=>{if(surveyDeleteDialog.returnValue==="ok")doDeleteSurveys();});
+
 $("excludeBeforeBtn").onclick=async()=>{
  const value=$("excludeBefore").value;
  if(!value)return notify("日時を入力してください。",true);

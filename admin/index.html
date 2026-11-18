@@ -3,7 +3,7 @@
 <title>QRスタンプラリー 管理画面</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=b12784c8">
+<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=91dbdfb7">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="../js/config.js?v=aae7ba99"></script>
 <script src="../js/fish-data.js?v=df730605"></script><script src="../js/fish.js?v=cd62bab2"></script></head><body>
@@ -21,6 +21,7 @@
 <div class="menu-cards">
 <a class="menu-card" href="#survey"><strong>アンケート・集計</strong><span>参加者・QR読み込み履歴・アンケートの回答・景品の発送先・CSVの書き出し・テストデータの除外</span></a>
 <a class="menu-card" href="#stamps"><strong>スタンプ設定</strong><span>魚が増えていく順番を決める。保存すると、参加者の画面に、すぐに反映されます</span></a>
+<a class="menu-card" href="../reset/"><strong>この端末の履歴を消す</strong><span>この端末のブラウザに保存された、サイトの履歴（参加者ID・スタンプ・「次回からは表示しない」の設定・管理者のログイン情報など）を、すべて消して、はじめて開いたときの状態に戻す（動作確認用）</span></a>
 </div>
 <p><button id="logoutBtnMenu" class="secondary">ログアウト</button></p>
 </section>
@@ -61,12 +62,20 @@
 </details>
 
 <h2>参加者 <span class="count" id="participantCount"></span></h2>
-<p class="note">「リセット」は、その参加者のスタンプを0個に戻します（テストで集めたスタンプを消したいときや、最初からやり直してもらうときに使います）。集計から外すだけなら、「除外」を使います。</p>
+<p class="note">「リセット」は、その参加者のスタンプを0個に戻します（テストで集めたスタンプを消したいときや、最初からやり直してもらうときに使います）。集計から外すだけなら、「除外」を使います。
+<strong>左のチェックボックスで、複数の参加者を選ぶと、画面の下に、まとめて「除外」「リセット」するボタンが出ます</strong>（見出しのチェックボックスで、表示中の参加者をすべて選べます）。</p>
 <div class="filters">
 <label>検索<input id="participantSearch" placeholder="参加者ID（部分一致）"></label>
 <label>状態<select id="participantStatus"><option value="">すべて</option><option value="done">コンプリート</option><option value="going">途中</option></select></label>
 </div>
-<div class="table-wrap"><table><thead><tr><th>参加者ID</th><th>状態</th><th>獲得数</th><th>取得ルート（順番・初回取得時刻）</th><th>最初の読み取り</th><th>最後の読み取り</th><th>読み取り（うち再）</th><th>端末</th><th>操作</th></tr></thead><tbody id="participantBody"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th class="sel"><label class="selcell"><input type="checkbox" id="participantAll" aria-label="表示中の参加者を、すべて選択"></label></th><th>参加者ID</th><th>状態</th><th>獲得数</th><th>取得ルート（順番・初回取得時刻）</th><th>最初の読み取り</th><th>最後の読み取り</th><th>読み取り（うち再）</th><th>端末</th><th>操作</th></tr></thead><tbody id="participantBody"></tbody></table></div>
+<div id="participantBulk" class="bulkbar" role="region" aria-label="選択した参加者のまとめての操作" hidden>
+<span>選択中：<strong id="participantSelected">0</strong>人</span>
+<button id="bulkExclude" class="mini">除外する</button>
+<button id="bulkRelease" class="mini secondary">除外を解除</button>
+<button id="bulkReset" class="mini danger">リセット…</button>
+<button id="bulkClearParticipants" class="mini secondary">選択を解除</button>
+</div>
 
 <details class="box" id="excludeTools"><summary>テストデータの除外（動作確認で読み取ったデータなど）</summary>
 <p class="note">除外した参加者は、集計・CSV・スプレッドシートから外れます。データは削除されないので、いつでも元に戻せます。参加者ごとの「除外」ボタンのほか、次の操作でまとめて除外できます。</p>
@@ -90,13 +99,19 @@
 <button id="moreScansBtn" class="secondary" hidden>さらに読み込む</button>
 
 <h2>アンケート <span class="count" id="surveyCount"></span></h2>
+<p class="note">不要な回答（テストの回答や、参加者から削除を求められた回答）は、左のチェックボックスで選んで、画面の下の「選択した回答を削除」で削除できます（景品の発送先も、いっしょに削除されます。<strong>元に戻せません</strong>）。</p>
 <div class="filters">
 <label>景品<select id="surveyPrize"><option value="">すべて</option><option value="yes">希望</option><option value="no">希望しない</option></select></label>
 <label>ワークショップ<select id="surveyWorkshop"><option value="">すべて</option><option value="attended">参加した</option><option value="not_attended">参加していない</option><option value="unsure">わからない／覚えていない</option><option value="none">未回答</option></select></label>
 <label>期間（から）<input type="date" id="surveyFrom"></label>
 <label>期間（まで）<input type="date" id="surveyTo"></label>
 </div>
-<div class="table-wrap"><table><thead><tr><th>回答日時</th><th>参加者ID</th><th>満足度</th><th>自由記述</th><th>ワークショップ</th><th>景品</th><th>発送先</th></tr></thead><tbody id="surveyBody"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th class="sel"><label class="selcell"><input type="checkbox" id="surveyAll" aria-label="表示中の回答を、すべて選択"></label></th><th>回答日時</th><th>参加者ID</th><th>満足度</th><th>自由記述</th><th>ワークショップ</th><th>景品</th><th>発送先</th></tr></thead><tbody id="surveyBody"></tbody></table></div>
+<div id="surveyBulk" class="bulkbar" role="region" aria-label="選択した回答のまとめての操作" hidden>
+<span>選択中：<strong id="surveySelected">0</strong>件</span>
+<button id="bulkDeleteSurvey" class="mini danger">選択した回答を削除…</button>
+<button id="bulkClearSurveys" class="mini secondary">選択を解除</button>
+</div>
 
 <details class="box" id="shippingBox"><summary>景品発送先（個人情報）— 開くと表示されます</summary>
 <p class="note">氏名・住所・電話番号・メールアドレスを含みます。周囲に画面が見えない状況で開いてください。</p>
@@ -142,4 +157,13 @@
 <label id="resetSurveyRow" class="toggle" hidden><input type="checkbox" id="resetSurvey"> アンケートの回答（景品の発送先を含む）も削除する</label>
 <div class="dialog-actions"><button type="submit" value="ok" class="danger">リセットする</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
 </form>
-</dialog></main><script src="app.js?v=a27ba0f6"></script></body></html>
+</dialog>
+
+<!-- アンケートの回答の削除：確認（景品の発送先も、いっしょに削除される。元に戻せない） -->
+<dialog id="surveyDeleteDialog" aria-labelledby="surveyDeleteTitle">
+<form method="dialog">
+<h3 id="surveyDeleteTitle">アンケートの回答を削除しますか？</h3>
+<div id="surveyDeleteBody" class="note"></div>
+<div class="dialog-actions"><button type="submit" value="ok" class="danger">削除する</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
+</form>
+</dialog></main><script src="app.js?v=fbb6d8db"></script></body></html>
