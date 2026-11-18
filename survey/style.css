@@ -23,6 +23,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .check{display:flex;gap:10px;align-items:flex-start;font-weight:400}
 .check input{flex:none;width:22px;height:22px;margin:1px 0 0;accent-color:var(--color-primary)}
 .prize{font-weight:700;font-size:16px;margin:var(--space-3) 0 6px;padding:var(--space-3) 14px;min-height:48px;align-items:center;border:2px solid var(--color-line);border-radius:var(--radius-control);background:var(--color-white);cursor:pointer}
+.prize-help{margin:8px 0 10px}
 .prize:has(input:checked){border-color:var(--color-primary);background:var(--tint-accent-12)}
 .prize input{margin:0}
 

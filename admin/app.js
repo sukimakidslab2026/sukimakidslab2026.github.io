@@ -490,8 +490,8 @@ $("moreScansBtn").onclick=async()=>{
  $("moreScansBtn").disabled=false;
 };
 
-// ---- スタンプ設定：魚が増えていく順番 ----
-// スタンプを1個取るごとに、上から順番に、魚が1種類ずつ川に現れる。保存すると、参加者の画面が次に開かれたときから、新しい順番で表示される。
+// ---- スタンプ設定：お魚が増えていく順番 ----
+// スタンプを1個取るごとに、上から順番に、お魚が1種類ずつ川に現れる。保存すると、参加者の画面が次に開かれたときから、新しい順番で表示される。
 const Fish=window.RallyFish,FISH=Fish.fish;
 let fishSaved=null,fishDraft=null,fishStage=3,fishRequired=3,fishSavedAt="";
 const fishDirty=()=>!!fishDraft&&fishDraft.join()!==fishSaved.join();
@@ -520,13 +520,13 @@ function renderFishEditor(){
    <span class="fish-thumb"><img src="${esc(Fish.url(f.stamp))}" width="${f.width}" height="${f.height}" alt=""></span>
    <span class="fish-name">${esc(f.name)}</span>
    <span class="fish-btns"><button type="button" class="secondary" data-move="up" data-key="${key}" aria-label="${esc(f.name)}を1つ前にする"${i===0?" disabled":""}>▲</button><button type="button" class="secondary" data-move="down" data-key="${key}" aria-label="${esc(f.name)}を1つ後ろにする"${i===last?" disabled":""}>▼</button></span></li>`
-  +(i===fishRequired-1?`<li class="fish-line" aria-hidden="true"><span>ここまでの${fishRequired}個で、景品を希望できます</span></li>`:"");
+  +(i===fishRequired-1?`<li class="fish-line" aria-hidden="true"><span>ここまでの${fishRequired}個で、景品をゲットできます</span></li>`:"");
  }).join("");
  // 川の見え方：選んだ個数のときの絵と、1〜6個の一覧
  $("fishStages").innerHTML=fishDraft.map((_,i)=>`<button type="button" class="${fishStage===i+1?"":"secondary"}" data-stage="${i+1}" aria-pressed="${fishStage===i+1}">${i+1}個${i+1===fishRequired?"（景品）":""}</button>`).join("");
  $("fishPreview").innerHTML=Fish.riverInnerHtml(fishDraft,fishStage);
  $("fishPreview").setAttribute("aria-label",`スタンプが${fishStage}個のときの川の絵`);
- $("fishPreviewNote").textContent=`スタンプが${fishStage}個のとき：${fishDraft.slice(0,fishStage).map(k=>FISH[k].name).join("・")}`+(fishStage===fishRequired?"（景品を希望できる条件を達成したときの絵です）":"");
+ $("fishPreviewNote").textContent=`スタンプが${fishStage}個のとき：${fishDraft.slice(0,fishStage).map(k=>FISH[k].name).join("・")}`+(fishStage===fishRequired?"（景品をゲットできる条件を達成したときの絵です）":"");
  $("fishThumbs").innerHTML=fishDraft.map((_,i)=>`<button type="button" class="thumb${fishStage===i+1?" on":""}" data-stage="${i+1}" aria-label="スタンプが${i+1}個のときの川の絵を見る"><span class="river">${Fish.riverInnerHtml(fishDraft,i+1)}</span><span class="thumb-label">${i+1}個${i+1===fishRequired?"（景品）":""}</span></button>`).join("");
  const dirty=fishDirty();
  $("fishSave").disabled=!dirty;$("fishReset").disabled=!dirty;
@@ -537,7 +537,7 @@ $("fishList").onclick=e=>{
  if(i<0||j<0||j>=fishDraft.length)return;
  [fishDraft[i],fishDraft[j]]=[fishDraft[j],fishDraft[i]];
  renderFishEditor();
- // 並べ替えたあとも、同じ魚のボタンにフォーカスを残す（続けて押せるように）
+ // 並べ替えたあとも、同じお魚のボタンにフォーカスを残す（続けて押せるように）
  const again=$("fishList").querySelector(`button[data-move="${b.dataset.move}"][data-key="${b.dataset.key}"]:not([disabled])`)||$("fishList").querySelector(`button[data-key="${b.dataset.key}"]:not([disabled])`);
  if(again)again.focus();
  setFishStatus("並べ替えました。まだ保存していません（「保存して公開する」を押すと、参加者の画面に反映されます）。");

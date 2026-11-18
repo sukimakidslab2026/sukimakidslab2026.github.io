@@ -7,6 +7,8 @@
  * - Google側の認証情報は不要です（このスクリプトは、自分が属するスプレッドシート、
  *   または SPREADSHEET_ID で指定したスプレッドシートに書き込みます）。
  * - Supabaseのservice_role key / secret key は使いません。
+ * - 個人情報（氏名・郵便番号・住所・電話番号・メールアドレス）は、このスクリプトでは、読み取りも、同期もしません。
+ *   景品の発送先などの個人情報は、Supabaseだけで管理します（管理画面で確認・CSVの書き出しができます）。
  *
  * スクリプトプロパティ（プロジェクトの設定 > スクリプト プロパティ）
  *   SUPABASE_URL              例: https://xxxx.supabase.co（js/config.js と同じ）
@@ -14,13 +16,11 @@
  *   SHEETS_SYNC_TOKEN         SQL Editorで select private.issue_sheets_token(); を実行して表示された値
  *   SPREADSHEET_ID            書き込み先スプレッドシートのID。スプレッドシートの「拡張機能 > Apps Script」から作った場合は不要。
  *                             script.google.com で単体のスクリプトとして作った場合は必須（URLの /d/ と /edit の間の文字列）。
- *   SYNC_SHIPPING             "true" のときだけ景品発送情報（個人情報）を同期します。未設定なら同期しません。
- *   SHIPPING_SPREADSHEET_ID   景品発送情報を書き込む別のスプレッドシートのID（推奨）。未設定ならこのスプレッドシート。
  *   （LAST_SYNC_STATE / DECORATED_LAYOUT はこのスクリプトが自動で管理します。触らないでください）
  */
 
 // シートの列や見た目を変えたときに上げる数字。変えると、次の同期で全シートを作り直します。
-const LAYOUT_VERSION = '3';
+const LAYOUT_VERSION = '4';
 const SYNC_MINUTES = 5;
 
 const SUMMARY_SHEET = '概要';
@@ -29,7 +29,9 @@ const SPOT_SHEET = '掲示板別';
 const LEGACY_SPOT_SHEET = 'スポット別'; // 旧版のシート名（この名前のシートが残っていたら、概要に削除を促す表示を出す）
 const SURVEY_SHEET = 'アンケート';
 const SCAN_SHEET = 'スキャン履歴';
-const SHIPPING_SHEET = '景品発送（個人情報）';
+// 旧版のスクリプトが、設定によって作っていた、個人情報のシートの名前。今のスクリプトは、個人情報を同期しないので、このシートは作りません。
+// 残っていたら、概要に削除を促す表示を出す。メニュー「個人情報のシートを削除」で、削除できる。
+const LEGACY_SHIPPING_SHEET = '景品発送（個人情報）';
 const FREE_SHEET = 'メモ・分析用';
 const SUMMARY_WIDTH = 5;
 
@@ -86,15 +88,6 @@ const SCAN_COLUMNS = [
   { title: '端末', key: 'device', type: 'text', width: 110 },
   { title: '再送', key: 'resend', type: 'text', width: 60 },
 ];
-const SHIPPING_COLUMNS = [
-  { title: '回答日時', key: 'submitted_at', type: 'datetime', width: 150 },
-  { title: '参加者ID', key: 'participant_id', type: 'text', width: 110 },
-  { title: '氏名', key: 'recipient_name', type: 'text', width: 140 },
-  { title: '郵便番号', key: 'postal_code', type: 'text', width: 100 },
-  { title: '住所', key: 'address', type: 'text', width: 380, wrap: true },
-  { title: '電話番号', key: 'phone', type: 'text', width: 130 },
-  { title: '同意した規約の版', key: 'privacy_version', type: 'text', width: 150 },
-];
 
 // ============================================================
 // メニュー・初期設定
@@ -106,6 +99,8 @@ function onOpen() {
     .addItem('全体を強制的に書き直す', 'forceFullSync')
     .addItem('自動同期を開始（5分ごと）', 'setup')
     .addItem('自動同期を停止', 'stopAutoSync')
+    .addSeparator()
+    .addItem('個人情報のシートを削除（Supabaseだけで管理するため）', 'deletePersonalDataSheets')
     .addToUi();
 }
 
@@ -126,6 +121,7 @@ function setup() {
   ss.setSpreadsheetTimeZone('Asia/Tokyo');
   stopAutoSync();
   ScriptApp.newTrigger('syncNow').timeBased().everyMinutes(SYNC_MINUTES).create();
+  removeShippingSettings_(); // 旧版の「発送先を同期する」設定は、消す（個人情報は、同期しない）
   PropertiesService.getScriptProperties().deleteProperty(PROP_LAST_STATE); // 必ず全体を書き直す
   syncNow();
   ensureFreeSheet_(ss);
@@ -156,7 +152,7 @@ function syncNow() {
 
     // 1. 軽い問い合わせ：Supabaseのデータが前回から変わったかだけを確認する
     const version = fetchVersion_(config);
-    if (props.getProperty(PROP_LAST_STATE) === stateKey_(config, version) && sheetsExist_(ss, config)) {
+    if (props.getProperty(PROP_LAST_STATE) === stateKey_(config, version) && sheetsExist_(ss)) {
       heartbeat_(ss); // 変更なし：シートは書き換えず、「確認した時刻」だけを更新する
       return;
     }
@@ -174,12 +170,11 @@ function syncNow() {
 
 // 前回の同期と同じ状態かを見分けるための印。データの指紋のほか、スクリプトの版や設定が変わったときも変わる。
 function stateKey_(config, version) {
-  return [LAYOUT_VERSION, config.syncShipping ? 'ship' : 'noship', config.shippingSpreadsheetId, version].join('|');
+  return [LAYOUT_VERSION, version].join('|');
 }
 
-function sheetsExist_(ss, config) {
+function sheetsExist_(ss) {
   const names = [SUMMARY_SHEET, PARTICIPANT_SHEET, SPOT_SHEET, SURVEY_SHEET, SCAN_SHEET];
-  if (config.syncShipping && !config.shippingSpreadsheetId) names.push(SHIPPING_SHEET);
   return names.every(name => ss.getSheetByName(name) !== null);
 }
 
@@ -194,22 +189,13 @@ function fullSync_(ss, config, props) {
   writeTable_(ss, SPOT_SHEET, SPOT_COLUMNS, data.spots, ctx);
   writeTable_(ss, SURVEY_SHEET, SURVEY_COLUMNS, data.surveys, ctx);
   writeTable_(ss, SCAN_SHEET, SCAN_COLUMNS, data.scans, ctx);
-  if (config.syncShipping) writeShipping_(ss, config, data, ctx);
-  writeSummary_(ss, data, config, ctx);
+  writeSummary_(ss, data, ctx);
 
   // 最後まで書けたときだけ記録する（途中で失敗したら、次回もう一度やり直す）
   props.setProperties({
     [PROP_LAST_STATE]: stateKey_(config, data.version),
     [PROP_DECORATED]: LAYOUT_VERSION,
   });
-}
-
-function writeShipping_(ss, config, data, ctx) {
-  const target = config.shippingSpreadsheetId ? SpreadsheetApp.openById(config.shippingSpreadsheetId) : ss;
-  const shipCtx = { layoutChanged: ctx.layoutChanged, created: {} };
-  ensureSheets_(target, [SHIPPING_SHEET], shipCtx);
-  const rows = (data.shipping || []).map(r => Object.assign({}, r, { phone: formatPhone_(r.phone) }));
-  writeTable_(target, SHIPPING_SHEET, SHIPPING_COLUMNS, rows, shipCtx);
 }
 
 // ============================================================
@@ -227,8 +213,6 @@ function readConfig_() {
     url: url,
     key: key,
     token: token,
-    syncShipping: (props.getProperty('SYNC_SHIPPING') || '').trim() === 'true',
-    shippingSpreadsheetId: (props.getProperty('SHIPPING_SPREADSHEET_ID') || '').trim(),
   };
 }
 
@@ -255,7 +239,7 @@ function fetchVersion_(config) {
 }
 
 function fetchExport_(config) {
-  return rpc_(config, 'sheets_export', { p_token: config.token, p_include_shipping: config.syncShipping });
+  return rpc_(config, 'sheets_export', { p_token: config.token });   // 個人情報は、サーバー側（sheets_export）が、返さない
 }
 
 // ============================================================
@@ -365,23 +349,13 @@ function safe_(fn) {
   }
 }
 
-// 電話番号は、スプレッドシートで読みやすいようハイフン区切りにする（区切り位置は目安）
-function formatPhone_(value) {
-  const d = String(value === null || value === undefined ? '' : value);
-  if (!/^0\d{9,10}$/.test(d)) return d;
-  if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
-  if (d.indexOf('0120') === 0) return d.slice(0, 4) + '-' + d.slice(4, 7) + '-' + d.slice(7);
-  if (/^0[36]/.test(d)) return d.slice(0, 2) + '-' + d.slice(2, 6) + '-' + d.slice(6);
-  return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
-}
-
 // ============================================================
 // 「概要」シート
 // ============================================================
-function writeSummary_(ss, data, config, ctx) {
+function writeSummary_(ss, data, ctx) {
   const sheet = ss.getSheetByName(SUMMARY_SHEET);
   const now = new Date();
-  const book = buildSummary_(data, config, now, ss);
+  const book = buildSummary_(data, now, ss);
   const rows = book.cells.length;
 
   sheet.clear(); // 概要は毎回すべて書き直す（見た目の設定もやり直す）
@@ -402,7 +376,7 @@ function writeSummary_(ss, data, config, ctx) {
 
 // 概要シートの中身を組み立てる。cells の各行は { kind, cells } 。
 // 2〜4行目（最終確認・最終更新・状態）は、変更がないときに heartbeat_ がその場所だけを書き換える。
-function buildSummary_(data, config, now, ss) {
+function buildSummary_(data, now, ss) {
   const s = data.summary;
   const lines = [];
   const add = (kind, cells) => lines.push({ kind: kind, cells: cells || [] });
@@ -410,24 +384,15 @@ function buildSummary_(data, config, now, ss) {
   const dec = x => (x === null || x === undefined ? '' : { v: Number(x), f: FORMATS.dec });
   const sum = (list, key) => list.reduce((t, x) => t + Number(x[key] || 0), 0);
 
-  let shippingText;
-  if (!config.syncShipping) {
-    shippingText = 'しない（個人情報はこのファイルに入れていません）';
-    if (ss.getSheetByName(SHIPPING_SHEET)) {
-      shippingText += '　※以前の「' + SHIPPING_SHEET + '」シートが残っています。不要なら削除してください。';
-    }
-  } else if (config.shippingSpreadsheetId) {
-    shippingText = 'する（別のスプレッドシートの「' + SHIPPING_SHEET + '」シート）';
-  } else {
-    shippingText = 'する（このスプレッドシートの「' + SHIPPING_SHEET + '」シート）';
-  }
-
   add('title', ['スタンプラリー 集計（自動同期）']);
   add('meta', ['最終確認（Supabaseを確認した時刻）', now, '更新しました（Supabaseのデータが変わっていました）']);
   add('meta', ['最終更新（このシートを書き換えた時刻）', now]);
   add('meta', ['状態', '正常']);
   add('meta', ['データの正本', 'Supabase（このファイルは閲覧・集計用です。データが変わると、同期されるシートは上書きされます。自由に使うシートは「' + FREE_SHEET + '」へ）']);
-  add('meta', ['景品発送情報の同期', shippingText]);
+  add('meta', ['個人情報', '同期していません（氏名・住所・電話番号・メールアドレスは、Supabaseだけで管理しています。管理画面で確認・CSVの書き出しができます）']);
+  if (ss.getSheetByName(LEGACY_SHIPPING_SHEET)) {
+    add('meta', ['★ 要対応：個人情報のシート', '以前の同期で作られた「' + LEGACY_SHIPPING_SHEET + '」シートが残っています。個人情報が入っているおそれがあります。メニュー「スタンプラリー同期 > 個人情報のシートを削除」で、削除してください。']);
+  }
   if (ss.getSheetByName(LEGACY_SPOT_SHEET)) {
     add('meta', ['旧シートについて', '以前の「' + LEGACY_SPOT_SHEET + '」シートが残っています。今は「' + SPOT_SHEET + '」シートに同期しています。不要なら削除してください。']);
   }
@@ -435,7 +400,7 @@ function buildSummary_(data, config, now, ss) {
 
   add('heading', ['■ 全体']);
   add('meta', ['参加者数', s.participants, 'QRを1回以上読み取った端末の数（除外した参加者は含みません）']);
-  add('meta', ['クリア人数', s.completers, s.required + '個以上のスタンプを取得した人数（景品を希望できる条件を満たした人数）']);
+  add('meta', ['クリア人数', s.completers, s.required + '個以上のスタンプを取得した人数（景品をゲットできる条件を満たした人数）']);
   add('meta', ['クリア率', pct(s.completers, s.participants), 'クリア人数 ÷ 参加者数']);
   add('meta', ['総スキャン数', s.total_scans, '再スキャンを含む、QRの読み取り回数の合計']);
   add('meta', ['うち再スキャン', s.rescans, '取得済みのスタンプをもう一度読み取った回数']);
@@ -507,7 +472,7 @@ function writeError_(ss, message) {
 function ensureFreeSheet_(ss) {
   if (ss.getSheetByName(FREE_SHEET)) return;
   const sheet = ss.insertSheet(FREE_SHEET, ss.getSheets().length);
-  sheet.getRange('A1').setValue('このシートは自動同期の対象外です。メモ・集計・グラフ・発送管理などは、ここに自由に作ってください。').setFontWeight('bold');
+  sheet.getRange('A1').setValue('このシートは自動同期の対象外です。メモ・集計・グラフなどは、ここに自由に作ってください。').setFontWeight('bold');
   sheet.getRange('A3:A5').setValues([
     ['例1：コンプリートした人数'],
     ['例2：ワークショップ参加者の平均満足度'],
@@ -520,5 +485,53 @@ function ensureFreeSheet_(ss) {
   ]);
   sheet.getRange('A7').setValue('※ 「概要」「参加者」「アンケート」などの同期されるシートは、データが変わるたびに中身が書き直されます。' +
     '列の追加・並べ替え・色付けは消えます。絞り込みや並べ替えをしたいときは、メニューの「データ → フィルタビュー」を使うと、書き直されても残ります。');
+  sheet.getRange('A8').setValue('※ 個人情報（氏名・住所・電話番号・メールアドレスなど）は、このファイルに入れず、Supabase（管理画面）だけで管理します。').setFontWeight('bold');
   sheet.setColumnWidth(1, 280);
+}
+
+
+// ============================================================
+// 個人情報のシートの削除
+// ============================================================
+// 旧版のスクリプトの設定（SYNC_SHIPPING）を消す。このスクリプトは、個人情報を同期しない
+function removeShippingSettings_() {
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty('SYNC_SHIPPING');
+  props.deleteProperty('SHIPPING_SPREADSHEET_ID');
+}
+
+/**
+ * メニューから実行：以前の同期で作られた、個人情報のシート（「景品発送（個人情報）」）を、削除する。
+ * ・このスプレッドシートのシートと、旧版で別のスプレッドシート（SHIPPING_SPREADSHEET_ID）を指定していたときは、そのスプレッドシートのシートも、削除する。
+ * ・削除する前に、確認の画面を出す。個人情報の正本は、Supabaseにあるので、削除しても、Supabaseのデータは変わらない。
+ */
+function deletePersonalDataSheets() {
+  const props = PropertiesService.getScriptProperties();
+  const targets = [];
+  const main = targetSpreadsheet_();
+  targets.push({ label: 'このスプレッドシート', book: main });
+  const otherId = (props.getProperty('SHIPPING_SPREADSHEET_ID') || '').trim();
+  if (otherId && otherId !== main.getId()) {
+    try { targets.push({ label: '別のスプレッドシート（SHIPPING_SPREADSHEET_ID）', book: SpreadsheetApp.openById(otherId) }); }
+    catch (error) { console.warn('別のスプレッドシートを開けませんでした: ' + error); }
+  }
+  const found = targets.filter(t => t.book.getSheetByName(LEGACY_SHIPPING_SHEET));
+  let ui = null;
+  try { ui = SpreadsheetApp.getUi(); } catch (error) { /* メニュー以外（単体のスクリプトなど）から実行したとき */ }
+  if (!found.length) {
+    removeShippingSettings_();
+    if (ui) ui.alert('個人情報のシート', '「' + LEGACY_SHIPPING_SHEET + '」シートは、ありませんでした（個人情報は、このスプレッドシートに入っていません）。', ui.ButtonSet.OK);
+    return;
+  }
+  if (ui) {
+    const answer = ui.alert('個人情報のシートを削除しますか？',
+      found.map(t => '・' + t.label + ' の「' + LEGACY_SHIPPING_SHEET + '」シート').join('\n') +
+      '\n\n削除しても、Supabaseのデータ（正本）は変わりません。元に戻せません。', ui.ButtonSet.YES_NO);
+    if (answer !== ui.Button.YES) return;
+  }
+  found.forEach(t => t.book.deleteSheet(t.book.getSheetByName(LEGACY_SHIPPING_SHEET)));
+  removeShippingSettings_();
+  PropertiesService.getScriptProperties().deleteProperty(PROP_LAST_STATE); // 概要の「要対応」の表示を消すため、次の同期で書き直す
+  syncNow();
+  if (ui) ui.alert('個人情報のシート', '削除しました。', ui.ButtonSet.OK);
 }

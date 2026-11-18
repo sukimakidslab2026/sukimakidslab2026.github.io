@@ -1,9 +1,9 @@
 // ---- 設定 ----
-// 景品を希望できる条件：掲示板のQRコードを、この個数以上読み取ること。
+// 景品をゲットできる条件：掲示板のQRコードを、この個数以上読み取ること。
 // sql/schema.sql の rally_required_stamps() と同じ数にしてください（scripts/check_site.py が一致を確認します）。
 const PRIZE_REQUIRED=3;
-// 魚の図鑑。魚の名前・画像は js/fish-data.js、共通の部品は js/fish.js にあります。
-// 川が完成するスタンプの個数は、魚の種類の数（いまは6種類）です。
+// お魚の図鑑。お魚の名前・画像は js/fish-data.js、共通の部品は js/fish.js にあります。
+// 川が完成するスタンプの個数は、お魚の種類の数（いまは6種類）です。
 const Fish=window.RallyFish, FISH=Fish.fish;
 const RIVER_TOTAL=Fish.keys.length;
 // QRコード（掲示板）の合言葉の形式。実際に有効なコードかどうかは、サーバー（record_scan）が確かめます。
@@ -20,7 +20,7 @@ const timesKey = "stamp_rally_stamp_times";
 const pendingKey = "stamp_rally_pending";
 const stampsKey = "stamp_rally_stamps";
 const surveyKey = "stamp_rally_survey_submitted";
-const fishOrderKey = "stamp_rally_fish_order";   // 最後に読み込んだ、魚が増えていく順番（通信できなくても、同じ順番で表示するため）
+const fishOrderKey = "stamp_rally_fish_order";   // 最後に読み込んだ、お魚が増えていく順番（通信できなくても、同じ順番で表示するため）
 const resetKey = "stamp_rally_reset_count";      // 管理者によるスタンプのリセットを、この端末が最後に確かめた回数
 const rulesKey = "stamp_rally_hide_rules";       // ルール説明の「次回からは表示しない」にチェックを入れたか（"1" のとき、ページを開いても、ルール説明を自動では出さない）
 const memoryStore = new Map();
@@ -43,7 +43,7 @@ const participantId = getOrCreateParticipantId();
 document.getElementById("participantId").textContent = participantId;
 document.getElementById("total").textContent = RIVER_TOTAL;
 
-// 魚が増えていく順番（図鑑の順番）。スタンプを取った掲示板には関係なく、スタンプを1個取るごとに、この順番で次の魚が現れます。
+// お魚が増えていく順番（図鑑の順番）。スタンプを取った掲示板には関係なく、スタンプを1個取るごとに、この順番で次のお魚が現れます。
 // 管理画面の「スタンプ設定」で決めた順番を、サーバーから読み込みます（読み込めないときは、前回の順番、なければ初期の順番）。
 let fishOrder=(()=>{
   try{ return Fish.normalizeOrder(JSON.parse(store.get(fishOrderKey)||"null")); }catch(e){ return null; }
@@ -89,15 +89,15 @@ function render(stamps,fx={}){
 
 // ---- 進捗バナー ----
 // ゲージは、川が完成するまでの個数（6）。その途中の3個目に、景品の条件の目盛りがあります。
-// 「景品を希望できる」は、希望の手続き（アンケート）に進める条件のことで、景品の受け取りを約束する表現にはしていません。
+// 「景品をゲットできる条件」は、申し込みの手続き（アンケート）に進める条件のことです（数に限りがあります。先着の人数は js/prize-info.js）。
 // message は、文節ごとに分けた配列（画面では、文節の区切りでだけ折り返す）
 function bannerContent(got){
   const toPrize=Math.max(PRIZE_REQUIRED-got,0), toRiver=Math.max(RIVER_TOTAL-got,0);
   if(got>=RIVER_TOTAL) return {state:"complete",doneLabel:"COMPLETE",message:["川が完成しました！","ありがとう！"]};
-  if(got>=PRIZE_REQUIRED) return {state:"achieved",doneLabel:"ACHIEVED",message:["景品を希望できる","条件を達成したよ！",`あと${toRiver}個で、`,"川が完成するよ！"]};
+  if(got>=PRIZE_REQUIRED) return {state:"achieved",doneLabel:"ACHIEVED",message:["景品をゲットできる","条件を達成したよ！",`あと${toRiver}個で、`,"川が完成するよ！"]};
   if(got===0) return {state:"empty",message:["スタンプを集めて、","景品をゲットしよう！"]};
-  if(toPrize===1) return {state:"almost",message:["あと1個！","景品の希望まで、","あと少し！"]};
-  return {state:"progress",message:[`あと${toPrize}個で、`,"景品を希望できるよ！"]};
+  if(toPrize===1) return {state:"almost",message:["あと1個！","景品まで、","あと少し！"]};
+  return {state:"progress",message:[`あと${toPrize}個で、`,"景品をゲットできるよ！"]};
 }
 function renderBanner(stamps,fx){
   const total=RIVER_TOTAL, got=Math.min(stamps.length,total), toPrize=Math.max(PRIZE_REQUIRED-got,0), achieved=got>=PRIZE_REQUIRED;
@@ -115,7 +115,7 @@ function renderBanner(stamps,fx){
   const notice=String((window.RALLY_PRIZE||{}).notice||"").trim();
   $("bannerNote").textContent=notice; $("bannerNote").hidden=!notice;
   bar.setAttribute("aria-valuemax",total); bar.setAttribute("aria-valuenow",got);
-  bar.setAttribute("aria-valuetext",`${got}個取得。`+(achieved?"景品を希望できる条件を達成しています。":`景品まで、あと${toPrize}個。`)+(got>=total?"川が完成しました。":`川の完成まで、あと${total-got}個。`));
+  bar.setAttribute("aria-valuetext",`${got}個取得。`+(achieved?"景品をゲットできる条件を達成しています。":`景品まで、あと${toPrize}個。`)+(got>=total?"川が完成しました。":`川の完成まで、あと${total-got}個。`));
   // ゲージの目盛り（景品の条件・川の完成）の位置と文言
   const gauge=banner.querySelector(".gauge");
   gauge.style.setProperty("--segs",total); gauge.style.setProperty("--prize-col",PRIZE_REQUIRED);
@@ -127,27 +127,74 @@ function renderBanner(stamps,fx){
   if(fresh){ replay(countEl,"bump"); replay(remainEl,"bump"); replay(banner,"is-new"); }
 }
 
-// ---- 川：背景の上に、スタンプの数だけ、順番どおりに魚を重ねる ----
+// ---- 川：背景の上に、スタンプの数だけ、順番どおりにお魚を重ねる ----
 function renderRiver(stamps,fx){
   const got=Math.min(stamps.length,RIVER_TOTAL), keys=fishOrder.slice(0,got);
   const box=$("riverFish"), shown=[...box.children].map(el=>el.dataset.key);
   const appendOnly=shown.length<=keys.length&&shown.every((k,i)=>k===keys[i]);
   const newKey=fx.kind==="new"&&stamps.length<=RIVER_TOTAL?keys[keys.length-1]:null;
   if(appendOnly){
-    // すでに出ている魚には触らず、増えた魚だけを足す（出ている魚が、描き直されて、ちらつかないように）
+    // すでに出ているお魚には触らず、増えたお魚だけを足す（出ているお魚が、描き直されて、ちらつかないように）
     keys.slice(shown.length).forEach(k=>box.insertAdjacentHTML("beforeend",Fish.layerHtml(k,k===newKey)));
   } else {
     box.innerHTML=keys.map(k=>Fish.layerHtml(k,false)).join("");   // 順番が変わったときなどは、全部を並べ直す
   }
-  const river=$("river");
-  river.classList.toggle("is-complete",got>=RIVER_TOTAL);
-  river.setAttribute("aria-label",got?`川の絵。${got}種類の魚が泳いでいます（${keys.map(k=>FISH[k].name).join("、")}）。`:"川の絵。まだ魚はいません。");
+  const river=$("river"), complete=got>=RIVER_TOTAL, at=complete?completeTime(stamps):null;
+  river.classList.toggle("is-complete",complete);
+  river.setAttribute("aria-label",got?`川の絵。${got}種類のお魚が泳いでいます（${keys.map(k=>FISH[k].name).join("、")}）。`+(complete?`コンプリートしました。${at?`コンプリート日時は、${dateLabel(at)}です。`:""}`:""):"川の絵。まだお魚はいません。");
   $("riverCount").textContent=`${got} / ${RIVER_TOTAL}`;
-  $("riverMessage").textContent=got>=RIVER_TOTAL?"川が完成しました！":got?`あと ${RIVER_TOTAL-got} 個で、川が完成します。`:"スタンプを集めると、魚が泳ぎはじめるよ。";
+  $("riverMessage").textContent=complete?`川が完成しました！${at?`（コンプリート日時：${dateLabel(at)}）`:""}`:got?`あと ${RIVER_TOTAL-got} 個で、川が完成します。`:"スタンプを集めると、お魚が泳ぎはじめるよ。";
+  // コンプリート（お魚が全部そろった）ときだけ、川の左上に、バナーと日時を出し、「完成画像を保存」を出す
+  $("riverBadge").hidden=!complete; $("riverActions").hidden=!complete;
+  $("riverBadgeDate").textContent=at?dateLabel(at):"";
+  if(complete&&fx.kind==="new"&&stamps.length===RIVER_TOTAL) replay($("riverBadge"),"is-new");
 }
 
-// ---- さかな図鑑：まだ獲得していない魚はシルエット、獲得した魚は色つきの絵 ----
-// カードの番号は、スタンプを取る順番（魚が増えていく順番）です。
+// ---- コンプリートの日時・完成画像の保存 ----
+// 日時は、6個目のスタンプを取った時刻（端末に保存している獲得時刻）。時刻が残っていないスタンプ（古い記録）のときは、出さない。
+const dateLabel=iso=>{
+  const d=new Date(iso), two=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${two(d.getHours())}:${two(d.getMinutes())}`;
+};
+const completeTime=stamps=>stamps.length>=RIVER_TOTAL?stampTime(stamps[RIVER_TOTAL-1]):null;
+// 保存する画像の、バナー・日時の位置と大きさ（川の背景の画像 1500×629 に対する px）。rally/style.css の .river-badge と、同じ位置・大きさにする
+const COMPLETE_LAYOUT={banner:{x:36,y:24,w:405},text:{x:471,labelSize:29.5,dateSize:36,gap:3.6,lineHeight:1.25}};
+const COMPLETE_BANNER="../assets/banner-rally.webp";
+const loadImg=src=>new Promise((resolve,reject)=>{ const img=new Image(); img.onload=()=>resolve(img); img.onerror=()=>reject(new Error(`画像を読み込めません：${src}`)); img.src=src; });
+
+// 完成した川の画像（PNG）を、この端末の中で作る：背景＋お魚＋バナー＋日時。サーバーには、何も送らない
+async function makeCompleteImage(){
+  const {width:W,height:H}=Fish.scene;
+  const stamps=await getLocalStamps();
+  const keys=fishOrder.slice(0,Math.min(stamps.length,RIVER_TOTAL));
+  const at=completeTime(stamps);
+  const [scene,banner,...layers]=await Promise.all([loadImg(Fish.url(Fish.scene.file)),loadImg(COMPLETE_BANNER),...keys.map(k=>loadImg(Fish.url(FISH[k].layer)))]);
+  try{ await Promise.race([Promise.all([document.fonts.load('700 30px "Josefin Sans"'),document.fonts.ready]),sleep(1500)]); } catch(error){ /* フォントが読めなくても、代わりのフォントで作る */ }
+  const canvas=document.createElement("canvas"); canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext("2d");
+  ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);       // 背景の角の透明な部分は、白にする（共有先で黒く見えないように）
+  ctx.drawImage(scene,0,0,W,H);
+  layers.forEach(img=>ctx.drawImage(img,0,0,W,H));
+  const L=COMPLETE_LAYOUT, bw=L.banner.w, bh=bw*banner.naturalHeight/banner.naturalWidth;
+  ctx.drawImage(banner,L.banner.x,L.banner.y,bw,bh);
+  const t=L.text, color=getComputedStyle(document.documentElement).getPropertyValue("--color-primary").trim()||"#30557e";
+  const ja=getComputedStyle(document.body).fontFamily||"sans-serif";
+  ctx.fillStyle=color; ctx.textAlign="left"; ctx.textBaseline="middle";
+  const centerY=L.banner.y+bh/2;
+  const blockH=at?(t.labelSize+t.dateSize)*t.lineHeight+t.gap:t.labelSize*t.lineHeight, top=centerY-blockH/2;
+  ctx.font=`700 ${t.labelSize}px "Josefin Sans", ${ja}`;
+  try{ ctx.letterSpacing=`${(t.labelSize*.14).toFixed(1)}px`; } catch(error){ /* 未対応のブラウザでは、文字の間隔なし */ }
+  ctx.fillText("COMPLETE!",t.x,top+t.labelSize*t.lineHeight/2);
+  if(at){
+    try{ ctx.letterSpacing="0px"; } catch(error){ /* 同上 */ }
+    ctx.font=`700 ${t.dateSize}px ${ja}`;
+    ctx.fillText(dateLabel(at),t.x,top+t.labelSize*t.lineHeight+t.gap+t.dateSize*t.lineHeight/2);
+  }
+  return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("画像を作れませんでした")),"image/png"));
+}
+
+// ---- お魚図鑑：まだ獲得していないお魚はシルエット、獲得したお魚は色つきの絵 ----
+// カードの番号は、スタンプを取る順番（お魚が増えていく順番）です。
 function renderStamps(stamps,fx){
   const got=Math.min(stamps.length,RIVER_TOTAL);
   $("bookCount").textContent=`${got} / ${RIVER_TOTAL}`;
@@ -295,15 +342,29 @@ function drawResult(settled){
 
 // ---- ポップアップ：スタンプを獲得した瞬間の演出（後光つき）と、ルール説明 ----
 // どちらも <dialog> です。<dialog> に未対応の古いブラウザでは、ポップアップは出さず、ほかの表示だけで進みます。
-const getDialog=$("getDialog"), rulesDialog=$("rulesDialog");
+const getDialog=$("getDialog"), rulesDialog=$("rulesDialog"), saveDialog=$("saveDialog");
 const supportsDialog=dlg=>!!dlg&&typeof dlg.showModal==="function";
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+// ハンバーガーのメニュー（js/site-nav.js）が開いている間は、自動で出すポップアップを待たせる（メニューを閉じたら、出す）。
+// 開いたまま出すと、ポップアップが、メニューの暗い背景に隠れて、どこも操作できなくなってしまう。
+const menuClosed=()=>window.SiteNav&&window.SiteNav.isOpen()?window.SiteNav.whenClosed():Promise.resolve();
+// 自動で出すポップアップ（獲得の演出・ルール説明）と、「完成画像」は、メニューだけでなく、ほかのポップアップ（景品について・ルール説明など）が開いている間も、閉じるまで待つ
+// （ポップアップが、2つ重なって開かないように）。待っている間に、また何かが開いたときのため、閉じたあと、もう一度、確かめる。
+const otherDialogs=()=>[getDialog,rulesDialog,saveDialog,window.PrizeInfo&&window.PrizeInfo.element()].filter(d=>d&&d.open);
+async function waitForQuiet(){
+  for(;;){
+    await menuClosed();
+    const open=otherDialogs();
+    if(!open.length) return;
+    await new Promise(resolve=>open[0].addEventListener("close",resolve,{once:true}));
+  }
+}
 function openDialog(dlg){
   try{ dlg.showModal(); document.documentElement.classList.add("modal-open"); return true; }
   catch(error){ console.error(error); return false; }
 }
 // 閉じたら（Escキー・×・OKのどれでも）、ページのスクロールを元に戻す
-[getDialog,rulesDialog].forEach(dlg=>dlg.addEventListener("close",()=>document.documentElement.classList.remove("modal-open")));
+[getDialog,rulesDialog,saveDialog].forEach(dlg=>dlg.addEventListener("close",()=>document.documentElement.classList.remove("modal-open")));
 
 // 獲得の演出が終わるまで待つための記録。演出を出したら、その Promise（閉じたら true になる）に入れ替える
 let celebration=Promise.resolve(false);
@@ -320,9 +381,9 @@ function burstHtml(count){
 }
 
 // message：scanMessage の結果（新しいスタンプのもの）、n：何個目か。画面を閉じたら true になる Promise を返す（出せなかったときは false）
-function celebrate(message,n){
+async function celebrate(message,n){
   const dlg=getDialog, f=FISH[message.fish];
-  if(!supportsDialog(dlg)||dlg.open||!f) return Promise.resolve(false);
+  if(!supportsDialog(dlg)||dlg.open||!f) return false;
   const big=n===PRIZE_REQUIRED||n===RIVER_TOTAL;   // 景品の条件の達成（3個目）・川の完成（6個目）は、飾りを増やす
   dlg.querySelector(".get-stage").dataset.tone=big?"complete":"new";
   $("getBadge").textContent=n===RIVER_TOTAL?"COMPLETE!":n===PRIZE_REQUIRED?"ACHIEVED!":"GET!";
@@ -334,7 +395,8 @@ function celebrate(message,n){
   $("getPips").innerHTML=Array.from({length:RIVER_TOTAL},(_,i)=>`<i class="${i<n?"on":""}${i===n-1?" is-new":""}"></i>`).join("");
   $("getBurst").innerHTML=burstHtml(big?46:26);
   dlg.classList.remove("is-leaving");
-  if(!openDialog(dlg)) return Promise.resolve(false);
+  await waitForQuiet();   // メニュー・ほかのポップアップが開いている間は、閉じるまで待つ
+  if(dlg.open||!openDialog(dlg)) return false;
   return new Promise(resolve=>{
     const openedAt=Date.now();
     let leaving=false;
@@ -352,24 +414,26 @@ function celebrate(message,n){
   });
 }
 
-// 演出の画面が閉じたあとに、ページの中の動き（数字・ゲージ・川の魚・図鑑のカード）を、もういちど見せる
+// 演出の画面が閉じたあとに、ページの中の動き（数字・ゲージ・川のお魚・図鑑のカード）を、もういちど見せる
 // （はじめの動きは、演出の画面の裏で終わってしまい、見えないため）
 function replayFx(){
   const q=selector=>document.querySelector(selector);
   replay($("progressBanner"),"is-new"); replay($("count"),"bump"); replay($("remain"),"bump");
-  [q("#bannerBar .seg.is-new"),q("#riverFish img.is-new"),q("#stamps .stamp.is-new")].forEach(el=>{ if(el) replay(el,"is-new"); });
+  [q("#bannerBar .seg.is-new"),q("#riverFish img.is-new"),q("#stamps .stamp.is-new"),q("#riverBadge.is-new")].forEach(el=>{ if(el) replay(el,"is-new"); });
 }
 
 // ルール説明。「次回からは表示しない」は、端末に保存する（参加者IDと同じしくみ）。保存できない端末では、チェック欄を出さない
 const rulesHidden=()=>store.get(rulesKey)==="1";
-function showRules(){
+async function showRules(){
   const dlg=rulesDialog;
-  if(!supportsDialog(dlg)||dlg.open) return Promise.resolve();
+  if(!supportsDialog(dlg)||dlg.open) return;
+  await waitForQuiet();   // メニュー・ほかのポップアップが開いている間は、閉じるまで待つ
+  if(dlg.open) return;
   $("rulesHide").checked=rulesHidden();
   $("rulesHideRow").hidden=storageBlocked;
   dlg.querySelector(".rules-body").scrollTop=0;
-  if(!openDialog(dlg)) return Promise.resolve();
-  return new Promise(resolve=>dlg.addEventListener("close",resolve,{once:true}));
+  if(!openDialog(dlg)) return;
+  await new Promise(resolve=>dlg.addEventListener("close",resolve,{once:true}));
 }
 $("rulesHide").addEventListener("change",event=>{
   if(event.target.checked) store.set(rulesKey,"1"); else store.remove(rulesKey);
@@ -379,7 +443,55 @@ $("rulesClose").onclick=$("rulesOk").onclick=()=>{ if(rulesDialog.open) rulesDia
 rulesDialog.addEventListener("click",event=>{ if(event.target===rulesDialog) rulesDialog.close(); });
 $("rulesOpen").onclick=()=>showRules();
 
-// 読み取った結果の文言。again＝すでに取得済み。新しいスタンプでは、そのスタンプで現れた魚（fish）の名前と絵を出す
+// 完成画像の保存：「完成画像を保存」を押すと、画像を作って、ポップアップに見せる。「保存する」で、保存する
+// （スマートフォンは、共有の画面を開く＝「画像を保存」などを選べる。それ以外は、ダウンロード。画像を長押しして、保存することもできる）
+let saveBlob=null, saveUrl="";
+function releaseSaveImage(){
+  if(saveUrl) URL.revokeObjectURL(saveUrl);
+  saveUrl=""; saveBlob=null;
+  $("saveImage").removeAttribute("src");
+}
+async function downloadOrShare(){
+  if(!saveBlob) return;
+  const name="sukima-kids-lab-complete.png";
+  const file=typeof File==="function"?new File([saveBlob],name,{type:"image/png"}):null;
+  const touch=!!(window.matchMedia&&matchMedia("(pointer:coarse)").matches);
+  if(file&&touch&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:"すきまキッズラボ スタンプラリー"}); return; }
+    catch(error){ if(error&&error.name==="AbortError") return; console.error(error); }   // 共有できなかったときは、ダウンロードにする
+  }
+  const link=document.createElement("a");
+  link.href=saveUrl; link.download=name;
+  document.body.append(link); link.click(); link.remove();
+}
+async function openSave(){
+  const dlg=saveDialog;
+  if(dlg.open) return;
+  $("saveBusy").hidden=false; $("saveImage").hidden=true; $("saveError").hidden=true; $("saveDo").disabled=true;
+  const modal=supportsDialog(dlg);
+  if(modal){ await waitForQuiet(); if(dlg.open||!openDialog(dlg)) return; }
+  try{
+    const blob=await makeCompleteImage();
+    releaseSaveImage();
+    saveBlob=blob; saveUrl=URL.createObjectURL(blob);
+    const img=$("saveImage");
+    img.width=Fish.scene.width; img.height=Fish.scene.height;
+    img.alt="完成した川の画像（すきまキッズラボ スタンプラリー）";
+    img.src=saveUrl; img.hidden=false;
+    $("saveBusy").hidden=true; $("saveDo").disabled=false;
+    if(!modal) await downloadOrShare();   // ポップアップに未対応の古いブラウザでは、見せずに、そのまま保存する
+  } catch(error){
+    console.error(error);
+    $("saveBusy").hidden=true; $("saveError").hidden=false;
+  }
+}
+$("saveRiver").onclick=openSave;
+$("saveDo").onclick=downloadOrShare;
+$("saveClose").onclick=$("saveX").onclick=()=>{ if(saveDialog.open) saveDialog.close(); };
+saveDialog.addEventListener("click",event=>{ if(event.target===saveDialog) saveDialog.close(); });
+saveDialog.addEventListener("close",releaseSaveImage);
+
+// 読み取った結果の文言。again＝すでに取得済み。新しいスタンプでは、そのスタンプで現れたお魚（fish）の名前と絵を出す
 function scanMessage({code,again,current}){
   const total=RIVER_TOTAL, n=current.length;
   if(again){
@@ -387,15 +499,15 @@ function scanMessage({code,again,current}){
     return {tone:"again",seal:"check",kicker:"獲得済み",title:phrases("この掲示板は","すでに","獲得しています"),
       body:`${at?`${formatTime(at)} に獲得したスタンプです。`:""}スタンプの数は変わりません（${n}個）。`};
   }
-  if(n>total){   // 川が完成したあとに取ったスタンプ（記録はされるが、魚は増えない）
+  if(n>total){   // 川が完成したあとに取ったスタンプ（記録はされるが、お魚は増えない）
     return {tone:"new",seal:"check",kicker:`NEW STAMP · ${pad2(n)}`,title:phrases("スタンプを","記録しました"),body:`川は、すでに完成しています（合計${n}個）。`};
   }
   const key=fishOrder[n-1], name=FISH[key].name, kicker=`NEW STAMP · ${pad2(n)}`;
-  if(n===total) return {tone:"complete",fish:key,kicker:`COMPLETE · ${n} / ${total}`,title:phrases("川が","完成しました！"),body:`「${name}」が加わって、${total}種類の魚がそろいました。`};
-  if(n===PRIZE_REQUIRED) return {tone:"complete",fish:key,kicker:`ACHIEVED · ${n} / ${total}`,title:phrases("景品の条件を","達成しました！"),
-    body:`「${name}」が仲間になりました。アンケートで、景品の希望を受け付けています。あと ${total-n} 個で、川が完成します。`};
-  if(n>PRIZE_REQUIRED) return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`景品を希望できる条件は、達成済みです。あと ${total-n} 個で、川が完成します。`};
-  return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`あと ${PRIZE_REQUIRED-n} 個で、景品を希望できます。`};
+  if(n===total) return {tone:"complete",fish:key,kicker:`COMPLETE · ${n} / ${total}`,title:phrases("川が","完成しました！"),body:`「${name}」が加わって、${total}種類のお魚がそろいました。`};
+  if(n===PRIZE_REQUIRED) return {tone:"complete",fish:key,kicker:`ACHIEVED · ${n} / ${total}`,title:phrases("景品をゲットできる","条件を達成しました！"),
+    body:`「${name}」が仲間になりました。アンケートで、オリジナルマステプレゼントの申し込みを受け付けています。あと ${total-n} 個で、川が完成します。`};
+  if(n>PRIZE_REQUIRED) return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`景品をゲットできる条件は、達成済みです。あと ${total-n} 個で、川が完成します。`};
+  return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`あと ${PRIZE_REQUIRED-n} 個で、景品をゲットできます。`};
 }
 const invalidMessage=()=>({tone:"info",seal:null,kicker:"QRコード",title:phrases("このQRコードは","登録されていません"),
   body:"掲示板に貼ってある、スタンプラリーのQRコードを読み取ってください。"});
@@ -588,7 +700,7 @@ function applyScan(code,again,before,current,patch){
   haptic(prizeNow||riverNow ? [18,70,18,70,36] : again ? 8 : 24);
   const message=scanMessage({code,again,current});
   showResult({...message,...patch});
-  // 新しい魚が増えたとき（川が完成したあとのスタンプでは、魚は増えない）だけ、後光つきの演出の画面を出す
+  // 新しいお魚が増えたとき（川が完成したあとのスタンプでは、お魚は増えない）だけ、後光つきの演出の画面を出す
   if(!again&&message.fish) celebration=celebrate(message,current.length);
 }
 
@@ -603,7 +715,7 @@ async function recordStamp(code){
 
   const before=await getLocalStamps();
   const again=before.includes(code);
-  // 次に現れる魚の画像を、サーバーの返事を待っている間に、先に読み込んでおく（魚が現れるときに、画像が遅れて出ないように）
+  // 次に現れるお魚の画像を、サーバーの返事を待っている間に、先に読み込んでおく（お魚が現れるときに、画像が遅れて出ないように）
   const early=(!again&&before.length<RIVER_TOTAL)?configReady.then(()=>Fish.preload([fishOrder[before.length]],2500)):Promise.resolve();
 
   if(!isSupabaseConfigured()){
@@ -703,7 +815,7 @@ async function restoreCompletion(){
   }
 }
 
-// 魚が増えていく順番を、サーバーから読み込む（管理画面の「スタンプ設定」で変えた順番が、すぐに反映される）。
+// お魚が増えていく順番を、サーバーから読み込む（管理画面の「スタンプ設定」で変えた順番が、すぐに反映される）。
 // 読み込めなくても、前回の順番（なければ初期の順番）で、そのまま使えます。
 let configReady=Promise.resolve();
 let lastConfigAt=0;
@@ -764,7 +876,7 @@ async function init(){
   await popups;
 }
 init();
-// 開いたままにしていたページを、また見たとき（アプリの切り替えなどから戻ったとき）も、1分以上たっていれば、魚の順番とリセットの有無を読み込み直す
+// 開いたままにしていたページを、また見たとき（アプリの切り替えなどから戻ったとき）も、1分以上たっていれば、お魚の順番とリセットの有無を読み込み直す
 document.addEventListener("visibilitychange",()=>{
   if(!document.hidden&&Date.now()-lastConfigAt>60000){ loadFishOrder(); syncReset(); }
 });

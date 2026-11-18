@@ -19,7 +19,7 @@ const LABELS = [
   { key: "stamp_rally_pending", name: "サーバーに、まだ送っていないスタンプ", detail: v => `${listLength(v)}個`, warn: v => listLength(v) > 0 ? "サーバーに送れていないスタンプが残っています。消すと、このスタンプは、記録されません。" : "" },
   { key: "stamp_rally_survey_submitted", name: "アンケートに回答した印" },
   { key: "stamp_rally_reset_count", name: "管理者のリセットの確認回数", detail: v => v },
-  { key: "stamp_rally_fish_order", name: "魚が増えていく順番（前回の保存）" },
+  { key: "stamp_rally_fish_order", name: "お魚が増えていく順番（前回の保存）" },
   { key: "stamp_rally_hide_rules", name: "ルール説明の「次回からは表示しない」の設定", detail: v => v === "1" ? "表示しない" : "" },
 ];
 const ADMIN_LOGIN = /^sb-.+-auth-token/;   // 管理者のログイン情報（Supabase Auth が保存するもの）

@@ -6,11 +6,11 @@
 --
 -- 【スタンプラリーの仕組み（この版）】
 --   会場の掲示板（初期設定は70個。数は自由）に、それぞれ別のQRコードを掲示し、参加者がそのうち rally_required_stamps()（=3）個
---   以上を読み取ると、景品を希望できる（アンケートに進める）。
+--   以上を読み取ると、景品をゲットできる（アンケートに進める）。
 --   有効なQRコード（掲示板）は public.stamp_boards に登録する。登録は、このファイルの実行後に、
 --   scripts/make_boards.py が作る qr/boards/boards_seed.sql を実行して行う（QRコードの文字列は公開しない）。
 --   登録されていないコードの読み取りは、record_scan が 'invalid_stamp' を返して、何も記録しない。
---   スタンプを取るたびに、図鑑の魚（コイ・ドジョウ・ナマズ・ハゼ・フナ・メダカの6種類）が、決まった順番で増えていく
+--   スタンプを取るたびに、図鑑のお魚（コイ・ドジョウ・ナマズ・ハゼ・フナ・メダカの6種類）が、決まった順番で増えていく
 --   （取った掲示板には関係なく、順番は固定）。この順番は、管理画面の「スタンプ設定」で変えられる（rally_settings）。
 --   参加者のスタンプは、管理画面から、参加者ごとにリセット（0個に戻す）できる（admin_reset_progress / participant_resets）。
 --   旧版（river / bridge / fish / island / water / goal の6か所すべてを集める方式）からの更新にも対応しています。
@@ -64,7 +64,7 @@ create table if not exists public.stamp_boards (
   created_at timestamptz not null default now()
 );
 
--- 景品を希望できる条件（取得したスタンプの数）。js の PRIZE_REQUIRED と同じ数にする（scripts/check_site.py が確認する）。
+-- 景品をゲットできる条件（取得したスタンプの数）。js の PRIZE_REQUIRED と同じ数にする（scripts/check_site.py が確認する）。
 create or replace function public.rally_required_stamps()
 returns integer
 language sql
@@ -74,8 +74,8 @@ as $$
   select 3;
 $$;
 
--- 図鑑の魚の種類（キー）。画像は assets/fish/、名前などは js/fish-data.js にある。
--- 魚の種類を増やしたり、キーを変えたりするときは、scripts/make_fish_assets.py と js/fish.js も合わせて変更する
+-- 図鑑のお魚の種類（キー）。画像は assets/fish/、名前などは js/fish-data.js にある。
+-- お魚の種類を増やしたり、キーを変えたりするときは、scripts/make_fish_assets.py と js/fish.js も合わせて変更する
 -- （scripts/check_site.py が、一致しているかを確認する）。
 create or replace function public.rally_fish_keys()
 returns text[]
@@ -86,7 +86,7 @@ as $$
   select array['koi', 'dojo', 'namazu', 'haze', 'funa', 'medaka'];
 $$;
 
--- 魚が増えていく順番の初期値（js/fish.js の RALLY_FISH_DEFAULT_ORDER と同じにする）。
+-- お魚が増えていく順番の初期値（js/fish.js の RALLY_FISH_DEFAULT_ORDER と同じにする）。
 -- 1個目は大きなナマズ、2個目は大きなコイ、3個目に小さなメダカの群れが加わるので、
 -- 景品の条件の3個だけでも、川がさびしく見えない。
 create or replace function public.rally_default_fish_order()
@@ -98,7 +98,7 @@ as $$
   select array['namazu', 'koi', 'medaka', 'funa', 'dojo', 'haze'];
 $$;
 
--- 順番が、魚の種類をちょうど1回ずつ並べたものか（重複・不足・知らない種類・空がないか）
+-- 順番が、お魚の種類をちょうど1回ずつ並べたものか（重複・不足・知らない種類・空がないか）
 create or replace function public.rally_valid_fish_order(p_order text[])
 returns boolean
 language sql
@@ -111,7 +111,7 @@ as $$
      and p_order <@ public.rally_fish_keys();
 $$;
 
--- スタンプラリーの設定（1行だけ）。いまは、魚が増えていく順番だけ。
+-- スタンプラリーの設定（1行だけ）。いまは、お魚が増えていく順番だけ。
 -- 参加者は rally_config()、管理者は admin_set_fish_order() を通してだけ、読み書きする（テーブルへの直接のアクセスは不可）。
 create table if not exists public.rally_settings (
   id integer primary key check (id = 1),
@@ -425,7 +425,7 @@ select e.id,
 from public.scan_events e
 left join public.stamp_boards b on b.code = e.stamp_code;
 
--- 参加者ごとの状況（1人＝1行）。completed ＝ 景品を希望できる条件（rally_required_stamps() 個以上）を満たした
+-- 参加者ごとの状況（1人＝1行）。completed ＝ 景品をゲットできる条件（rally_required_stamps() 個以上）を満たした
 create view public.v_admin_participants with (security_invoker = true) as
 with ev as (
   select participant_id,
@@ -486,8 +486,8 @@ revoke all on function public.is_completed(text) from public;
 grant execute on function public.is_completed(text) to anon, authenticated;
 
 -- 参加者の画面が読み込む設定（誰でも読める。公開してよい内容だけを返す）。
---   required   景品を希望できる条件（スタンプの個数）
---   fish_order 魚が増えていく順番（魚のキーの配列）
+--   required   景品をゲットできる条件（スタンプの個数）
+--   fish_order お魚が増えていく順番（お魚のキーの配列）
 create or replace function public.rally_config()
 returns jsonb
 language sql
@@ -546,7 +546,7 @@ grant execute on function public.rally_reset_state(text) to anon, authenticated;
 --                   'reset'（管理者がスタンプをリセットしたあとなのに、端末の記録が古い。何も記録しない）
 --   claimed         初回取得なら true、取得済みの再スキャンなら false
 --   claim_sequence  何個目に取得したスタンプか
---   completed       景品を希望できる条件（rally_required_stamps() 個以上）を満たしているか
+--   completed       景品をゲットできる条件（rally_required_stamps() 個以上）を満たしているか
 --   stamps          取得済みのスタンプの数
 --   reset_count     この参加者がリセットされた回数（'ok' と 'reset' のとき）
 -- p_reset_count は、端末が最後に確かめたリセット回数。サーバーの回数より少ないとき、'reset' を返して何も記録しない
@@ -634,7 +634,7 @@ $$;
 revoke all on function public.record_scan(text, text, text, integer) from public;
 grant execute on function public.record_scan(text, text, text, integer) to anon, authenticated;
 
--- アンケート送信。景品を希望できる条件（スタンプの個数）をサーバー側で確認してから保存する。
+-- アンケート送信。景品をゲットできる条件（スタンプの個数）をサーバー側で確認してから保存する。
 -- 回答は survey_responses に、景品を希望した場合の発送先は prize_shipping に、同じ処理の中で保存する。
 -- 戻り値: 'ok' / 'already_submitted' / 'not_completed' / 'invalid_...'
 -- p_memorable_spot（印象に残ったスポット）は、掲示板に名前がなくなったため廃止した。
@@ -796,11 +796,10 @@ language sql
 stable
 set search_path = public, private
 as $$
-  select md5(concat_ws('|', 'export-v3',
+  select md5(concat_ws('|', 'export-v4',
     (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from public.scan_events t),
     (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from public.stamp_claims t),
     (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from public.survey_responses t),
-    (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from public.prize_shipping t),
     (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from public.excluded_participants t),
     (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from public.stamp_boards t)
   ));
@@ -927,7 +926,8 @@ revoke all on function public.sheets_version(text) from public, anon, authentica
 grant execute on function public.sheets_version(text) to anon;
 
 -- 同期用データを1回のJSONで返す。正しい同期トークンがないと何も返さない。
--- p_include_shipping = true のときだけ、景品発送情報（個人情報）を含める。
+-- 個人情報（氏名・郵便番号・住所・電話番号・メールアドレス＝prize_shipping）は、どんな指定でも、返さない（個人情報は、Supabaseだけで管理する）。
+-- 引数 p_include_shipping は、旧版のスクリプトからの呼び出しを受け付けるために残してある。値にかかわらず、無視する。
 -- 除外した参加者のデータは含めない。表示用の文言（初回取得／再スキャンなど）まで整えて返す。
 create or replace function public.sheets_export(p_token text, p_include_shipping boolean default false)
 returns jsonb
@@ -984,19 +984,7 @@ begin
         from public.survey_responses r
         where not exists (select 1 from public.excluded_participants x where x.participant_id = r.participant_id)
       ), '[]'::jsonb),
-      'shipping', case when p_include_shipping then coalesce((
-        select jsonb_agg(jsonb_build_object(
-          'submitted_at', s.created_at,
-          'participant_id', s.participant_id,
-          'recipient_name', s.recipient_name,
-          'postal_code', s.postal_code,
-          'address', s.address,
-          'phone', s.phone,
-          'privacy_version', s.privacy_version
-        ) order by s.created_at desc, s.participant_id)
-        from public.prize_shipping s
-        where not exists (select 1 from public.excluded_participants x where x.participant_id = s.participant_id)
-      ), '[]'::jsonb) end
+      'shipping', '[]'::jsonb   -- 旧版のスクリプト（発送先の同期を設定していたもの）が、空の表を書くだけにする。個人情報は入れない
     )
   );
 end;
@@ -1022,8 +1010,8 @@ begin
 end;
 $$;
 
--- 魚が増えていく順番を変える（管理画面の「スタンプ設定」から）。保存すると、参加者の画面に、すぐに反映される。
--- 魚の種類をちょうど1回ずつ並べた配列だけを受け付ける。戻り値は、保存後の設定（rally_config() と同じ）。
+-- お魚が増えていく順番を変える（管理画面の「スタンプ設定」から）。保存すると、参加者の画面に、すぐに反映される。
+-- お魚の種類をちょうど1回ずつ並べた配列だけを受け付ける。戻り値は、保存後の設定（rally_config() と同じ）。
 create or replace function public.admin_set_fish_order(p_order text[])
 returns jsonb
 language plpgsql
@@ -1456,10 +1444,10 @@ comment on column public.scan_events.is_first_claim is '初回取得ならtrue�
 comment on column public.scan_events.user_agent is 'ブラウザ情報。通信失敗後の再送は末尾に [resend] が付く';
 comment on table public.stamp_claims is '参加者ごとの初回スタンプ取得（取得順 sequence と初回取得時刻）';
 comment on table public.stamp_boards is '有効なQRコード（掲示板）。code はQRコードに入る合言葉（公開しない）、board_no は掲示板の番号。管理者以外は読み取れない';
-comment on function public.rally_required_stamps() is '景品を希望できる条件（取得したスタンプの数）。js の PRIZE_REQUIRED と同じ数にする';
-comment on table public.rally_settings is 'スタンプラリーの設定（1行）。魚が増えていく順番。参加者は rally_config()、管理者は admin_set_fish_order() で読み書きする';
-comment on function public.rally_config() is '参加者の画面が読み込む設定（景品の条件・魚の順番）。誰でも読める';
-comment on function public.admin_set_fish_order(text[]) is '魚が増えていく順番を保存する（管理者のみ）';
+comment on function public.rally_required_stamps() is '景品をゲットできる条件（取得したスタンプの数）。js の PRIZE_REQUIRED と同じ数にする';
+comment on table public.rally_settings is 'スタンプラリーの設定（1行）。お魚が増えていく順番。参加者は rally_config()、管理者は admin_set_fish_order() で読み書きする';
+comment on function public.rally_config() is '参加者の画面が読み込む設定（景品の条件・お魚の順番）。誰でも読める';
+comment on function public.admin_set_fish_order(text[]) is 'お魚が増えていく順番を保存する（管理者のみ）';
 comment on table public.participant_resets is '管理者が参加者のスタンプをリセットした回数。参加者の端末が、自分の記録を消すかどうかの判断に使う。参加者は rally_reset_count()、管理者は admin_reset_progress() で読み書きする';
 comment on function public.rally_reset_count(text) is '参加者のスタンプが、管理者にリセットされた回数（なければ 0）。誰でも呼べる';
 comment on function public.rally_reset_state(text) is '参加者の端末が確かめる状態：リセットの回数・完全リセットの回数・アンケートの回答の有無（jsonb）。誰でも呼べる';

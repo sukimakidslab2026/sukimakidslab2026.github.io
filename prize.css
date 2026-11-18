@@ -1,0 +1,53 @@
+/* 「？ 景品について」のボタンと、ポップアップのスタイル（スタンプラリー画面・アンケート画面で共通）。色・フォント・角丸は brand.css の変数を使います。
+   ポップアップの中身は js/prize-info.js が作ります。ページのCSS（アンケート画面の dialog など）に、負けないよう、クラスで必要な指定を、すべて書いています。 */
+
+/* ボタン：「？ ルールを見る」（rally/style.css の .rules-open）と同じ見た目 */
+.prize-open{display:inline-flex;align-items:center;gap:var(--space-2);width:auto;min-height:44px;margin:0;padding:6px 18px 6px 10px;border:2px solid var(--color-secondary);border-radius:var(--radius-pill);background:var(--color-white);color:var(--color-primary);font:inherit;font-weight:700;font-size:14px;line-height:1.4;cursor:pointer}
+.prize-open:active{background:var(--tint-accent-12)}
+.prize-open-mark{display:grid;place-items:center;flex:none;width:26px;height:26px;border-radius:50%;background:var(--color-primary);color:var(--color-white);font-size:15px;line-height:1;letter-spacing:0}
+
+/* ポップアップ */
+html.prize-open{overflow:hidden}
+.prize-dialog{width:min(calc(100% - 32px),480px);max-width:none;height:auto;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);margin:auto;padding:0;border:2px solid var(--color-line);border-radius:var(--radius-card);background:var(--color-white);color:var(--color-text);overflow:hidden;box-shadow:0 18px 48px rgba(48,85,126,.35)}
+.prize-dialog:not([open]){display:none}
+.prize-dialog[open]{display:block;animation:none}
+.prize-dialog::backdrop{background:rgba(48,85,126,.6)}
+.prize-card{display:flex;flex-direction:column;max-height:calc(100vh - 36px);max-height:calc(100dvh - 36px);outline:none;background:var(--color-white);animation:prize-rise .35s var(--ease) both}
+.prize-head{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3);padding:12px 8px 8px 20px;border-bottom:2px solid var(--color-line)}
+.prize-kicker{margin:0;font-size:11px;letter-spacing:.2em;color:var(--color-text-muted)}
+.prize-title{margin:0;font-weight:700;font-size:20px;line-height:1.4}
+.prize-x{flex:none;display:grid;place-items:center;width:44px;height:44px;margin:0;padding:0;border:0;border-radius:50%;background:transparent;color:var(--color-text-muted);cursor:pointer}
+.prize-x:active{background:var(--tint-accent-22)}
+.prize-x svg{width:22px;height:22px}
+.prize-body{flex:1 1 auto;min-height:0;padding:14px 20px 8px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.prize-body:focus-visible{outline:3px solid var(--color-primary);outline-offset:-3px}
+
+/* 「お魚がマスキングテープになる」図（絵だけの画像）と、その説明の文字（画像の中の小さな文字だと、スマートフォンで読めないため、文字にしている） */
+.prize-flow{margin:0;text-align:center}
+.prize-flow img{display:block;width:100%;max-width:420px;height:auto;margin:0 auto}
+.prize-flow figcaption{margin:10px 0 0;font-weight:700;font-size:15px;line-height:1.7;color:var(--color-primary)}
+.prize-lead{margin:18px 0 6px;font-weight:700;font-size:17px;line-height:1.5;color:var(--color-primary)}
+.prize-lead:before{content:"";display:inline-block;width:5px;height:1em;margin-right:8px;border-radius:3px;background:var(--color-mustard);vertical-align:-.12em}
+.prize-text{margin:0;font-size:14.5px;line-height:1.8;word-break:auto-phrase}
+.prize-text strong{color:var(--color-primary)}
+.prize-photo{margin:12px 0 0;border-radius:var(--radius-control);overflow:hidden;background:var(--tint-primary-08);border:2px solid var(--color-line)}
+.prize-photo img{display:block;width:100%;height:auto}
+
+/* 数に限りがあること（先着◯名・おひとり様一つ限り）：目立つように、淡いマスタードの面と、太い枠で見せる */
+.prize-limit{margin:16px 0 0;padding:12px 14px 12px;border:3px solid var(--color-mustard);border-radius:var(--radius-control);background:var(--tint-mustard-20);text-align:center}
+.prize-limit-title{margin:0;font-weight:700;font-size:16px;line-height:1.5;color:var(--color-primary)}
+.prize-chips{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.prize-chips li{padding:4px 16px;border-radius:var(--radius-pill);background:var(--color-primary);color:var(--color-white);font-weight:700;font-size:17px;line-height:1.5}
+.prize-limit-note{margin:8px 0 0;font-size:13px;line-height:1.6;word-break:auto-phrase}
+
+.prize-steps{list-style:none;margin:0;padding:0;counter-reset:prize;display:grid;gap:10px}
+.prize-steps li{position:relative;min-height:36px;padding-left:46px;counter-increment:prize}
+.prize-steps li:before{content:counter(prize);position:absolute;left:0;top:0;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--color-primary);color:var(--color-white);font-family:var(--font-en);font-weight:700;font-size:17px}
+.prize-steps strong{display:block;font-size:15px;line-height:1.5;word-break:auto-phrase}
+.prize-steps span{display:block;margin-top:1px;font-size:13px;line-height:1.65;color:var(--color-text-muted);word-break:auto-phrase}
+
+.prize-foot{flex:none;padding:8px 20px 12px;border-top:2px solid var(--color-line)}
+.prize-ok{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin:0;padding:10px 18px;border:2px solid var(--color-primary);border-radius:var(--radius-control);background:var(--color-primary);color:var(--color-white);font:inherit;font-weight:700;font-size:16px;cursor:pointer}
+
+@keyframes prize-rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.prize-card{animation:none}}

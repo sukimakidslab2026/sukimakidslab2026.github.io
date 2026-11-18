@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-魚のスタンプ画像・ロゴ・バナー・「すきまキッズラボとは？」の画像を、サイトで使う「軽い画像」に変換する。
+お魚のスタンプ画像・ロゴ・バナー・「すきまキッズラボとは？」の画像・「景品について」の画像を、サイトで使う「軽い画像」に変換する。
 
   python3 scripts/make_fish_assets.py
 
@@ -12,12 +12,14 @@
   logo-banner-images/logo.png, banner.png                  ロゴ（アイコン）とバナー
   logo-banner-images/banner-rally.png                      スタンプラリー画面のバナー（「スタンプラリー」の文字つき）
   about-images/logo_touka.png, ankyo.jpg, 2025.jpg          「すきまキッズラボとは？」の画像（団体のロゴ・暗渠の写真・2025年のワークショップの写真）
+  prize-images/prize-flow.png, prize-tape.png               「景品について」の画像（「お魚がマスキングテープになる」図・マスキングテープの写真）
 
 出力（サイトが読み込む画像。これはGitHubに送ります）
   assets/fish/scene.webp, layer-○○.webp, stamp-○○.webp, silhouette-○○.webp
   assets/logo.webp（ヘッダーのロゴ）, assets/banner.webp（トップページ・アンケート画面のバナー）
   assets/banner-rally.webp（スタンプラリー画面のバナー）
   assets/about/logo-touka.webp, ankyo.webp, 2025.webp（「すきまキッズラボとは？」の画像。画面に出す大きさに縮小）
+  assets/prize/flow.webp, tape.webp（「景品について」の画像。図は、下の文章（キャプション）を切り取って、絵だけ。写真は、上の何もない余白を切り取る）
   assets/favicon-32.png, favicon-64.png, apple-touch-icon.png（ブラウザのタブ・ホーム画面のアイコン）
   js/fish-data.js（魚の名前・画像の名前と大きさ。自動で作られるので、手で編集しないでください）
 
@@ -41,9 +43,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_FISH = os.path.join(ROOT, "fish-stamp-images")
 SRC_LOGO = os.path.join(ROOT, "logo-banner-images")
 SRC_ABOUT = os.path.join(ROOT, "about-images")
+SRC_PRIZE = os.path.join(ROOT, "prize-images")
 OUT = os.path.join(ROOT, "assets")
 OUT_FISH = os.path.join(OUT, "fish")
 OUT_ABOUT = os.path.join(OUT, "about")
+OUT_PRIZE = os.path.join(OUT, "prize")
 
 # 魚の一覧（キー, 名前, 元の画像の名前）。キーは、サイト・データベースで魚を見分ける名前です（半角の英小文字）。
 FISH = [
@@ -62,6 +66,9 @@ BANNER_WIDTH = 1000         # バナーの横幅（px）
 # 「すきまキッズラボとは？」の画像（元の画像の名前 → 出力の名前・横幅px）。表示は最大でも 700px ほどなので、高精細の画面でも足りる大きさにする
 ABOUT_LOGO = ("logo_touka.png", "logo-touka.webp", 960)
 ABOUT_PHOTOS = (("ankyo.jpg", "ankyo.webp", 1200), ("2025.jpg", "2025.webp", 1600))
+# 「景品について」の画像。図は、絵だけを使う（下の文章は、画像の中の小さな文字だと、スマートフォンで読めないので、HTMLの文字にしている）
+PRIZE_FLOW = ("prize-flow.png", "flow.webp", 150)            # 元の画像の上から 150px までが、絵（それより下が、文章）
+PRIZE_TAPE = ("prize-tape.png", "tape.webp", (0, 240, 1280, 1260), 880)   # 写真：切り取る範囲（左・上・右・下）と、出力の横幅
 
 
 def need(path):
@@ -163,6 +170,21 @@ def main():
         sizes[f"about/{out_name}"] = save_webp(photo, os.path.join(OUT_ABOUT, out_name), 82)
         print(f"  about/{out_name}: {photo.width} × {photo.height}（HTMLの width / height に使う値）")
 
+    # 「景品について」の画像。図は、絵の部分だけを、劣化のない形式（lossless）で。写真は、余白を切り取って、横幅をそろえて縮小する
+    os.makedirs(OUT_PRIZE, exist_ok=True)
+    src_name, out_name, art_height = PRIZE_FLOW
+    flow_src = Image.open(need(os.path.join(SRC_PRIZE, src_name))).convert("RGBA")
+    flow_art = flow_src.crop((0, 0, flow_src.width, art_height))
+    flow = flow_art.crop(flow_art.getchannel("A").getbbox())
+    flow.save(os.path.join(OUT_PRIZE, out_name), "WEBP", lossless=True, quality=100, method=6)
+    sizes[f"prize/{out_name}"] = os.path.getsize(os.path.join(OUT_PRIZE, out_name))
+    print(f"  prize/{out_name}: {flow.width} × {flow.height}（js/prize-info.js の width / height に使う値）")
+    src_name, out_name, box, width = PRIZE_TAPE
+    tape = ImageOps.exif_transpose(Image.open(need(os.path.join(SRC_PRIZE, src_name)))).convert("RGB").crop(box)
+    tape = tape.resize((width, round(tape.height * width / tape.width)), Image.LANCZOS)
+    sizes[f"prize/{out_name}"] = save_webp(tape, os.path.join(OUT_PRIZE, out_name), 82)
+    print(f"  prize/{out_name}: {tape.width} × {tape.height}（js/prize-info.js の width / height に使う値）")
+
     # アイコン（ブラウザのタブ・スマートフォンのホーム画面）。ロゴは横長なので、正方形の中央に置く
     def square(side, fill, margin):
         canvas = Image.new("RGBA", (side, side), fill)
@@ -182,8 +204,8 @@ def main():
     # 魚のデータ（JavaScript用）
     js = (
         "/*\n"
-        " * 魚の名前・画像の名前と大きさ。scripts/make_fish_assets.py が自動で作るファイルです（手で編集しないでください）。\n"
-        " * 魚が増えていく順番は、ここではなく、管理画面の「スタンプ設定」で決めます（js/fish.js に、初期の順番があります）。\n"
+        " * お魚の名前・画像の名前と大きさ。scripts/make_fish_assets.py が自動で作るファイルです（手で編集しないでください）。\n"
+        " * お魚が増えていく順番は、ここではなく、管理画面の「スタンプ設定」で決めます（js/fish.js に、初期の順番があります）。\n"
         " */\n"
         'window.RALLY_FISH_BASE = "../assets/fish/";\n'
         f'window.RALLY_FISH_SCENE = {json.dumps({"file": "scene.webp", "width": SCENE_WIDTH, "height": height}, ensure_ascii=False)};\n'

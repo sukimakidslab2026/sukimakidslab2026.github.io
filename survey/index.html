@@ -5,11 +5,11 @@
 <!-- 欧文・数字：Josefin Sans Bold（Google Fonts / SIL Open Font License）。日本語：筑紫A丸ゴシック（Webフォント未契約のため、brand.css の代替フォントで表示） -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=47b1c076">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script><script src="../js/config.js?v=aae7ba99"></script></head><body>
-<!-- 共通ヘッダー：ロゴ（トップページへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
+<link rel="stylesheet" href="../brand.css?v=4335dc45"><link rel="stylesheet" href="style.css?v=84fc5547">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script><script src="../js/config.js?v=aae7ba99"></script><link rel="stylesheet" href="../prize.css?v=79c50350"></head><body>
+<!-- 共通ヘッダー：ロゴ（スタンプラリーへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
 <header class="site-header">
-  <a class="site-logo" href="../" aria-label="すきまキッズラボ トップページへ"><img src="../assets/logo.webp" width="196" height="144" alt="すきまキッズラボ"></a>
+  <a class="site-logo" href="../rally/" aria-label="すきまキッズラボ スタンプラリーへ"><img src="../assets/logo.webp" width="196" height="144" alt="すきまキッズラボ"></a>
   <button type="button" class="menu-toggle" id="menuToggle" aria-label="メニューを開く" aria-expanded="false" aria-controls="siteMenu"><span class="menu-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
 </header>
 <div class="menu-backdrop" id="menuBackdrop"></div>
@@ -37,6 +37,8 @@
 </section>
 <section class="block">
 <label class="check prize"><input id="prizeRequested" type="checkbox"> 景品を希望する</label>
+<!-- 「？ 景品について」：景品（オリジナルマステ）の説明のポップアップ。中身は js/prize-info.js（スタンプラリー画面と共通） -->
+<p class="prize-help"><button type="button" class="prize-open" data-prize-open aria-haspopup="dialog"><span class="prize-open-mark en" aria-hidden="true">?</span>景品について</button></p>
 <p class="note">希望する場合は、発送先の入力と、個人情報の取り扱いへの同意が必要です。希望しない場合、氏名・住所などの個人情報はお預かりしません。</p>
 <fieldset id="shipping" hidden disabled><legend>景品発送情報</legend>
 <label>氏名<input id="name" required maxlength="100" autocomplete="name"></label>
@@ -54,4 +56,4 @@
 <div id="privacyContent" class="dialog-body policy" tabindex="-1" autofocus><p>読み込み中…</p></div>
 <div class="dialog-foot"><button type="button" data-close-privacy>閉じてアンケートに戻る</button></div>
 </dialog>
-<script src="app.js?v=a0b7f011"></script><script src="../js/site-nav.js?v=d37142eb"></script></body></html>
+<script src="../js/prize-info.js?v=9f6917b3"></script><script src="app.js?v=4a6880fa"></script><script src="../js/site-nav.js?v=cc0a8009"></script></body></html>

@@ -16,7 +16,7 @@
   <!-- 日本語：筑紫A丸ゴシックのWebフォントを契約した場合は、ここに読み込みタグを追加します（README参照）
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
-  <link rel="stylesheet" href="brand.css?v=f27f7b5f">
+  <link rel="stylesheet" href="brand.css?v=4335dc45">
   <link rel="stylesheet" href="style.css?v=13c93e71">
   <!-- 念のための転送：スタンプラリーのQRコードのURLが、このページ（トップ）の形（/?stamp=…）で開かれたときは、スタンプラリーのページに移す -->
   <script>
@@ -30,9 +30,9 @@
 <body>
 <noscript><p style="margin:16px;font-size:14px">このページのメニューを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
 
-<!-- 共通ヘッダー：ロゴ（トップページへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
+<!-- 共通ヘッダー：ロゴ（スタンプラリーへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
 <header class="site-header">
-  <a class="site-logo" href="./" aria-label="すきまキッズラボ トップページへ"><img src="./assets/logo.webp" width="196" height="144" alt="すきまキッズラボ"></a>
+  <a class="site-logo" href="./rally/" aria-label="すきまキッズラボ スタンプラリーへ"><img src="./assets/logo.webp" width="196" height="144" alt="すきまキッズラボ"></a>
   <button type="button" class="menu-toggle" id="menuToggle" aria-label="メニューを開く" aria-expanded="false" aria-controls="siteMenu"><span class="menu-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
 </header>
 <div class="menu-backdrop" id="menuBackdrop"></div>
@@ -45,12 +45,13 @@
   <div class="menu-sns"><a class="menu-instagram" href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer" aria-label="すきまキッズラボのInstagram（外部サイトが開きます）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/></svg></a></div>
 </nav>
 
-<header class="hero">
+<main>
+<div class="hero">
   <img class="hero-banner" src="./assets/banner.webp" width="1000" height="181" alt="すきまキッズラボ">
   <h1 class="page-title"><span class="ph">「すきまキッズラボ」</span><span class="ph">とは？</span></h1>
-</header>
+</div>
 
-<main class="container">
+<div class="container">
   <!-- ▼ プロジェクトの紹介文と画像。段落（<p>）と画像（<figure>）に付けた data-reveal が、スクロールしたときに、順番にふわっと現れる動きの目印です（js/reveal.js）。
        ・文章を直すとき：<p> の中の文を、書きかえます。
        ・段落を足すとき：<p data-reveal>…</p> を、足したい位置に、コピーして足します。大きく目立たせたい段落は、class="story-lead" を付けます。
@@ -88,9 +89,10 @@
     <span class="rally-link-title">スタンプラリー</span>
     <span class="rally-link-sub"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">進み具合を見る</span></span>
   </a>
+</div>
 </main>
 
 <footer class="en">sukima kids lab.</footer>
-<script src="js/site-nav.js?v=d37142eb"></script>
+<script src="js/site-nav.js?v=cc0a8009"></script>
 </body>
 </html>

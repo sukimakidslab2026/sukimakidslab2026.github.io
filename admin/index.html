@@ -3,10 +3,10 @@
 <title>QRスタンプラリー 管理画面</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=f27f7b5f"><link rel="stylesheet" href="style.css?v=91dbdfb7">
+<link rel="stylesheet" href="../brand.css?v=4335dc45"><link rel="stylesheet" href="style.css?v=d3b7f059">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="../js/config.js?v=aae7ba99"></script>
-<script src="../js/fish-data.js?v=df730605"></script><script src="../js/fish.js?v=cd62bab2"></script></head><body>
+<script src="../js/fish-data.js?v=acd0a4fc"></script><script src="../js/fish.js?v=aabe1ce9"></script></head><body>
 <main class="container"><h1><span class="ph">QRスタンプラリー</span> <span class="ph">管理画面</span></h1>
 <p>管理者用。Supabase Authでログインし、管理者として登録されたユーザーだけがデータを閲覧できます。</p>
 <section id="login"><h2>管理者ログイン</h2>
@@ -20,7 +20,7 @@
 <p class="note">開きたい画面を選んでください。</p>
 <div class="menu-cards">
 <a class="menu-card" href="#survey"><strong>アンケート・集計</strong><span>参加者・QR読み込み履歴・アンケートの回答・景品の発送先・CSVの書き出し・テストデータの除外</span></a>
-<a class="menu-card" href="#stamps"><strong>スタンプ設定</strong><span>魚が増えていく順番を決める。保存すると、参加者の画面に、すぐに反映されます</span></a>
+<a class="menu-card" href="#stamps"><strong>スタンプ設定</strong><span>お魚が増えていく順番を決める。保存すると、参加者の画面に、すぐに反映されます</span></a>
 <a class="menu-card" href="../reset/"><strong>この端末の履歴を消す</strong><span>この端末のブラウザに保存された、サイトの履歴（参加者ID・スタンプ・「次回からは表示しない」の設定・管理者のログイン情報など）を、すべて消して、はじめて開いたときの状態に戻す（動作確認用）</span></a>
 </div>
 <p><button id="logoutBtnMenu" class="secondary">ログアウト</button></p>
@@ -37,7 +37,7 @@
 <button id="logoutBtn" class="secondary">ログアウト</button>
 </div>
 <p id="status"></p><p id="notice" class="notice" role="status" hidden></p>
-<p class="note">集計・CSVには、除外した参加者（テストなど）は含まれません。「コンプリート」「クリア」は、景品を希望できる条件（3個以上）を満たした人のことです（6個そろって「川が完成」した人ではありません）。</p>
+<p class="note">集計・CSVには、除外した参加者（テストなど）は含まれません。「コンプリート」「クリア」は、景品をゲットできる条件（3個以上）を満たした人のことです（6個そろって「川が完成」した人ではありません）。</p>
 
 <div class="cards">
 <div class="card"><span>参加者数</span><strong id="cParticipants">-</strong></div>
@@ -120,17 +120,17 @@
 </details>
 </section>
 
-<!-- スタンプ設定：魚が増えていく順番（スタンプを1個取るごとに、この順番で、次の魚が川に現れる） -->
+<!-- スタンプ設定：お魚が増えていく順番（スタンプを1個取るごとに、この順番で、次のお魚が川に現れる） -->
 <section id="stampSettings" hidden>
 <p class="crumbs"><a href="#">← メニューに戻る</a></p>
-<h2>スタンプ設定（魚が増えていく順番）</h2>
-<p class="note">スタンプを1個取るごとに、上から順番に、魚が1種類ずつ川に現れます（どの掲示板のQRコードを読み取ったかには、関係ありません）。
-景品を希望できる条件は <strong id="fishRequired">3</strong> 個です。<strong>最初の <span class="fishRequiredText">3</span> 個だけでも、川がさびしく見えない順番</strong>にしてください。
+<h2>スタンプ設定（お魚が増えていく順番）</h2>
+<p class="note">スタンプを1個取るごとに、上から順番に、お魚が1種類ずつ川に現れます（どの掲示板のQRコードを読み取ったかには、関係ありません）。
+景品をゲットできる条件は <strong id="fishRequired">3</strong> 個です。<strong>最初の <span class="fishRequiredText">3</span> 個だけでも、川がさびしく見えない順番</strong>にしてください。
 右の「川の見え方」で、スタンプが1〜6個のときの川の絵を確かめながら、▲▼で並べ替えて、「保存して公開する」を押します。
 <strong>イベントが始まってから変えると、すでにスタンプを集めている人の絵も、新しい順番に入れ替わります</strong>（集めた個数は変わりません）。</p>
 <div class="fish-editor">
 <div>
-<h3>魚の順番（上から先に現れる）</h3>
+<h3>お魚の順番（上から先に現れる）</h3>
 <ul id="fishList" class="fish-list"></ul>
 </div>
 <div>
@@ -167,4 +167,4 @@
 <div id="surveyDeleteBody" class="note"></div>
 <div class="dialog-actions"><button type="submit" value="ok" class="danger">削除する</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
 </form>
-</dialog></main><script src="app.js?v=9ca4ddb4"></script></body></html>
+</dialog></main><script src="app.js?v=6cc60626"></script></body></html>

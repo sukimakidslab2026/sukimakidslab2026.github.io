@@ -1,6 +1,6 @@
 /*
- * 魚の名前・画像の名前と大きさ。scripts/make_fish_assets.py が自動で作るファイルです（手で編集しないでください）。
- * 魚が増えていく順番は、ここではなく、管理画面の「スタンプ設定」で決めます（js/fish.js に、初期の順番があります）。
+ * お魚の名前・画像の名前と大きさ。scripts/make_fish_assets.py が自動で作るファイルです（手で編集しないでください）。
+ * お魚が増えていく順番は、ここではなく、管理画面の「スタンプ設定」で決めます（js/fish.js に、初期の順番があります）。
  */
 window.RALLY_FISH_BASE = "../assets/fish/";
 window.RALLY_FISH_SCENE = {"file": "scene.webp", "width": 1500, "height": 629};

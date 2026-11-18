@@ -1,8 +1,8 @@
 /*
- * 魚のスタンプ（図鑑）と、魚が増えていく川の、共通の部品（スタンプラリー画面・管理画面で使う）。
+ * お魚のスタンプ（図鑑）と、お魚が増えていく川の、共通の部品（スタンプラリー画面・管理画面で使う）。
  *
- * ・魚の名前・画像の名前と大きさ：js/fish-data.js（scripts/make_fish_assets.py が自動で作る）
- * ・魚が増えていく順番：サーバー（管理画面の「スタンプ設定」で変える）。参加者の画面は、開くたびに読み込む。
+ * ・お魚の名前・画像の名前と大きさ：js/fish-data.js（scripts/make_fish_assets.py が自動で作る）
+ * ・お魚が増えていく順番：サーバー（管理画面の「スタンプ設定」で変える）。参加者の画面は、開くたびに読み込む。
  * ・下の RALLY_FISH_DEFAULT_ORDER は、サーバーから読み込めないとき（通信できない・初めて開いたときなど）に使う順番です。
  *   sql/schema.sql の rally_default_fish_order() と同じにしてください（scripts/check_site.py が確認します）。
  */
@@ -20,7 +20,7 @@ window.RallyFish = (function () {
   function url(file) { return BASE + file; }
   function has(key) { return Object.prototype.hasOwnProperty.call(FISH, key); }
 
-  // 魚の種類をちょうど1回ずつ並べた配列だけを、順番として受け付ける（それ以外は null）
+  // お魚の種類をちょうど1回ずつ並べた配列だけを、順番として受け付ける（それ以外は null）
   function normalizeOrder(value) {
     if (!Array.isArray(value) || value.length !== KEYS.length) return null;
     var seen = {};
@@ -37,20 +37,20 @@ window.RallyFish = (function () {
   function sceneHtml() {
     return '<img class="river-bg" src="' + esc(url(SCENE.file)) + '" width="' + SCENE.width + '" height="' + SCENE.height + '" alt="" draggable="false">';
   }
-  // 魚1種類ぶんの重ね画像（背景と同じ大きさ）。魚が現れるアニメーションの中心は、その魚がいる位置
+  // お魚1種類ぶんの重ね画像（背景と同じ大きさ）。お魚が現れるアニメーションの中心は、そのお魚がいる位置
   function layerHtml(key, isNew) {
     var f = FISH[key];
     if (!f) return "";
     return '<img data-key="' + esc(key) + '"' + (isNew ? ' class="is-new"' : "") + ' src="' + esc(url(f.layer)) + '" width="' + SCENE.width + '" height="' + SCENE.height +
       '" alt="" draggable="false" style="transform-origin:' + (f.cx * 100).toFixed(1) + "% " + (f.cy * 100).toFixed(1) + '%">';
   }
-  // 川の絵（背景＋ 順番どおりに、先頭から count 種類の魚）。管理画面のプレビューなど、動かさない場面で使う
+  // 川の絵（背景＋ 順番どおりに、先頭から count 種類のお魚）。管理画面のプレビューなど、動かさない場面で使う
   function riverInnerHtml(order, count) {
     var n = Math.max(0, Math.min(count, order.length));
     return sceneHtml() + '<div class="river-fish">' + order.slice(0, n).map(function (k) { return layerHtml(k, false); }).join("") + "</div>";
   }
 
-  // 画像を先に読み込んでおく（魚が現れる瞬間に、画像が遅れて出ないように）。timeoutMs を過ぎたら、待たずに先へ進む
+  // 画像を先に読み込んでおく（お魚が現れる瞬間に、画像が遅れて出ないように）。timeoutMs を過ぎたら、待たずに先へ進む
   function loadImage(file) {
     return new Promise(function (resolve) {
       var img = new Image();

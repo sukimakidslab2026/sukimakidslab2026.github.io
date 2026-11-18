@@ -15,14 +15,13 @@
   8. ファイルの版（?v=…）が最新か（scripts/stamp_assets.py --check）
   9. JavaScript の文法、秘密鍵が含まれていないこと、js/config.js が変更されていないこと
  10. 共通ヘッダー（ロゴ・メニュー）が、すべての公開ページで同じ内容か
- 11. 景品を希望できる条件（スタンプの個数）が、JavaScript・SQL・HTMLで同じか
+ 11. 景品をゲットできる条件（スタンプの個数）が、JavaScript・SQL・HTMLで同じか
  12. 掲示板のQRコードの文字列（合言葉）が、公開されるファイルに含まれていないか
  13. 旧仕様（6か所の名前付きスタンプ）の記述が残っていないか
  14. 魚の図鑑：画像・名前・順番が、JavaScript・SQL・画像の変換スクリプトで一致しているか
  15. 元の画像のフォルダ（fish-stamp-images など）が、GitHubに送られないようになっているか
  16. 参加者のスタンプのリセット：SQLの関数・権限と、参加者の画面・管理画面の呼び出しが、そろっているか
  17. スタンプラリー画面のバナー（中央）・獲得の演出（後光）・ルール説明のポップアップ（「次回からは表示しない」の保存）が、そろっているか
-     （ルール説明が、仮の内容のままのときは、注意として表示します）
  18. トップページ（「すきまキッズラボとは？」）：紹介文・画像・スクロールで順番に現れる動き（js/reveal.js）が、そろっているか。
      公開ページの画像の width / height が、実際の画像の大きさと同じか
  19. アンケート・プライバシー規約・フッター：規約の項の番号と版が正しいか（【要確認】が残っていると注意として表示）、
@@ -31,6 +30,11 @@
  21. 管理画面の一括操作：参加者・アンケートのチェックボックス、一括の除外・リセット、アンケートの削除が、SQL（関数・管理者のみ・権限）と、画面で、そろっているか
  22. この端末の履歴の完全リセット（reset/）：サイトが端末に保存している履歴の名前が、すべて載っているか、消す処理・別のタブの開き直し・管理画面のリンクが、そろっているか
  23. 管理画面の「完全リセット」（参加者の端末のサイトの履歴も消す）と、アンケートを削除したあとの答え直し：SQL（列・関数・権限）・スタンプラリー画面・アンケート画面・管理画面が、そろっているか
+ 24. 「？ 景品について」のポップアップ（js/prize-info.js・prize.css・assets/prize/）：スタンプラリー画面・アンケート画面のボタンと、中身（数の限り・画像の大きさ・スタンプの個数）が、そろっているか
+ 25. コンプリート（お魚が全部そろった）ときの、川の左上のバナー・日時・完成画像の保存：画面と、保存する画像で、位置・大きさが同じか
+ 26. ハンバーガーのメニューとポップアップの関係（メニューを開いたまま、ポップアップが開いても、操作できなくならないか）
+ 27. 個人情報（発送先）を、スプレッドシートに同期しない：SQL・Apps Script・READMEに、個人情報を同期する仕組みが、残っていないか
+ 28. 文言の統一：「お魚」の表記・「景品をゲットできる」・川のタイトル・ルール説明の仮の注記の削除
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -144,11 +148,13 @@ def check_header():
         blocks[rel] = (norm, block, prefix)
         if prefix + "assets/logo.webp" not in block:
             bad(f"{rel}: ロゴ画像のパスが正しくありません")
-        # ロゴのリンク先は、サイトのトップページ（このリポジトリの index.html）
+        # ロゴのリンク先は、スタンプラリー（rally/index.html）。「すきまキッズラボとは？」（トップページ）ではない
         m = re.search(r'<a class="site-logo" href="([^"]+)"', block)
         target = os.path.normpath(os.path.join(ROOT, os.path.dirname(rel), m.group(1), "index.html")) if m else None
-        if not target or target != os.path.join(ROOT, "index.html"):
-            bad(f"{rel}: ロゴのリンク先が、トップページ（index.html）になっていません")
+        if not target or target != os.path.join(ROOT, "rally", "index.html"):
+            bad(f"{rel}: ロゴのリンク先が、スタンプラリー（rally/index.html）になっていません")
+        if 'aria-label="すきまキッズラボ スタンプラリーへ"' not in block:
+            bad(f"{rel}: ロゴのリンクの aria-label が「すきまキッズラボ スタンプラリーへ」になっていません")
         if INSTAGRAM_URL not in block or 'rel="noopener noreferrer"' not in block:
             bad(f"{rel}: Instagramのリンク（{INSTAGRAM_URL}）が、安全な指定（noopener noreferrer）付きで入っていません")
         if "js/site-nav.js" not in src:
@@ -161,7 +167,7 @@ def check_header():
         if diff:
             bad(f"共通ヘッダーの内容が、{base_rel} と違います：{diff}")
         else:
-            ok(f"共通ヘッダーは、{len(blocks)} ページで同じ内容です（ロゴ → トップページ、メニュー → 「すきまキッズラボ」とは？・Instagram）")
+            ok(f"共通ヘッダーは、{len(blocks)} ページで同じ内容です（ロゴ → スタンプラリー、メニュー → 「すきまキッズラボ」とは？・Instagram）")
     # メニューの順番：「すきまキッズラボ」とは？ の直後に Instagram
     for rel, (_, block, _) in blocks.items():
         if block.find("「すきまキッズラボ」とは？") == -1 or block.find("menu-instagram") < block.find("「すきまキッズラボ」とは？"):
@@ -319,8 +325,6 @@ def check_popups():
         bad("；".join(problems))
     else:
         ok("バナーは左右の中央・獲得の演出・ルール説明（「次回からは表示しない」を端末に保存）が、そろっています")
-    if 'class="rules-draft"' in html:
-        warn("ルール説明（rally/index.html の rules-draft の段落）が、仮の内容のままです。正式な内容にしたら、この「仮の説明です」の一文（class=\"rules-draft\"）を消してください")
 
 
 def image_size_problems(rel):
@@ -564,8 +568,186 @@ def check_full_reset():
         ok("完全リセット・答え直し：SQL（列・rally_reset_state・admin_full_reset_many・権限）と、スタンプラリー画面・アンケート画面・管理画面が、そろっています")
 
 
+def check_prize_info():
+    """「？ 景品について」のポップアップ：スタンプラリー画面・アンケート画面のボタン、js/prize-info.js の中身、画像"""
+    js, css = read("js/prize-info.js"), read("prize.css")
+    rally, survey = read("rally/index.html"), read("survey/index.html")
+    problems = []
+    # 景品をゲットできる条件（スタンプの個数）が、rally/app.js の PRIZE_REQUIRED と同じ
+    required = re.search(r"required:\s*(\d+)", js)
+    prize_required = re.search(r"const\s+PRIZE_REQUIRED\s*=\s*(\d+)", read("rally/app.js"))
+    if not required or not prize_required or required.group(1) != prize_required.group(1):
+        problems.append(f"js/prize-info.js の required（{required.group(1) if required else 'なし'}）が、rally/app.js の PRIZE_REQUIRED（{prize_required.group(1) if prize_required else 'なし'}）と違います")
+    # 数に限りがあること（先着の人数・おひとり様一つ限り）を、目立つ形で伝える
+    limit = re.search(r'limit:\s*"([^"]+)"', js)
+    per = re.search(r'perPerson:\s*"([^"]+)"', js)
+    if not limit or "先着" not in limit.group(1) or not per or "一つ" not in per.group(1) or "数に限りがあります" not in js:
+        problems.append("js/prize-info.js: 「数に限りがあります」と、先着の人数（limit）・おひとり様の制限（perPerson）が、ありません")
+    # 画像：assets/prize/ にあり、width / height が、画像の大きさと同じ
+    try:
+        from PIL import Image
+    except ImportError:
+        Image = None
+    for key, width, height in re.findall(r'(\w+):\s*\{\s*file:\s*"[^"]+",\s*width:\s*(\d+),\s*height:\s*(\d+)', js):
+        fname = re.search(key + r':\s*\{\s*file:\s*"([^"]+)"', js).group(1)
+        path = os.path.join(ROOT, "assets", "prize", fname)
+        if not os.path.isfile(path):
+            problems.append(f"assets/prize/{fname} がありません（python3 scripts/make_fish_assets.py で作ります）")
+        elif Image:
+            with Image.open(path) as im:
+                if (str(im.width), str(im.height)) != (width, height):
+                    problems.append(f"js/prize-info.js の {key} の width / height（{width}×{height}）が、画像 assets/prize/{fname} の大きさ {im.width}×{im.height} と違います")
+    if "alt:" not in js:
+        problems.append("js/prize-info.js: 画像の説明（alt）がありません")
+    # ボタン：スタンプラリー画面は、進捗の枠（#progressBanner）の中。アンケート画面は、「景品を希望する」のチェックボックスの直後
+    banner = re.search(r'<section id="progressBanner".*?</section>', rally, flags=re.S)
+    if not banner or "data-prize-open" not in banner.group(0) or "景品について" not in banner.group(0):
+        problems.append("rally/index.html: 進捗の枠（#progressBanner）の中に、「？ 景品について」のボタン（data-prize-open）がありません")
+    after = re.search(r'id="prizeRequested"[^>]*>\s*景品を希望する</label>\s*(?:<!--.*?-->\s*)?<p class="prize-help"><button[^>]*data-prize-open[^>]*>.*?景品について</button>', survey, flags=re.S)
+    if not after:
+        problems.append("survey/index.html: 「景品を希望する」のチェックボックスの直後に、「？ 景品について」のボタン（data-prize-open）がありません")
+    for rel, html in (("rally/index.html", rally), ("survey/index.html", survey)):
+        if "prize.css" not in html or "js/prize-info.js" not in html:
+            problems.append(f"{rel}: prize.css・js/prize-info.js を読み込んでいません")
+    # アンケート画面では、prize.css を、アンケートのCSSより後に読み込む（dialog の指定に、負けないように）
+    if survey.find("prize.css") < survey.find("style.css"):
+        problems.append("survey/index.html: prize.css は、style.css より後に読み込んでください（アンケートの dialog の指定に負けます）")
+    if not re.search(r"\.prize-dialog:not\(\[open\]\)\{display:none\}", css) or "prefers-reduced-motion" not in css:
+        problems.append("prize.css: 閉じているとき見えない指定（.prize-dialog:not([open])）、または、「視差効果を減らす」への対応がありません")
+    if "SiteNav" not in js:
+        problems.append("js/prize-info.js: ポップアップを開く前に、メニューを閉じていません（window.SiteNav）")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok(f"「景品について」：スタンプラリー画面・アンケート画面のボタンと、ポップアップ（スタンプ {required.group(1)} 個・{limit.group(1)}・{per.group(1)}・画像2枚）が、そろっています")
+
+
+def check_complete_image():
+    """コンプリートのときの、川の左上のバナー・日時と、完成画像の保存：画面（CSS）と、保存する画像（JavaScript）の、位置・大きさが同じか"""
+    html, css, js = read("rally/index.html"), read("rally/style.css"), read("rally/app.js")
+    problems = []
+    for needed in ('id="riverBadge"', 'id="riverBadgeDate"', 'id="riverActions"', 'id="saveRiver"', 'id="saveDialog"', 'id="saveImage"', 'id="saveDo"'):
+        if needed not in html:
+            problems.append(f"rally/index.html に {needed} がありません")
+    badge = re.search(r'<div id="riverBadge"[^>]*>.*?</div>', html, flags=re.S)
+    if not badge or "banner-rally.webp" not in badge.group(0) or "COMPLETE!" not in badge.group(0) or "hidden" not in badge.group(0).split(">")[0]:
+        problems.append("rally/index.html: 川の左上のバナー（#riverBadge）が、バナー画像・COMPLETE!・hidden（コンプリート前は隠す）を、そろえていません")
+    # 画面（CSS）と、保存する画像（JavaScript）の、位置・大きさ
+    layout = re.search(r"COMPLETE_LAYOUT\s*=\s*\{banner:\{x:(\d+),y:(\d+),w:(\d+)\},text:\{x:(\d+),labelSize:([\d.]+),dateSize:([\d.]+),gap:([\d.]+),lineHeight:([\d.]+)\}\}", js)
+    scene = re.search(r'SCENE\s*=\s*\{[^}]*"width":\s*(\d+),\s*"height":\s*(\d+)', read("js/fish-data.js"))
+    cssb = re.search(r"\.river-badge\{[^}]*left:([\d.]+)%;right:([\d.]+)%;top:([\d.]+)%;[^}]*gap:([\d.]+)%", css)
+    cssw = re.search(r"\.river-badge-banner\{[^}]*width:([\d.]+)%", css)
+    csst = re.search(r"\.river-badge-text\{[^}]*font-size:([\d.]+)cqw", css)
+    csslab = re.search(r"\.river-badge-label\{font-size:([\d.]+)em\}", css)
+    if not (layout and scene and cssb and cssw and csst and csslab):
+        problems.append("COMPLETE_LAYOUT（rally/app.js）・.river-badge（rally/style.css）・川の背景の大きさ（js/fish-data.js）の、どれかが見つかりません")
+    else:
+        W, H = int(scene.group(1)), int(scene.group(2))
+        bx, by, bw, tx, label, date, gap, lh = (float(layout.group(i)) for i in range(1, 9))
+        left, right, top, cgap = (float(cssb.group(i)) for i in range(1, 5))
+        inner = W * (1 - (left + right) / 100)
+        pairs = [("バナーの左の位置", bx / W * 100, left, .15), ("バナーの上の位置", by / H * 100, top, .15),
+                 ("バナーの幅（川の幅に対する割合を、バナーを置く枠の幅に対する割合に直した値）", bw / inner * 100, float(cssw.group(1)), .3),
+                 ("日時の文字の左の位置（バナーの右・すき間）", (tx - bx - bw) / inner * 100, cgap, .3),
+                 ("日時の文字の大きさ（川の幅に対する割合）", date / W * 100, float(csst.group(1)), .1),
+                 ("COMPLETE! の文字の大きさ（日時に対する割合）", label / date, float(csslab.group(1)), .02)]
+        for name, a, b, tol in pairs:
+            if abs(a - b) > tol:
+                problems.append(f"{name}が、画面（rally/style.css）と、保存する画像（rally/app.js の COMPLETE_LAYOUT）で、違います（{a:.2f} と {b:.2f}）")
+    for needed in ("makeCompleteImage", "toBlob", "canvas", "navigator.share", "completeTime(", "dateLabel("):
+        if needed not in js:
+            problems.append(f"rally/app.js に {needed} がありません")
+    if "document.fonts" not in js:
+        problems.append("rally/app.js: 保存する画像の文字を描く前に、フォントの読み込みを待っていません（document.fonts）")
+    if "container-type:inline-size" not in css:
+        problems.append("rally/style.css: 川の文字の大きさを、川の幅に合わせる指定（container-type:inline-size）がありません")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok("コンプリート：川の左上のバナー・日時（画面）と、完成画像（保存する画像）の位置・大きさが、同じです。保存は、共有の画面かダウンロードで行います")
+
+
+def check_menu_dialog():
+    """ハンバーガーのメニューとポップアップの関係：メニューを開いたまま、ポップアップが開いても、操作できなくならない"""
+    nav, rally = read("js/site-nav.js"), read("rally/app.js")
+    problems = []
+    if "DIALOG" not in re.search(r"SCRIPT\|STYLE\|LINK\|NOSCRIPT[^/]*", nav).group(0):
+        problems.append("js/site-nav.js: メニューを開いたとき、ポップアップ（dialog）を、操作できない状態（inert）にしてしまいます（ポップアップも、操作できなくなります）")
+    if "window.SiteNav" not in nav or "whenClosed" not in nav:
+        problems.append("js/site-nav.js: メニューの状態を、ほかのプログラムが確かめる口（window.SiteNav.isOpen / whenClosed）がありません")
+    if "MutationObserver" not in nav or 'dialog[open]' not in nav:
+        problems.append("js/site-nav.js: メニューが開いている間に、ポップアップが開いたとき、メニューを閉じる処理（MutationObserver）がありません")
+    if rally.count("await waitForQuiet()") < 3 or "window.SiteNav" not in rally or "async function waitForQuiet" not in rally:
+        problems.append("rally/app.js: 自動で出すポップアップ（獲得の演出・ルール説明）と、完成画像の保存が、メニュー・ほかのポップアップが閉じるまで待っていません（await waitForQuiet()）")
+    for rel in ("js/prize-info.js",):
+        if "SiteNav" not in read(rel):
+            problems.append(f"{rel}: ポップアップを開く前に、メニューを閉じていません")
+    if not re.search(r"scroll-padding-top\s*:\s*calc\(var\(--header-h\)", read("brand.css")):
+        problems.append("brand.css: 固定表示のヘッダーの下に、入力欄・チェックボックスが隠れないようにする指定（scroll-padding-top）がありません")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok("メニューとポップアップ：メニューを開いたまま、ポップアップが開いても、操作できなくならない仕組み（inert の対象外・自動で閉じる・待つ）と、固定ヘッダーの下に隠れない指定が、そろっています")
+
+
+def check_no_personal_sync():
+    """個人情報（発送先）を、スプレッドシートに同期しない：SQL・Apps Script・READMEに、同期する仕組みが、残っていないか"""
+    sql, gas, readme = read("sql/schema.sql"), read("gas/sheets-sync.gs"), read("README.md")
+    problems = []
+    export = re.search(r"function public\.sheets_export\(.*?\n\$\$;", sql, flags=re.S)
+    if not export or "prize_shipping" in export.group(0) or "recipient_name" in export.group(0):
+        problems.append("sql/schema.sql: sheets_export が、発送先（prize_shipping）を、読み取っています（個人情報は、返してはいけません）")
+    finger = re.search(r"function private\.sheets_fingerprint\(.*?\n\$\$;", sql, flags=re.S)
+    if not finger or "prize_shipping" in finger.group(0):
+        problems.append("sql/schema.sql: 同期の変更検知（sheets_fingerprint）が、発送先（prize_shipping）を、使っています")
+    for word in ("recipient_name", "postal_code", "SHIPPING_COLUMNS", "syncShipping", "writeShipping_", "formatPhone_"):
+        if word in gas:
+            problems.append(f"gas/sheets-sync.gs に、個人情報を同期する仕組み（{word}）が、残っています")
+    if "deletePersonalDataSheets" not in gas or "LEGACY_SHIPPING_SHEET" not in gas:
+        problems.append("gas/sheets-sync.gs: 旧版の個人情報のシートを、削除する手段（deletePersonalDataSheets）がありません")
+    if re.search(r"SYNC_SHIPPING`?\s*=\s*`?true", readme) and "以前のスクリプトは" not in readme:
+        problems.append("README.md: 個人情報を同期する設定（SYNC_SHIPPING）を、すすめる記述が、残っています")
+    if "同期しません" not in readme:
+        problems.append("README.md: 「個人情報は、スプレッドシートに同期しません」の記述がありません")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok("個人情報（発送先）は、スプレッドシートに同期しません（sheets_export・変更検知・Apps Script に、個人情報の同期が、ありません。旧版のシートを削除する手段があります）")
+
+
+def check_wording():
+    """文言の統一：「お魚」の表記・「景品をゲットできる」・川のタイトル・ルール説明の仮の注記の削除"""
+    problems = []
+    pages = ["index.html", "rally/index.html", "survey/index.html", "survey/privacy.html", "reset/index.html", "admin/index.html", "js/prize-info.js", "js/rally-data.js"]
+    scripts = ["rally/app.js", "survey/app.js", "admin/app.js", "reset/app.js"]
+    for rel in pages + scripts:
+        src = read(rel)
+        # コメント（HTMLの <!-- --> と、JavaScriptの // ・ /* */）は、除いて、表示される文言だけを見る
+        text = re.sub(r"<!--.*?-->", "", src, flags=re.S)
+        text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+        text = "\n".join(re.sub(r"(?<![:\"'])//.*$", "", line) for line in text.split("\n"))
+        for m in re.finditer(r"(?<![お川])魚|さかな|サカナ", text):
+            problems.append(f"{rel}: 「{text[max(0, m.start() - 6):m.end() + 6].strip()}」（お魚に統一）")
+            break
+        for old in ("景品を希望でき", "景品の希望もこちら", "みんなでつくる川", "みんなで作る川"):
+            if old in text:
+                problems.append(f"{rel}: 古い言い回し「{old}」が残っています")
+    rally = read("rally/index.html")
+    for needed in ("<h2>お魚を集めよう！</h2>", "<h2>お魚図鑑</h2>", "オリジナルマステプレゼントの申し込みもこちらから"):
+        if needed not in rally:
+            problems.append(f"rally/index.html に「{needed}」がありません")
+    if "仮の説明" in rally or "rules-draft" in rally or "rules-draft" in read("rally/style.css"):
+        problems.append("rally/index.html: ルール説明に、「仮の説明です」の注記が、残っています（消す指示です）")
+    if "オリジナルマステをゲットできる条件を達成しました！" not in read("survey/app.js"):
+        problems.append("survey/app.js: 「オリジナルマステをゲットできる条件を達成しました！」がありません")
+    if problems:
+        bad("；".join(problems[:8]))
+    else:
+        ok("文言：お魚の表記・「景品をゲットできる」・川のタイトル（お魚を集めよう！）・オリジナルマステプレゼントの申し込み、が統一され、ルール説明の仮の注記は、ありません")
+
+
 def check_sources_ignored():
-    for folder in ("fish-stamp-images", "logo-banner-images", "about-images"):
+    for folder in ("fish-stamp-images", "logo-banner-images", "about-images", "prize-images"):
         tracked = subprocess.run(["git", "ls-files", folder], cwd=ROOT, capture_output=True, text=True).stdout.strip()
         if tracked:
             warn(f"{folder}/ の元の画像が、すでにGitに登録されています（公開サイトが重くなります。git rm -r --cached {folder} で外してください）")
@@ -752,7 +934,7 @@ def main():
     print("10. 共通ヘッダー（ロゴ・メニュー）")
     check_header()
 
-    print("11. 景品を希望できる条件（スタンプの個数）")
+    print("11. 景品をゲットできる条件（スタンプの個数）")
     check_required()
 
     print("12. 掲示板のQRコードの文字列が、公開されるファイルに含まれていないか")
@@ -790,6 +972,21 @@ def main():
 
     print("23. 管理画面の完全リセットと、アンケート削除後の答え直し")
     check_full_reset()
+
+    print("24. 「？ 景品について」のポップアップ")
+    check_prize_info()
+
+    print("25. コンプリートのときの、川の左上のバナー・日時・完成画像の保存")
+    check_complete_image()
+
+    print("26. ハンバーガーのメニューとポップアップの関係")
+    check_menu_dialog()
+
+    print("27. 個人情報（発送先）を、スプレッドシートに同期しない")
+    check_no_personal_sync()
+
+    print("28. 文言の統一")
+    check_wording()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

@@ -83,6 +83,8 @@ a{color:var(--color-primary);text-decoration-color:var(--color-secondary);text-u
  * 管理画面以外のすべてのページに入ります（js/site-nav.js が開閉を担当）。
  * ページ側のCSSが button などの要素に付けた指定に負けないよう、クラスで必要な指定をすべて書いています。 */
 :root{--header-h:64px}
+/* 固定表示のヘッダーの下に、入力欄・チェックボックス・ページ内リンクの飛び先が、隠れないようにする（Tabキーで移動したときなど） */
+html:has(.site-header){scroll-padding-top:calc(var(--header-h) + 8px)}
 .site-header{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
   height:var(--header-h);padding:0 var(--space-4);background:var(--color-surface);border-bottom:2px solid var(--color-line)}
 .site-logo{flex:none;display:block;height:48px}
@@ -133,7 +135,7 @@ html.menu-open{overflow:hidden}
 .page-title:after{content:"";display:block;width:44px;height:6px;margin-top:var(--space-3);border-radius:3px;background:var(--color-mustard)}
 
 /* ── 川の絵（スタンプラリー画面・管理画面のプレビューで共通）──
- * 背景の画像の上に、魚の画像（背景と同じ大きさ）を重ねるだけです。縦横の比率は、背景の画像と同じ（5523×2315）。 */
+ * 背景の画像の上に、お魚の画像（背景と同じ大きさ）を重ねるだけです。縦横の比率は、背景の画像と同じ（5523×2315）。 */
 .river{position:relative;width:100%;height:0;padding-bottom:41.92%;border-radius:var(--radius-control);overflow:hidden;background:var(--tint-accent-22)}
 .river-bg,.river-fish,.river-fish img{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
 .river-bg{object-fit:cover}

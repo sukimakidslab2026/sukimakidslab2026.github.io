@@ -15,8 +15,9 @@
   <!-- 日本語：筑紫A丸ゴシックのWebフォントを契約した場合は、ここに読み込みタグを追加します（README参照）
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
-  <link rel="stylesheet" href="../brand.css?v=f27f7b5f">
-  <link rel="stylesheet" href="style.css?v=11f8707a">
+  <link rel="stylesheet" href="../brand.css?v=4335dc45">
+  <link rel="stylesheet" href="style.css?v=71311878">
+  <link rel="stylesheet" href="../prize.css?v=79c50350">
 </head>
 <body>
 <noscript><p style="margin:16px;font-size:14px">このページを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
@@ -27,9 +28,9 @@
   <symbol id="icon-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></symbol>
 </svg>
 
-<!-- 共通ヘッダー：ロゴ（トップページへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
+<!-- 共通ヘッダー：ロゴ（スタンプラリーへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
 <header class="site-header">
-  <a class="site-logo" href="../" aria-label="すきまキッズラボ トップページへ"><img src="../assets/logo.webp" width="196" height="144" alt="すきまキッズラボ"></a>
+  <a class="site-logo" href="../rally/" aria-label="すきまキッズラボ スタンプラリーへ"><img src="../assets/logo.webp" width="196" height="144" alt="すきまキッズラボ"></a>
   <button type="button" class="menu-toggle" id="menuToggle" aria-label="メニューを開く" aria-expanded="false" aria-controls="siteMenu"><span class="menu-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
 </header>
 <div class="menu-backdrop" id="menuBackdrop"></div>
@@ -42,15 +43,16 @@
   <div class="menu-sns"><a class="menu-instagram" href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer" aria-label="すきまキッズラボのInstagram（外部サイトが開きます）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/></svg></a></div>
 </nav>
 
-<header class="hero">
+<main>
+<div class="hero">
   <!-- バナーには「スタンプラリー」の文字が入っているので、バナーの画像そのものを、ページの見出し（h1）にしています -->
   <h1 class="page-title hero-title"><img class="hero-banner rally" src="../assets/banner-rally.webp" width="1000" height="280" alt="すきまキッズラボ スタンプラリー"></h1>
-  <p class="lead"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">さかなのスタンプを集めよう！</span><br>
-    <span class="ph"><span id="requiredCount">3</span>個で景品を希望でき、</span><span class="ph"><span id="riverTotal">6</span>個そろうと、画面上で川が完成します。</span></p>
+  <p class="lead"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">お魚のスタンプを集めよう！</span><br>
+    <span class="ph"><span id="requiredCount">3</span>個で景品をゲットでき、</span><span class="ph"><span id="riverTotal">6</span>個そろうと、画面上で川が完成します。</span></p>
   <p class="hero-actions"><button type="button" class="rules-open" id="rulesOpen" aria-haspopup="dialog"><span class="rules-open-mark en" aria-hidden="true">?</span>ルールを見る</button></p>
-</header>
+</div>
 
-<main class="container">
+<div class="container">
   <!-- 進捗バナー：取得数（◯/6）と、景品の条件（3個）・川の完成（6個）までのゲージ -->
   <section id="progressBanner" class="banner" data-state="empty" aria-label="スタンプの進み具合">
     <div class="banner-top">
@@ -75,6 +77,8 @@
     </div>
     <p id="bannerMessage" class="banner-message">スタンプを集めて、景品をゲットしよう！</p>
     <p id="bannerNote" class="banner-note" hidden></p>
+    <!-- 「？ 景品について」：景品（オリジナルマステ）の説明のポップアップ。中身は js/prize-info.js（アンケート画面と共通） -->
+    <p class="banner-actions"><button type="button" class="prize-open" data-prize-open aria-haspopup="dialog"><span class="prize-open-mark en" aria-hidden="true">?</span>景品について</button></p>
   </section>
 
   <!-- ブラウザが記録の保存を許可していないときの案内（rally/app.js が表示します） -->
@@ -85,24 +89,31 @@
 
   <a id="surveyLink" class="survey-link" href="../survey/" hidden>
     <span class="survey-link-title">アンケートに回答する</span>
-    <span class="survey-link-sub">条件を達成した方へ。景品の希望もこちらから</span>
+    <span class="survey-link-sub">条件を達成した方へ。オリジナルマステプレゼントの申し込みもこちらから</span>
   </a>
 
-  <!-- 川：スタンプを集めるたびに、魚が増えていく（魚の順番は、管理画面の「スタンプ設定」で決まります） -->
+  <!-- 川：スタンプを集めるたびに、お魚が増えていく（お魚の順番は、管理画面の「スタンプ設定」で決まります） -->
   <section class="card river-card">
-    <div class="card-head"><h2>みんなでつくる川</h2><span id="riverCount" class="count num"></span></div>
+    <div class="card-head"><h2>お魚を集めよう！</h2><span id="riverCount" class="count num"></span></div>
     <div id="river" class="river" role="img" aria-label="川の絵">
       <img class="river-bg" src="../assets/fish/scene.webp" width="1500" height="629" alt="" draggable="false">
       <div id="riverFish" class="river-fish"></div>
+      <!-- コンプリート（お魚が全部そろった）ときだけ出る：左上の余白に、「すきまキッズラボ スタンプラリー」のバナーと、コンプリートの日時。
+           「完成画像を保存」で保存する画像にも、同じものが入ります（rally/app.js の COMPLETE_LAYOUT と、rally/style.css の .river-badge は、同じ位置・大きさにします） -->
+      <div id="riverBadge" class="river-badge" hidden>
+        <img class="river-badge-banner" src="../assets/banner-rally.webp" width="1000" height="280" alt="" draggable="false">
+        <p class="river-badge-text"><span class="river-badge-label en">COMPLETE!</span><span id="riverBadgeDate" class="river-badge-date"></span></p>
+      </div>
     </div>
-    <p id="riverMessage" class="river-message">スタンプを集めると、魚が泳ぎはじめるよ。</p>
+    <p id="riverMessage" class="river-message">スタンプを集めると、お魚が泳ぎはじめるよ。</p>
+    <p id="riverActions" class="river-actions" hidden><button type="button" class="btn" id="saveRiver" aria-haspopup="dialog">完成画像を保存</button></p>
   </section>
 
-  <!-- さかな図鑑：まだ獲得していない魚はシルエット、獲得した魚は色つきの絵になる -->
+  <!-- お魚図鑑：まだ獲得していないお魚はシルエット、獲得したお魚は色つきの絵になる -->
   <section class="card">
-    <div class="card-head"><h2>さかな図鑑</h2><span id="bookCount" class="count num"></span></div>
+    <div class="card-head"><h2>お魚図鑑</h2><span id="bookCount" class="count num"></span></div>
     <div id="stamps" class="stamps"></div>
-    <p class="small">掲示板のQRコードを読み取るたびに、図鑑のさかなが1匹ずつ増えます。同じ掲示板のQRコードは、何度読み取っても1個です。</p>
+    <p class="small">掲示板のQRコードを読み取るたびに、図鑑のお魚が1匹ずつ増えます。同じ掲示板のQRコードは、何度読み取っても1個です。</p>
   </section>
 
   <!-- 掲示板のある場所（js/rally-data.js に登録した内容を表示します） -->
@@ -120,6 +131,7 @@
     </div>
     <p class="small">このIDは端末ごとに自動発行されます。スタンプの取得では名前などの個人情報は収集しません。</p>
   </section>
+</div>
 </main>
 
 <footer class="en">sukima kids lab.</footer>
@@ -147,10 +159,10 @@
   </div>
 </dialog>
 
-<!-- ルール説明（仮の内容）。ページを開いたとき（スタンプの獲得の演出があれば、その演出のあと）に、自動で出ます。
+<!-- ルール説明。ページを開いたとき（スタンプの獲得の演出があれば、その演出のあと）に、自動で出ます。
      「次回からは表示しない」にチェックを入れた端末には、出しません（端末に保存。参加者IDと同じしくみ）。
      ページ上部の「ルールを見る」ボタンで、いつでも、もういちど見られます。
-     ▼ 文章を書きかえるときは、「ルール説明」の2つの印の間を編集します。仮の内容であることを知らせる一文（rules-draft）は、正式な内容にしたら、消してください。 -->
+     ▼ 文章を書きかえるときは、「ルール説明」の2つの印の間を編集します。 -->
 <dialog id="rulesDialog" class="rules-dialog" aria-labelledby="rulesTitle">
   <div class="rules-card" tabindex="-1" autofocus>
     <div class="rules-head">
@@ -160,14 +172,13 @@
       </div>
       <button type="button" class="rules-x" id="rulesClose" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
     </div>
-    <div class="rules-body">
+    <div class="rules-body" tabindex="0" role="region" aria-labelledby="rulesTitle">
       <!-- ▼▼ ルール説明（ここから） ▼▼ -->
-      <p class="rules-draft"><span class="ph">※ 仮の説明です。</span><span class="ph">あとで、正式な内容に書きかえます。</span></p>
       <ol class="rules-steps" role="list">
         <li><strong>掲示板のQRコードを読み取る</strong><span>スマートフォンで読み取ります。</span></li>
-        <li><strong>さかなのスタンプがもらえる</strong><span>同じ掲示板は、何度読み取っても1つです。</span></li>
-        <li><strong>3つ集めると、景品を希望できる</strong><span>アンケートで、希望を受け付けます。</span></li>
-        <li><strong>6つそろうと、川が完成する</strong><span>6種類の魚が、画面の川にそろいます。</span></li>
+        <li><strong>お魚のスタンプがもらえる</strong><span>同じ掲示板は、何度読み取っても1つです。</span></li>
+        <li><strong>3つ集めると、景品をゲットできる</strong><span><span class="ph">アンケートで、申し込みを受け付けます。</span><span class="ph">数に限りがあります</span><span class="ph">（くわしくは「景品について」）。</span></span></li>
+        <li><strong>6つそろうと、川が完成する</strong><span>6種類のお魚が、画面の川にそろいます。</span></li>
       </ol>
       <!-- ▲▲ ルール説明（ここまで） ▲▲ -->
       <div class="rules-safe">
@@ -186,11 +197,36 @@
   </div>
 </dialog>
 
+<!-- 完成画像の保存：川がコンプリートしたとき、バナーと日時を入れた画像を作って、見せる。「保存する」で、保存（スマートフォンは、共有の画面から「画像を保存」）。
+     画像は、rally/app.js が、その場で作ります（サーバーには送りません） -->
+<dialog id="saveDialog" class="rules-dialog save-dialog" aria-labelledby="saveTitle">
+  <div class="rules-card" tabindex="-1" autofocus>
+    <div class="rules-head">
+      <div>
+        <p class="rules-kicker en">COMPLETE</p>
+        <h2 id="saveTitle" class="rules-title">完成画像</h2>
+      </div>
+      <button type="button" class="rules-x" id="saveX" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+    </div>
+    <div class="rules-body save-body" tabindex="0" role="region" aria-labelledby="saveTitle">
+      <p id="saveBusy" class="save-busy" role="status">画像を作っています…</p>
+      <img id="saveImage" class="save-image" alt="" hidden>
+      <p id="saveError" class="save-error" role="alert" hidden>画像を作れませんでした。通信状態を確かめて、もう一度お試しください。</p>
+      <p class="save-hint">「保存する」を押すか、画像を長押しして、保存してください。</p>
+    </div>
+    <div class="rules-foot save-foot">
+      <button type="button" class="btn" id="saveDo" disabled>保存する</button>
+      <button type="button" class="btn sub" id="saveClose">とじる</button>
+    </div>
+  </div>
+</dialog>
+
 <script src="../js/config.js?v=aae7ba99"></script>
 <script src="../js/rally-data.js?v=70ed0016"></script>
-<script src="../js/fish-data.js?v=df730605"></script>
-<script src="../js/fish.js?v=cd62bab2"></script>
-<script src="app.js?v=1c89e139"></script>
-<script src="../js/site-nav.js?v=d37142eb"></script>
+<script src="../js/fish-data.js?v=acd0a4fc"></script>
+<script src="../js/fish.js?v=aabe1ce9"></script>
+<script src="app.js?v=986cc1be"></script>
+<script src="../js/prize-info.js?v=9f6917b3"></script>
+<script src="../js/site-nav.js?v=cc0a8009"></script>
 </body>
 </html>

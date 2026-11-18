@@ -36,7 +36,7 @@ participantId.value=participant;
 
 const RESULT_MESSAGES={
 	already_submitted:"この参加者IDのアンケートは回答済みです。ご協力ありがとうございました。",
-	not_completed:"景品を希望できる数のスタンプ取得が確認できません。",
+	not_completed:"景品をゲットできる数のスタンプ取得が確認できません。",
 	invalid_participant:"参加者IDが確認できません。スタンプラリーのページからお進みください。",
 	invalid_satisfaction:"満足度を選択してください。",
 	invalid_comment:"自由記述は2000文字以内で入力してください。",
@@ -160,7 +160,7 @@ async function start(){
 		return block("コンプリート状況を確認できませんでした。通信環境をご確認のうえ、再読み込みしてください。");
 	}
 	if(!completion.data) return block(RESULT_MESSAGES.not_completed+"スタンプラリーのページで取得状況をご確認ください。"+previewHint);
-	lead.textContent="景品を希望できる条件を達成しました！アンケートにご協力ください。";
+	lead.textContent="オリジナルマステをゲットできる条件を達成しました！アンケートにご協力ください。";
 	surveyForm.hidden=false;
 	loadPrivacy();
 }

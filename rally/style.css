@@ -54,16 +54,33 @@
 .mark.on:before{content:"";display:inline-block;width:8px;height:8px;margin-right:4px;border-radius:50%;background:var(--color-mustard)}
 .banner-message{margin:0;font-size:17px;font-weight:700;line-height:1.55}
 .banner-note{margin:var(--space-2) 0 0;font-size:13px;line-height:1.6;color:var(--color-on-primary-muted)}
+/* 「？ 景品について」（ボタンの見た目は ../prize.css。青い面の上で、白い丸みのボタンとして見せる） */
+.banner-actions{margin:var(--space-3) 0 0}
+.banner .prize-open{border-color:var(--color-white)}
+/* 紺色の面の中のボタン・リンクは、キーボードで選んだときの枠線を、白にする（既定の枠線は、紺色で、紺色の面の上では見えない） */
+.banner :focus-visible{outline-color:var(--color-white)}
 
 .storage-note{margin:0 0 var(--space-4);padding:var(--space-3) var(--space-4);border-radius:var(--radius-control);background:var(--color-white);border:2px dashed var(--color-secondary);font-size:14px;line-height:1.7}
 
-/* 川：背景の上に、獲得した順番で、魚が増えていく（川の絵の基本のスタイルは brand.css） */
+/* 川：背景の上に、獲得した順番で、お魚が増えていく（川の絵の基本のスタイルは brand.css） */
 .river-fish img.is-new{animation:fish-in 1.3s var(--ease) both}
 .river.is-complete{box-shadow:0 0 0 3px var(--color-mustard)}
 .river-message{margin:var(--space-3) 0 0;font-size:14px;color:var(--color-text-muted)}
 .river.is-complete+.river-message{color:var(--color-primary);font-weight:700;font-size:16px}
+/* コンプリート（お魚が全部そろった）ときの、川の左上の余白：バナーと、コンプリートの日時。
+   位置・大きさは、川の横幅に対する割合で決める。「完成画像を保存」で作る画像（rally/app.js の COMPLETE_LAYOUT）も、同じ位置・大きさにする。
+   文字の大きさは、川の横幅（cqw）に合わせる（cqw に未対応の古いブラウザでは、11px） */
+.river-card .river{container-type:inline-size}
+.river-badge{position:absolute;left:2.4%;right:2.4%;top:3.8%;display:flex;align-items:center;gap:2.1%;pointer-events:none}
+.river-badge-banner{display:block;flex:none;width:28.4%;height:auto}
+.river-badge-text{display:flex;flex-direction:column;gap:.1em;min-width:0;margin:0;color:var(--color-primary);font-size:11px;font-size:2.4cqw;font-weight:700;line-height:1.25}
+.river-badge-label{font-size:.82em}
+.river-badge.is-new{animation:badge-in .9s .1s var(--ease) both}
+@keyframes badge-in{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}
+.river-actions{margin:var(--space-3) 0 0}
+.river-actions .btn{width:100%}
 
-/* 図鑑：まだ獲得していない魚はシルエット、獲得した魚は色つきの絵に、入れ替わる */
+/* 図鑑：まだ獲得していないお魚はシルエット、獲得したお魚は色つきの絵に、入れ替わる */
 .stamps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .stamp{position:relative;display:flex;flex-direction:column;align-items:center;padding:24px 6px 10px;border:2px solid var(--color-line);border-radius:var(--radius-control);background:var(--color-white);text-align:center;transition:border-color .3s}
 .stamp-no{position:absolute;top:8px;left:10px;font-family:var(--font-en);font-weight:700;font-size:11px;letter-spacing:.1em;color:var(--color-text-muted)}
@@ -209,7 +226,9 @@ html.modal-open{overflow:hidden}
 /* ルール説明のポップアップ */
 .rules-dialog{width:min(calc(100% - 32px),460px);max-width:none;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);margin:auto;padding:0;border:2px solid var(--color-line);border-radius:var(--radius-card);background:var(--color-white);color:var(--color-text);overflow:hidden;box-shadow:0 18px 48px rgba(48,85,126,.35)}
 .rules-dialog::backdrop{background:rgba(48,85,126,.6)}
-.rules-card{display:flex;flex-direction:column;max-height:calc(100vh - 36px);max-height:calc(100dvh - 36px);outline:none;animation:get-rise .35s var(--ease) both}
+.rules-card{display:flex;flex-direction:column;max-height:calc(100vh - 36px);max-height:calc(100dvh - 36px);outline:none;background:var(--color-white);animation:get-rise .35s var(--ease) both}
+/* スクロールできる領域は、キーボードで選べる（選んだら、矢印キーでスクロールできる）。枠線は、内側に引く（領域の外にはみ出して、切れないように） */
+.rules-body:focus-visible{outline:3px solid var(--color-primary);outline-offset:-3px}
 .rules-head{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3);padding:12px 8px 8px 20px;border-bottom:2px solid var(--color-line)}
 .rules-kicker{margin:0;font-size:11px;letter-spacing:.2em;color:var(--color-text-muted)}
 .rules-title{margin:0;font-weight:700;font-size:20px;line-height:1.4}
@@ -217,12 +236,11 @@ html.modal-open{overflow:hidden}
 .rules-x:active{background:var(--tint-accent-22)}
 .rules-x svg{width:22px;height:22px}
 .rules-body{flex:1 1 auto;min-height:0;padding:10px 20px 4px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-.rules-draft{margin:0 0 10px;padding:4px 12px;border:2px dashed var(--color-secondary);border-radius:var(--radius-control);background:var(--tint-mustard-20);font-size:12.5px;line-height:1.6}
 .rules-steps{list-style:none;margin:0;padding:0;counter-reset:rule;display:grid;gap:10px}
 .rules-steps li{position:relative;min-height:36px;padding-left:46px;counter-increment:rule}
 .rules-steps li:before{content:counter(rule);position:absolute;left:0;top:0;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--color-primary);color:var(--color-white);font-family:var(--font-en);font-weight:700;font-size:17px}
 .rules-steps strong{display:block;font-size:15px;line-height:1.5}
-.rules-steps span{display:block;margin-top:1px;font-size:13px;line-height:1.65;color:var(--color-text-muted)}
+.rules-steps li>span{display:block;margin-top:1px;font-size:13px;line-height:1.65;color:var(--color-text-muted)}
 .rules-safe{display:flex;gap:12px;margin:12px 0 4px;padding:10px 14px;border:2px solid var(--tint-accent-35);border-radius:var(--radius-control);background:var(--tint-accent-12)}
 .rules-safe .icon{width:36px;height:36px;padding:7px;box-sizing:border-box;border-radius:50%;background:var(--color-mustard);color:var(--color-primary)}
 .rules-safe strong{display:block;font-size:15px;line-height:1.5}
@@ -233,6 +251,16 @@ html.modal-open{overflow:hidden}
 .rules-check input{-webkit-appearance:none;appearance:none;flex:none;width:24px;height:24px;margin:0;border:2px solid var(--color-primary);border-radius:6px;background:var(--color-white)}
 .rules-check input:checked{background:var(--color-primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/18px no-repeat}
 .rules-foot .btn{flex:1 1 120px;max-width:200px;margin-left:auto}
+
+/* 完成画像の保存のポップアップ（外側の形は、ルール説明と同じ） */
+.save-dialog{width:min(calc(100% - 32px),520px)}
+.save-body{text-align:center;padding-bottom:10px}
+.save-image{display:block;width:100%;height:auto;border-radius:var(--radius-control);border:2px solid var(--color-line);background:var(--tint-accent-22)}
+.save-busy{margin:28px 0;font-weight:700;color:var(--color-text-muted)}
+.save-error{margin:12px 0;padding:10px 14px;border:2px dashed var(--color-secondary);border-radius:var(--radius-control);background:var(--tint-primary-08);font-size:14px;line-height:1.7;text-align:left}
+.save-hint{margin:10px 0 0;font-size:12.5px;line-height:1.7;color:var(--color-text-muted)}
+.save-foot{display:flex;flex-wrap:nowrap;gap:var(--space-2)}
+.save-foot .btn{flex:1 1 0;max-width:none;margin-left:0}
 
 @keyframes press{0%{transform:scale(1.55) rotate(-12deg);opacity:0}55%{transform:scale(.94) rotate(2deg);opacity:1}100%{transform:none;opacity:1}}
 @keyframes ring{0%{box-shadow:0 0 0 0 rgba(222,198,50,.7)}100%{box-shadow:0 0 0 12px rgba(222,198,50,0)}}
