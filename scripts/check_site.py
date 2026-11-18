@@ -27,6 +27,7 @@
      公開ページの画像の width / height が、実際の画像の大きさと同じか
  19. アンケート・プライバシー規約・フッター：規約の項の番号と版が正しいか（【要確認】が残っていると注意として表示）、
      景品を希望するときに、規約への同意にチェックを入れるまで「送信する」を押せないか、フッターが小文字か
+ 20. メールアドレス：アンケートの入力欄・JavaScript・SQL（列・検査・関数の引数と権限）・管理画面の表とCSVが、そろっているか
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -417,6 +418,41 @@ def check_policy():
         warn(f"プライバシー規約に【要確認】が {todo} か所残っています。記入したら、「下書き」の注意書き（class=\"draft-banner\"）も消してください")
 
 
+def check_email():
+    """景品の発送先のメールアドレス：入力欄 → submit_survey → prize_shipping → 管理画面の表・CSV"""
+    survey, js, sql = read("survey/index.html"), read("survey/app.js"), read("sql/schema.sql")
+    admin_html, admin_js, policy = read("admin/index.html"), read("admin/app.js"), read("survey/privacy.html")
+    problems = []
+    shipping = re.search(r'<fieldset id="shipping".*?</fieldset>', survey, flags=re.S)
+    ids = re.findall(r'<input id="(\w+)"', shipping.group(0)) if shipping else []
+    if "phone" not in ids or "email" not in ids or ids.index("email") != ids.index("phone") + 1:
+        problems.append(f"survey/index.html: 景品の発送先の入力欄に、電話番号の次のメールアドレス（id=\"email\"）がありません（{ids}）")
+    email_tag = re.search(r'<input id="email"[^>]*>', survey)
+    if not email_tag or " required" not in email_tag.group(0) or 'inputmode="email"' not in email_tag.group(0):
+        problems.append("survey/index.html: メールアドレスの入力欄が、必須（required）・メール用キーボード（inputmode=\"email\"）になっていません")
+    if "p_email" not in js or "invalid_email" not in js or "normalizeEmail" not in js:
+        problems.append("survey/app.js: メールアドレスの検査・p_email の送信・invalid_email のメッセージが、そろっていません")
+    fn = re.search(r"create or replace function public\.submit_survey\((.*?)\)\s*returns text", sql, flags=re.S)
+    args = [a for a in re.split(r",\s*\n", fn.group(1)) if a.strip()] if fn else []
+    if not fn or "p_email text default null" not in fn.group(1) or len(args) != 13:
+        problems.append(f"sql/schema.sql: submit_survey の引数が13個（最後が p_email text default null）になっていません（{len(args)} 個）")
+    grant = re.search(r"grant execute on function public\.submit_survey\(([^)]*)\)", sql)
+    if not grant or len([a for a in grant.group(1).split(",") if a.strip()]) != 13:
+        problems.append("sql/schema.sql: submit_survey の権限（grant）が、引数13個の版に付いていません")
+    if "invalid_email" not in sql or "add column if not exists email text" not in sql or "  email text\n" not in sql:
+        problems.append("sql/schema.sql: email の列（新規作成と、旧版への追加）・invalid_email の検査が、そろっていません")
+    if "drop function if exists public.submit_survey(text, integer, text, text, boolean, text, text, text, text, boolean, text, text);" not in sql:
+        problems.append("sql/schema.sql: 12引数の旧い submit_survey を削除する行がありません（残ると、呼び出しが曖昧になります）")
+    if "メールアドレス</th>" not in admin_html or admin_js.count("x.email") < 2 or '"メールアドレス"' not in admin_js:
+        problems.append("admin: 景品発送先の表・CSVに、メールアドレスがありません")
+    if "メールアドレス" not in policy:
+        problems.append("survey/privacy.html: 規約に、メールアドレスを集めることが書かれていません")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok("メールアドレス：入力欄（電話番号の次・必須）→ submit_survey（13引数・検査・権限）→ prize_shipping.email → 管理画面の表・CSV・規約が、そろっています")
+
+
 def check_sources_ignored():
     for folder in ("fish-stamp-images", "logo-banner-images", "about-images"):
         tracked = subprocess.run(["git", "ls-files", folder], cwd=ROOT, capture_output=True, text=True).stdout.strip()
@@ -631,6 +667,9 @@ def main():
 
     print("19. アンケート・プライバシー規約・フッター")
     check_policy()
+
+    print("20. メールアドレス（アンケート → SQL → 管理画面）")
+    check_email()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

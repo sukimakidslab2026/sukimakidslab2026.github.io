@@ -9,6 +9,7 @@ const recipientName=document.getElementById("name");
 const postal=document.getElementById("postal");
 const address=document.getElementById("address");
 const phone=document.getElementById("phone");
+const email=document.getElementById("email");
 const consent=document.getElementById("consent");
 const submitBtn=document.getElementById("submitBtn");
 const message=document.getElementById("message");
@@ -43,6 +44,7 @@ const RESULT_MESSAGES={
 	invalid_postal:"郵便番号を7桁の数字で入力してください。",
 	invalid_address:"住所を300文字以内で入力してください。",
 	invalid_phone:"電話番号を10〜11桁の数字で入力してください。",
+	invalid_email:"メールアドレスを、半角の英数字で、正しい形式（例：example@mail.com）で入力してください。",
 	invalid_consent:"プライバシー規約への同意が必要です。",
 	invalid_workshop:"ワークショップへの参加について選択してください。"
 };
@@ -90,6 +92,16 @@ function syncPrize(){
 	shipping.hidden=shipping.disabled=!prizeRequested.checked;
 	syncSubmit();
 }
+// メールアドレス：全角の英数字・記号（＠ など）は半角にそろえ、空白は取り除く。形は、サーバー（submit_survey）の検査と同じ。
+// 入力欄を type="email" にしないのは、ブラウザが、全角のまま送信をはばんで、そろえる前に、分かりにくい警告を出すため。
+const EMAIL_PATTERN=/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
+function normalizeEmail(value){
+	const v=value.normalize("NFKC").replace(/\s+/g,"");
+	const local=v.split("@")[0];
+	const ok=v.length<=254 && EMAIL_PATTERN.test(v) && local.length<=64 && !/^\.|\.$|\.\./.test(local);
+	return ok ? v : null;
+}
+
 prizeRequested.onchange=syncPrize;
 consent.onchange=syncSubmit;
 syncPrize(); // 再読み込みで、ブラウザがチェックの状態を戻した場合にも、画面とボタンの状態をそろえる
@@ -146,8 +158,10 @@ surveyForm.onsubmit=async e=>{
 	const prize=prizeRequested.checked;
 	const postalValue=prize ? normalizePostal(postal.value) : null;
 	const phoneValue=prize ? normalizePhone(phone.value) : null;
+	const emailValue=prize ? normalizeEmail(email.value) : null;
 	if(prize && !postalValue) return message.textContent=RESULT_MESSAGES.invalid_postal;
 	if(prize && !phoneValue) return message.textContent=RESULT_MESSAGES.invalid_phone;
+	if(prize && !emailValue) return message.textContent=RESULT_MESSAGES.invalid_email;
 
 	if(previewMode){ // プレビューでは、入力の確認までを行い、送信（記録）はしない
 		return block(prize ? "【プレビュー】送信ありがとうございました。景品の発送先を受け付けました。（記録は保存されていません）" : "【プレビュー】送信ありがとうございました。（記録は保存されていません）");
@@ -166,7 +180,8 @@ surveyForm.onsubmit=async e=>{
 		p_phone:phoneValue,
 		p_consent:prize && consent.checked,
 		p_workshop_participation:surveyForm.elements.workshop.value||null,
-		p_privacy_version:prize ? privacyVersion : null
+		p_privacy_version:prize ? privacyVersion : null,
+		p_email:emailValue
 	});
 	submitBtn.textContent="送信する";
 	syncSubmit();

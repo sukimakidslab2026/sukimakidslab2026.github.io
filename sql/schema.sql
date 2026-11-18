@@ -5,7 +5,7 @@
 -- SupabaseのSQL Editorに全体を貼り付けて Run してください。
 --
 -- 【スタンプラリーの仕組み（この版）】
---   会場の掲示板（十数個）に、それぞれ別のQRコードを掲示し、参加者がそのうち rally_required_stamps()（=3）個
+--   会場の掲示板（初期設定は70個。数は自由）に、それぞれ別のQRコードを掲示し、参加者がそのうち rally_required_stamps()（=3）個
 --   以上を読み取ると、景品を希望できる（アンケートに進める）。
 --   有効なQRコード（掲示板）は public.stamp_boards に登録する。登録は、このファイルの実行後に、
 --   scripts/make_boards.py が作る qr/boards/boards_seed.sql を実行して行う（QRコードの文字列は公開しない）。
@@ -197,7 +197,8 @@ create table if not exists public.prize_shipping (
   address text not null,
   phone text not null,
   consent boolean not null default false,
-  privacy_version text
+  privacy_version text,
+  email text
 );
 
 -- 旧版（survey_responses に発送先の列があった版）からの移し替え。
@@ -238,6 +239,9 @@ begin
   end if;
 end $$;
 
+-- メールアドレス（発送に関する連絡のため）。メールアドレスの入力欄がなかった旧版で保存済みの行は、null のまま
+alter table public.prize_shipping add column if not exists email text;
+
 -- 入力値の範囲（旧版で保存済みの行は検査せず、新しく保存・更新する行だけを検査する）
 alter table public.prize_shipping drop constraint if exists prize_shipping_values_check;
 alter table public.prize_shipping add constraint prize_shipping_values_check check (
@@ -245,6 +249,7 @@ alter table public.prize_shipping add constraint prize_shipping_values_check che
   and length(postal_code) between 3 and 20
   and length(address) between 1 and 300
   and length(phone) between 5 and 30
+  and (email is null or length(email) between 3 and 254)
   and consent
 ) not valid;
 
@@ -610,7 +615,11 @@ grant execute on function public.record_scan(text, text, text, integer) to anon,
 -- 旧版の画面からの呼び出しを受け付けられるよう、引数だけ残してあり、渡された値は保存しない。
 -- （引数を追加した新版は、旧版の呼び出し方もそのまま受け付ける。初期版の10引数の関数が残っていると、
 --   呼び出しが曖昧になり、削除した列も参照してしまうので、先に削除する）
+-- p_email（メールアドレス）は、景品を希望する回答では必須。メールアドレスの入力欄がない旧い画面からの、景品を希望する回答は、
+--   'invalid_email' になる（景品を希望しない回答は、これまでどおり受け付ける）。
+--   12引数の版が残っていると、引数が少ない呼び出しが、どちらの関数か曖昧になるので、先に削除する
 drop function if exists public.submit_survey(text, integer, text, text, boolean, text, text, text, text, boolean);
+drop function if exists public.submit_survey(text, integer, text, text, boolean, text, text, text, text, boolean, text, text);
 
 create or replace function public.submit_survey(
   p_participant_id text,
@@ -624,7 +633,8 @@ create or replace function public.submit_survey(
   p_phone text default null,
   p_consent boolean default false,
   p_workshop_participation text default null,
-  p_privacy_version text default null
+  p_privacy_version text default null,
+  p_email text default null
 )
 returns text
 language plpgsql
@@ -639,6 +649,7 @@ declare
   v_postal text := nullif(btrim(coalesce(p_postal_code, '')), '');
   v_address text := nullif(btrim(coalesce(p_address, '')), '');
   v_phone text := nullif(btrim(coalesce(p_phone, '')), '');
+  v_email text := nullif(btrim(coalesce(p_email, '')), '');
   v_workshop text := nullif(btrim(coalesce(p_workshop_participation, '')), '');
   v_privacy_version text := left(nullif(btrim(coalesce(p_privacy_version, '')), ''), 40);
 begin
@@ -663,6 +674,13 @@ begin
     if v_postal is null or v_postal !~ '^[0-9]{3}-?[0-9]{4}$' then return 'invalid_postal'; end if;
     if v_address is null or length(v_address) > 300 then return 'invalid_address'; end if;
     if v_phone is null or v_phone !~ '^[0-9]{10,11}$' then return 'invalid_phone'; end if;
+    -- メールアドレス：半角英数字と記号。「名前@ドメイン」の形で、ドメインに「.」があり、最後の部分は英字2文字以上
+    if v_email is null or length(v_email) > 254
+       or v_email !~ '^[A-Za-z0-9.!#$%&''*+/=?^_`{|}~-]+@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$'
+       or length(split_part(v_email, '@', 1)) > 64
+       or split_part(v_email, '@', 1) ~ '^\.|\.$|\.\.' then
+      return 'invalid_email';
+    end if;
     if not coalesce(p_consent, false) then return 'invalid_consent'; end if;
   end if;
 
@@ -680,9 +698,9 @@ begin
   -- 景品を希望しない回答では、個人情報を一切保存しない
   if v_prize then
     insert into public.prize_shipping (
-      participant_id, recipient_name, postal_code, address, phone, consent, privacy_version
+      participant_id, recipient_name, postal_code, address, phone, email, consent, privacy_version
     ) values (
-      v_participant, v_name, v_postal, v_address, v_phone, true, v_privacy_version
+      v_participant, v_name, v_postal, v_address, v_phone, v_email, true, v_privacy_version
     );
   end if;
 
@@ -690,8 +708,8 @@ begin
 end;
 $$;
 
-revoke all on function public.submit_survey(text, integer, text, text, boolean, text, text, text, text, boolean, text, text) from public;
-grant execute on function public.submit_survey(text, integer, text, text, boolean, text, text, text, text, boolean, text, text) to anon, authenticated;
+revoke all on function public.submit_survey(text, integer, text, text, boolean, text, text, text, text, boolean, text, text, text) from public;
+grant execute on function public.submit_survey(text, integer, text, text, boolean, text, text, text, text, boolean, text, text, text) to anon, authenticated;
 
 -- ============================================================
 -- 7. 集計・Googleスプレッドシート同期用の関数
@@ -1206,6 +1224,7 @@ select (s.created_at at time zone 'Asia/Tokyo') as "回答日時（日本時間�
        s.postal_code as "郵便番号",
        s.address as "住所",
        s.phone as "電話番号",
+       s.email as "メールアドレス",
        s.privacy_version as "同意した規約の版",
        case when exists (select 1 from public.excluded_participants x where x.participant_id = s.participant_id)
             then '除外' end as "テスト除外"

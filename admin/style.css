@@ -18,6 +18,9 @@ button:disabled{opacity:.6;cursor:wait}
 .card{background:var(--tint-primary-08);border-radius:var(--radius-control);padding:16px}.card span{display:block;color:var(--color-text-muted);font-size:13px}.card strong{font-family:var(--font-en);font-weight:700;font-size:30px}.card small{display:block;color:var(--color-text-muted);font-size:12px}
 .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}table{border-collapse:collapse;width:100%;min-width:640px;margin:10px 0}th,td{border-bottom:2px solid var(--color-line);text-align:left;padding:9px;vertical-align:top}th{white-space:nowrap}
 table.small-table{min-width:0}tr.total td{font-weight:700;background:var(--tint-primary-08)}
+/* 景品発送先の表：列が多いので、氏名・郵便番号・電話番号・メールアドレスは折り返さず、表の中で横にスクロールする */
+#shippingBox table{min-width:1080px}
+#shippingBody td:nth-child(3),#shippingBody td:nth-child(4),#shippingBody td:nth-child(6),#shippingBody td:nth-child(7){white-space:nowrap}
 .route{margin:0;padding-left:1.4em}.route li{white-space:nowrap}.muted{color:var(--color-text-muted)}
 h1{font-weight:700}h2{margin:28px 0 8px}h3{font-size:15px;margin:18px 0 0}.count{font-size:14px;font-weight:400;color:var(--color-text-muted);margin-left:6px}
 .note{font-size:13px;color:var(--color-text-muted);line-height:1.6;margin:6px 0}

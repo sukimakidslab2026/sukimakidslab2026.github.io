@@ -209,8 +209,8 @@ function formatPhone(value){
 function renderShipping(){
  const list=shipping.filter(x=>visible(x.participant_id));
  $("shippingBody").innerHTML=list.map(x=>`<tr class="${excludedIds.has(x.participant_id)?"excluded":""}"><td>${fmt(x.created_at)}</td><td>${esc(x.participant_id)}${badge(excludedIds.has(x.participant_id))}</td>
-  <td>${esc(x.recipient_name)}</td><td>${esc(x.postal_code)}</td><td>${esc(x.address)}</td><td>${esc(formatPhone(x.phone))}</td><td>${esc(x.privacy_version)}</td></tr>`).join("")
-  ||`<tr><td colspan="7" class="muted">景品発送先の登録はありません。</td></tr>`;
+  <td>${esc(x.recipient_name)}</td><td>${esc(x.postal_code)}</td><td>${esc(x.address)}</td><td>${esc(formatPhone(x.phone))}</td><td>${esc(x.email)}</td><td>${esc(x.privacy_version)}</td></tr>`).join("")
+  ||`<tr><td colspan="8" class="muted">景品発送先の登録はありません。</td></tr>`;
 }
 
 function csvCell(value){
@@ -235,8 +235,8 @@ const freshExclusions=async()=>new Set((await fetchAll(()=>db.from("excluded_par
 $("csvShippingBtn").onclick=()=>exportCsv($("csvShippingBtn"),async()=>{
  const [ships,ex]=await Promise.all([fetchAll(()=>db.from("prize_shipping").select("*").order("created_at").order("participant_id")),freshExclusions()]);
  const rows=ships.filter(x=>!ex.has(x.participant_id));
- downloadCsv("stamp-rally-shipping.csv",["送信日時","参加者ID","氏名","郵便番号","住所","電話番号","同意した規約の版"],
-  rows.map(x=>[fmt(x.created_at),x.participant_id,x.recipient_name,x.postal_code,x.address,formatPhone(x.phone),x.privacy_version]));
+ downloadCsv("stamp-rally-shipping.csv",["送信日時","参加者ID","氏名","郵便番号","住所","電話番号","メールアドレス","同意した規約の版"],
+  rows.map(x=>[fmt(x.created_at),x.participant_id,x.recipient_name,x.postal_code,x.address,formatPhone(x.phone),x.email,x.privacy_version]));
  notify(`景品発送CSVを出力しました（${rows.length}件${ships.length-rows.length?`。除外した${ships.length-rows.length}件は含みません`:""}）。`);
 });
 $("csvSurveyBtn").onclick=()=>exportCsv($("csvSurveyBtn"),async()=>{
