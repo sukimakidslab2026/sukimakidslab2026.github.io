@@ -94,4 +94,19 @@ tr.excluded td{color:var(--color-text-muted);background:var(--tint-primary-08)}.
 .thumb-label{display:block;margin-top:4px;font-size:12px;font-weight:700;color:var(--color-primary)}
 .fish-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:16px}
 #fishStatus.error{color:var(--color-error)}
+/* 公開の設定（掲示板の地図を出すか・マイマップ・開催開始日） */
+fieldset.pub-form{border:0;padding:0;margin:0;min-width:0}
+.pub-field{border:2px solid var(--color-line);border-radius:var(--radius-control);padding:14px 16px;margin:14px 0;min-width:0}
+fieldset.pub-field>legend{padding:0 8px;font-weight:700}
+.pub-field .toggle{padding:6px 0;font-size:15px;gap:10px}
+.pub-field .toggle input{flex:none;width:20px;height:20px}
+#mymapInput{display:block;width:100%;max-width:720px;margin:8px 0 0}
+.pub-date{display:flex;flex-wrap:wrap;align-items:center}
+.pub-date input,.pub-date button{margin:5px 8px 5px 0}
+.pub-state.error{color:var(--color-error)}
+.pub-state.ok{color:var(--color-primary);font-weight:700}
+.mymap-preview{aspect-ratio:4/3;max-width:640px;border:2px solid var(--color-line);border-radius:var(--radius-control);overflow:hidden;background:var(--tint-accent-12)}
+.mymap-preview iframe{display:block;width:100%;height:100%;border:0}
+#publishStatus.error{color:var(--color-error)}
+#publishForm:disabled{opacity:.6}
 @media(max-width:800px){.fish-editor{grid-template-columns:minmax(0,1fr)}}

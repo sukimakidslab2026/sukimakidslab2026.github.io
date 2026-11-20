@@ -22,16 +22,17 @@ function notify(text,isError=false){
  const el=$("notice");el.textContent=text;el.hidden=false;el.classList.toggle("error",isError);
  clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{el.hidden=true},isError?12000:7000);
 }
-// 画面は3つ：メニュー（ログイン後の最初の画面）／アンケート・集計（#survey）／スタンプ設定（#stamps）。URLの # で切り替わる
-const SECTIONS={menu:"adminMenu",survey:"dashboard",stamps:"stampSettings"};
+// 画面は4つ：メニュー（ログイン後の最初の画面）／アンケート・集計（#survey）／スタンプ設定（#stamps）／公開の設定（#publish）。URLの # で切り替わる
+const SECTIONS={menu:"adminMenu",survey:"dashboard",stamps:"stampSettings",publish:"publishSettings"};
 let loggedIn=false,currentSection="";
-const routeFromHash=()=>{const h=location.hash.replace(/^#/,"");return h==="survey"||h==="stamps"?h:"menu";};
+const routeFromHash=()=>{const h=location.hash.replace(/^#/,"");return h==="survey"||h==="stamps"||h==="publish"?h:"menu";};
 function showSection(name){
  currentSection=name;
  $("login").hidden=true;
  for(const [key,id] of Object.entries(SECTIONS))$(id).hidden=key!==name;
  if(name==="survey")loadDashboard();
  if(name==="stamps")loadStampSettings();
+ if(name==="publish")loadPublishSettings();
  window.scrollTo(0,0);
 }
 function showLogin(text="",isError=false){
@@ -49,7 +50,7 @@ function loginErrorMessage(error){
 }
 function dbHint(error){
  const m=String(error?.message||error);
- return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|rally_config|admin_set_fish_order|rally_settings|admin_reset_progress|admin_full_reset_many|admin_delete_surveys|participant_resets|schema cache|does not exist/.test(m)
+ return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|rally_config|admin_set_fish_order|admin_rally_info|admin_set_rally_info|rally_settings|admin_reset_progress|admin_full_reset_many|admin_delete_surveys|participant_resets|schema cache|does not exist/.test(m)
   ?`${m}（Supabaseで最新の sql/schema.sql を実行したか確認してください）`:m;
 }
 
@@ -475,7 +476,7 @@ $("loginForm").onsubmit=async e=>{
  await enter();
 };
 const logout=async()=>{await db.auth.signOut();location.hash="";location.reload();};
-["logoutBtn","logoutBtnMenu","logoutBtnStamps"].forEach(id=>{$(id).onclick=logout;});
+["logoutBtn","logoutBtnMenu","logoutBtnStamps","logoutBtnPublish"].forEach(id=>{$(id).onclick=logout;});
 $("refreshBtn").onclick=()=>loadDashboard();
 $("autoRefresh").onchange=()=>{renderStatus();if($("autoRefresh").checked&&Date.now()-lastLoaded>REFRESH_MS)loadDashboard(true);};
 $("showExcluded").onchange=()=>{renderParticipants();renderSurveys();renderShipping();scanLimit=SCAN_PAGE;reloadScans();};
@@ -555,12 +556,123 @@ $("fishSave").onclick=async()=>{
  renderFishEditor();
  setFishStatus(`保存しました（${fmt(fishSavedAt)}）。参加者の画面には、次に開いたとき（再読み込みしたとき）から、新しい順番で表示されます。`);
 };
-// 保存していない変更があるまま、画面を閉じたり、メニューに戻ったりしないように確認する
-window.addEventListener("beforeunload",e=>{if(fishDirty()){e.preventDefault();e.returnValue="";}});
+// 公開の設定：掲示板の地図を出すか・マイマップのURL・開催開始日（rally_settings）。保存するまでは、参加者の画面は変わらない。
+// 「公開する」にするまでは、スタンプラリー画面に、掲示板の地図は出ない（初期は非公開）。
+const MYMAP_EMBED_OK=/^https:\/\/www\.google\.com\/maps\/d\/embed\?mid=[A-Za-z0-9_-]{8,100}(&ll=-?[0-9]{1,3}(\.[0-9]{1,12})?,-?[0-9]{1,3}(\.[0-9]{1,12})?)?(&z=[0-9]{1,2})?$/;   // sql/schema.sql の rally_valid_mymap_url・rally/app.js の MYMAP_EMBED_OK と、同じ形
+const WEEKDAYS=["日","月","火","水","木","金","土"];
+const MYMAP_HOWTO="マイマップの共有URL（https://www.google.com/maps/d/viewer?mid=…）か、「自分のサイトに埋め込む」の iframe のタグを、そのまま貼り付けてください。";
+
+// 貼り付けられたもの（viewer・edit・embed のURL、または iframe のタグ）から、保存する形のURLを作る。
+// 戻り値：{empty:true}（空）／{url}（保存する形のURL）／{error}（読み取れない理由）
+function parseMymapInput(raw){
+ let text=String(raw||"").trim();
+ if(!text)return {empty:true};
+ const tag=/<iframe\b[^>]*?\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(text);
+ if(tag)text=String(tag[1]??tag[2]??"").replace(/&amp;/g,"&").trim();
+ let url;
+ try{url=new URL(text);}catch(e){return {error:`URLとして読み取れません。${MYMAP_HOWTO}`};}
+ if(url.protocol!=="https:"||!/^(www\.)?google\.(com|co\.jp)$/.test(url.hostname))return {error:`Googleマイマップのリンクではありません。${MYMAP_HOWTO}`};
+ const path=/^\/maps\/d(?:\/u\/\d+)?(?:\/(?:viewer|edit|embed|view))?\/?$/.exec(url.pathname);   // マイマップのURL（/maps/d/…）
+ if(!path)return {error:`これは、ふつうのGoogleマップのリンクです。「マイマップ」（https://www.google.com/maps/d/…）のリンクを貼り付けてください。`};
+ const mid=url.searchParams.get("mid")||"";
+ if(!/^[A-Za-z0-9_-]{8,100}$/.test(mid))return {error:"リンクに、マイマップのID（mid=…）が見つかりません。マイマップを開いたときのURLを、そのまま貼り付けてください。"};
+ const ll=url.searchParams.get("ll")||"", z=url.searchParams.get("z")||"";
+ let out=`https://www.google.com/maps/d/embed?mid=${mid}`;
+ if(/^-?\d{1,3}(\.\d{1,12})?,-?\d{1,3}(\.\d{1,12})?$/.test(ll))out+=`&ll=${ll}`;
+ if(/^\d{1,2}$/.test(z)&&+z>=1&&+z<=21)out+=`&z=${+z}`;
+ return MYMAP_EMBED_OK.test(out)?{url:out}:{error:`リンクを読み取れませんでした。${MYMAP_HOWTO}`};
+}
+const mymapViewUrl=embed=>embed.replace("/maps/d/embed?","/maps/d/viewer?");   // 入力欄に戻して見せるときの形（開いて確かめられる）
+function startDateLabel(value){
+ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||""));
+ if(!m)return null;
+ const y=+m[1],mo=+m[2],d=+m[3],date=new Date(y,mo-1,d);
+ if(date.getFullYear()!==y||date.getMonth()!==mo-1||date.getDate()!==d)return null;
+ return `${y}年${mo}月${d}日（${WEEKDAYS[date.getDay()]}）`;
+}
+// js/rally-data.js に、確認用の「（仮）」の場所が残っていないか（残ったまま公開すると、参加者の画面に出てしまう）
+const tentativePlaces=()=>(Array.isArray(window.RALLY_PLACES)?window.RALLY_PLACES:[]).filter(p=>p&&/[（(]仮[）)]/.test(String(p.name||""))).map(p=>String(p.name));
+
+let infoSaved=null,previewUrl="";   // infoSaved：保存済みの設定 {places:boolean,mymap:"保存する形のURL（なければ空）",date:"YYYY-MM-DD（なければ空）",at:"保存した日時"}
+function setPublishStatus(text,isError=false){const el=$("publishStatus");el.textContent=text;el.classList.toggle("error",isError);}
+function readInfo(){
+ return {places:document.querySelector('input[name="placesPublic"]:checked')?.value==="1",mymap:parseMymapInput($("mymapInput").value),date:$("startDateInput").value};
+}
+const infoDirty=()=>{
+ if(!infoSaved)return false;
+ const f=readInfo();
+ return f.places!==infoSaved.places||f.date!==infoSaved.date||(f.mymap.empty?"":f.mymap.url||"\u0000")!==infoSaved.mymap;
+};
+// サーバーから受け取った設定を、画面に入れる（保存済みの内容として）
+function applyInfo(data){
+ infoSaved={places:data?.places_public===true,mymap:MYMAP_EMBED_OK.test(data?.mymap_embed_url||"")?data.mymap_embed_url:"",date:startDateLabel(data?.start_date)?data.start_date:"",at:data?.info_updated_at||""};
+ document.querySelector(`input[name="placesPublic"][value="${infoSaved.places?1:0}"]`).checked=true;
+ $("mymapInput").value=infoSaved.mymap?mymapViewUrl(infoSaved.mymap):"";
+ $("startDateInput").value=infoSaved.date;
+ $("publishForm").disabled=false;
+ renderInfo();
+}
+function renderInfo(){
+ const f=readInfo(),dirty=infoDirty(),tentative=tentativePlaces();
+ // いま参加者の画面に出ている内容（保存済み）
+ if(infoSaved){
+  $("publishCurrent").hidden=false;
+  $("publishCurrent").textContent=`いまの参加者の画面：掲示板の地図は、${infoSaved.places?"公開中です":"公開していません"}。マイマップは、${infoSaved.mymap?"入力済みです"+(infoSaved.places?"（表示されます）":"（地図を公開すると表示されます）"):"入力されていません（表示されません）"}。開催開始日は、${infoSaved.date?`${startDateLabel(infoSaved.date)}と表示されます`:"入力されていません（表示されません）"}。`;
+ }
+ // マイマップ：読み取れたか・プレビュー
+ const state=$("mymapState");
+ state.classList.remove("error","ok");
+ if(f.mymap.empty)state.textContent="入力されていません。マイマップは表示されず、js/rally-data.js に登録した場所の一覧だけが表示されます。";
+ else if(f.mymap.error){state.textContent=f.mymap.error;state.classList.add("error");}
+ else{state.textContent="✓ マイマップのリンクとして読み取れました。";state.classList.add("ok");}
+ const url=f.mymap.url||"";
+ $("mymapPreviewBox").hidden=!url;
+ if(url!==previewUrl){previewUrl=url;if(url)$("mymapPreview").src=url;else $("mymapPreview").removeAttribute("src");}
+ // 開催開始日
+ const label=startDateLabel(f.date);
+ $("startDatePreview").textContent=label?`スタンプラリー画面のバナーの下に、「開催開始日 ${label}」と表示されます。`:"入力されていません。開催開始日は表示されません。";
+ $("startDateClear").disabled=!f.date;
+ // 「（仮）」の場所が残ったまま公開しようとしているとき
+ const warn=$("placesTentative");
+ warn.hidden=!(f.places&&tentative.length);
+ if(!warn.hidden)warn.textContent=`js/rally-data.js の場所に、確認用の「${tentative.join("」「")}」が残っています。このまま公開すると、参加者の画面に表示されます。先に、実際の場所に書き換えて、公開（push）してください。`;
+ $("publishSave").disabled=!dirty||!!f.mymap.error;
+ $("publishReset").disabled=!dirty;
+}
+async function loadPublishSettings(){
+ setPublishStatus("読み込み中…");
+ const {data,error}=await db.rpc("admin_rally_info");
+ if(error){console.error(error);infoSaved=null;$("publishForm").disabled=true;$("publishCurrent").hidden=true;return setPublishStatus(`読み込めませんでした：${dbHint(error)}`,true);}
+ applyInfo(data);
+ setPublishStatus(infoSaved.at?`最終保存：${fmt(infoSaved.at)}`:"まだ保存していません（初期の設定です：掲示板の地図は、公開していません）。");
+}
+["placesPublic"].forEach(name=>document.querySelectorAll(`input[name="${name}"]`).forEach(el=>el.addEventListener("change",renderInfo)));
+$("mymapInput").addEventListener("input",renderInfo);
+$("startDateInput").addEventListener("input",renderInfo);$("startDateInput").addEventListener("change",renderInfo);
+$("startDateClear").onclick=()=>{$("startDateInput").value="";renderInfo();$("startDateInput").focus();};
+$("publishReset").onclick=()=>{if(!infoSaved)return;applyInfo({places_public:infoSaved.places,mymap_embed_url:infoSaved.mymap,start_date:infoSaved.date,info_updated_at:infoSaved.at});setPublishStatus("保存した内容に戻しました。");};
+$("publishSave").onclick=async()=>{
+ const f=readInfo();
+ if(f.mymap.error)return setPublishStatus(f.mymap.error,true);
+ if(f.places&&tentativePlaces().length&&!confirm(`js/rally-data.js の場所に、確認用の「${tentativePlaces().join("」「")}」が残っています。\nこのまま、掲示板の地図を公開しますか？`))return;
+ $("publishSave").disabled=true;setPublishStatus("保存しています…");
+ const {data,error}=await db.rpc("admin_set_rally_info",{p_places_public:f.places,p_mymap_embed_url:f.mymap.url||null,p_start_date:f.date||null});
+ if(error){
+  console.error(error);renderInfo();
+  const bad=/invalid mymap url/.test(String(error.message))?"マイマップのリンクの形が正しくありません。":/invalid start date/.test(String(error.message))?"開催開始日は、2000年〜2100年の日付を入力してください。":dbHint(error);
+  return setPublishStatus(`保存できませんでした：${bad}`,true);
+ }
+ applyInfo(data);
+ setPublishStatus(`保存しました（${fmt(infoSaved.at)}）。参加者の画面には、次に開いたとき（再読み込みしたとき）から、反映されます。`);
+};
+
+// 保存していない変更があるまま、画面を閉じたり、メニューに戻ったりしないように確認する（スタンプ設定・公開の設定）
+const dirtyOf=name=>name==="stamps"?fishDirty():name==="publish"?infoDirty():false;
+window.addEventListener("beforeunload",e=>{if(fishDirty()||infoDirty()){e.preventDefault();e.returnValue="";}});
 window.addEventListener("hashchange",()=>{
  if(!loggedIn)return;
  const next=routeFromHash();
- if(currentSection==="stamps"&&next!=="stamps"&&fishDirty()&&!confirm("保存していない変更があります。破棄して、移動しますか？")){location.hash="#stamps";return;}
+ if(next!==currentSection&&dirtyOf(currentSection)&&!confirm("保存していない変更があります。破棄して、移動しますか？")){location.hash=`#${currentSection}`;return;}
  if(next!==currentSection)showSection(next);
 });
 

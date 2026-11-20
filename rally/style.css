@@ -9,6 +9,13 @@
 .hero-title:after{margin-left:auto;margin-right:auto}
 .hero .lead{margin:0;color:var(--color-text-muted);font-size:14px;line-height:1.8}
 .hero-actions{margin:var(--space-3) 0 0}
+/* 開催開始日（バナーの下）。管理画面で入力したときだけ出る */
+.start-date{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 10px;margin:0 0 var(--space-3);animation:start-date-in .6s var(--ease) both}
+.start-date-label{padding:3px 12px;border-radius:var(--radius-pill);background:var(--color-primary);color:var(--color-on-primary);font-size:12px;font-weight:700;letter-spacing:.08em;line-height:1.6}
+/* マスタードは、文字に重ねず、下線として添える（主色の文字がマスタードに重なると、コントラストが 4.5:1 に届かないため） */
+.start-date-value{padding:0 2px 1px;border-bottom:4px solid var(--color-mustard);color:var(--color-primary);font-size:18px;font-weight:700;letter-spacing:.02em;line-height:1.5}
+@keyframes start-date-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.start-date{animation:none}}
 /* 「ルールを見る」：ルール説明のポップアップを、いつでも、もういちど開く */
 .rules-open{display:inline-flex;align-items:center;gap:var(--space-2);min-height:44px;margin:0;padding:6px 18px 6px 10px;border:2px solid var(--color-secondary);border-radius:var(--radius-pill);background:var(--color-white);color:var(--color-primary);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
 .rules-open:active{background:var(--tint-accent-12)}

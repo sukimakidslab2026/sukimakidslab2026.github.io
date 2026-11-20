@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
   <link rel="stylesheet" href="../brand.css?v=4335dc45">
-  <link rel="stylesheet" href="style.css?v=71311878">
+  <link rel="stylesheet" href="style.css?v=dc0d41da">
   <link rel="stylesheet" href="../prize.css?v=79c50350">
 </head>
 <body>
@@ -47,6 +47,8 @@
 <div class="hero">
   <!-- バナーには「スタンプラリー」の文字が入っているので、バナーの画像そのものを、ページの見出し（h1）にしています -->
   <h1 class="page-title hero-title"><img class="hero-banner rally" src="../assets/banner-rally.webp" width="1000" height="280" alt="すきまキッズラボ スタンプラリー"></h1>
+  <!-- 開催開始日：管理画面の「公開の設定」で入力したときだけ出ます（rally/app.js の applyStartDate）。入力がなければ、何も出しません -->
+  <p id="startDate" class="start-date" hidden><span class="start-date-label">開催開始日</span> <time id="startDateValue" class="start-date-value"></time></p>
   <p class="lead"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">お魚のスタンプを集めよう！</span><br>
     <span class="ph"><span id="requiredCount">3</span>個で景品をゲットでき、</span><span class="ph"><span id="riverTotal">6</span>個そろうと、画面上で川が完成します。</span></p>
   <p class="hero-actions"><button type="button" class="rules-open" id="rulesOpen" aria-haspopup="dialog"><span class="rules-open-mark en" aria-hidden="true">?</span>ルールを見る</button></p>
@@ -116,8 +118,9 @@
     <p class="small">掲示板のQRコードを読み取るたびに、図鑑のお魚が1匹ずつ増えます。同じ掲示板のQRコードは、何度読み取っても1個です。</p>
   </section>
 
-  <!-- 掲示板のある場所（js/rally-data.js に登録した内容を表示します） -->
-  <section class="card places-card" id="placesCard">
+  <!-- 掲示板のある場所（js/rally-data.js に登録した場所と、管理画面で入力したマイマップを表示します）。
+       最初は隠しておき、管理画面の「公開の設定」で「公開する」にしている間だけ、rally/app.js が表示します（スタンプラリーが始まるまでは、出しません） -->
+  <section class="card places-card" id="placesCard" hidden>
     <div class="card-head"><h2>掲示板のある場所</h2></div>
     <div id="placesEmbed" class="place-map place-map-all" hidden></div>
     <ul id="placeList" class="place-list"></ul>
@@ -222,10 +225,10 @@
 </dialog>
 
 <script src="../js/config.js?v=aae7ba99"></script>
-<script src="../js/rally-data.js?v=70ed0016"></script>
+<script src="../js/rally-data.js?v=d0102201"></script>
 <script src="../js/fish-data.js?v=acd0a4fc"></script>
 <script src="../js/fish.js?v=aabe1ce9"></script>
-<script src="app.js?v=986cc1be"></script>
+<script src="app.js?v=79e621d8"></script>
 <script src="../js/prize-info.js?v=9f6917b3"></script>
 <script src="../js/site-nav.js?v=cc0a8009"></script>
 </body>

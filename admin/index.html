@@ -3,10 +3,11 @@
 <title>QRスタンプラリー 管理画面</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=4335dc45"><link rel="stylesheet" href="style.css?v=d3b7f059">
+<link rel="stylesheet" href="../brand.css?v=4335dc45"><link rel="stylesheet" href="style.css?v=3b897486">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="../js/config.js?v=aae7ba99"></script>
-<script src="../js/fish-data.js?v=acd0a4fc"></script><script src="../js/fish.js?v=aabe1ce9"></script></head><body>
+<script src="../js/fish-data.js?v=acd0a4fc"></script><script src="../js/fish.js?v=aabe1ce9"></script>
+<script src="../js/rally-data.js?v=d0102201"></script></head><body>
 <main class="container"><h1><span class="ph">QRスタンプラリー</span> <span class="ph">管理画面</span></h1>
 <p>管理者用。Supabase Authでログインし、管理者として登録されたユーザーだけがデータを閲覧できます。</p>
 <section id="login"><h2>管理者ログイン</h2>
@@ -21,6 +22,7 @@
 <div class="menu-cards">
 <a class="menu-card" href="#survey"><strong>アンケート・集計</strong><span>参加者・QR読み込み履歴・アンケートの回答・景品の発送先・CSVの書き出し・テストデータの除外</span></a>
 <a class="menu-card" href="#stamps"><strong>スタンプ設定</strong><span>お魚が増えていく順番を決める。保存すると、参加者の画面に、すぐに反映されます</span></a>
+<a class="menu-card" href="#publish"><strong>公開の設定</strong><span>掲示板の地図を公開するか・Googleマイマップのリンク・開催開始日。サイトを公開していても、ここで「公開する」にするまで、地図は出ません</span></a>
 <a class="menu-card" href="../reset/"><strong>この端末の履歴を消す</strong><span>この端末のブラウザに保存された、サイトの履歴（参加者ID・スタンプ・「次回からは表示しない」の設定・管理者のログイン情報など）を、すべて消して、はじめて開いたときの状態に戻す（動作確認用）</span></a>
 </div>
 <p><button id="logoutBtnMenu" class="secondary">ログアウト</button></p>
@@ -150,6 +152,55 @@
 <p id="fishStatus" class="note" role="status"></p>
 </section>
 
+<!-- 公開の設定：掲示板の地図を出すか・マイマップのURL・開催開始日（rally_settings。初期は、地図を出さない） -->
+<section id="publishSettings" hidden>
+<p class="crumbs"><a href="#">← メニューに戻る</a></p>
+<h2>公開の設定（掲示板の地図・開催開始日）</h2>
+<p class="note">サイトを公開していても、ここで「公開する」にするまでは、スタンプラリー画面に、<strong>掲示板の地図（「掲示板のある場所」）は出ません</strong>（初期は非公開です）。
+保存すると、参加者の画面には、次に開いたとき（再読み込みしたとき）から反映されます。</p>
+<p id="publishCurrent" class="notice" role="status" hidden></p>
+<fieldset id="publishForm" class="pub-form" disabled>
+<fieldset class="pub-field">
+<legend>掲示板の地図（スタンプラリー画面の「掲示板のある場所」）</legend>
+<label class="toggle"><input type="radio" name="placesPublic" value="0" checked> <span><strong>公開しない</strong>（スタンプラリーが始まるまで）</span></label>
+<label class="toggle"><input type="radio" name="placesPublic" value="1"> <span><strong>公開する</strong></span></label>
+<p id="placesTentative" class="notice error" role="alert" hidden></p>
+<p class="note">「公開する」にすると、<code>js/rally-data.js</code> に登録した場所の一覧・地図と、下で入力したGoogleマイマップが、参加者の画面に表示されます。</p>
+</fieldset>
+
+<div class="pub-field">
+<label for="mymapInput"><strong>Googleマイマップ</strong>のリンク（入力しなければ、マイマップは表示されません）</label>
+<input id="mymapInput" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://www.google.com/maps/d/viewer?mid=…" aria-describedby="mymapState">
+<p id="mymapState" class="note pub-state" role="status"></p>
+<details class="box"><summary>マイマップの作り方・リンクのコピーのしかた</summary>
+<ol class="note">
+<li><a href="https://www.google.com/maps/d/" target="_blank" rel="noopener noreferrer">Googleマイマップ</a>で、掲示板の場所にピンを立てた地図を作ります。</li>
+<li>「共有」で、一般的なアクセスを<strong>「リンクを知っている全員が閲覧可」</strong>にします（なっていないと、参加者の画面に表示されません）。</li>
+<li>次のどちらかを、上の欄に貼り付けます：地図のURL（<code>https://www.google.com/maps/d/viewer?mid=…</code> や <code>…/edit?mid=…</code>）／「︙」→「自分のサイトに埋め込む」で表示される <code>&lt;iframe …&gt;</code> のタグ。</li>
+<li>地図の最初の位置・拡大（URLの <code>ll=…</code>・<code>z=…</code>）は、URLに入っていれば、そのまま使います。</li>
+</ol></details>
+<div id="mymapPreviewBox" hidden>
+<h3>プレビュー（参加者の画面では、このように表示されます）</h3>
+<div class="mymap-preview"><iframe id="mymapPreview" title="マイマップのプレビュー" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>
+<p class="note">表示されないときは、マイマップの共有が「リンクを知っている全員が閲覧可」になっているかを確認してください。</p>
+</div>
+</div>
+
+<div class="pub-field">
+<label for="startDateInput"><strong>開催開始日</strong>（入力しなければ、何も表示されません）</label>
+<div class="pub-date"><input id="startDateInput" type="date" min="2000-01-01" max="2100-12-31" aria-describedby="startDatePreview"><button type="button" id="startDateClear" class="secondary">日付を消す</button></div>
+<p id="startDatePreview" class="note pub-state"></p>
+</div>
+</fieldset>
+
+<div class="fish-actions">
+<button id="publishSave" disabled>保存する</button>
+<button id="publishReset" class="secondary" disabled>保存した内容に戻す</button>
+<button id="logoutBtnPublish" class="secondary">ログアウト</button>
+</div>
+<p id="publishStatus" class="note" role="status"></p>
+</section>
+
 <!-- 参加者のスタンプのリセット：確認（アンケートに回答済みの参加者では、回答も削除するかを選べる） -->
 <dialog id="resetDialog" aria-labelledby="resetTitle">
 <form method="dialog">
@@ -167,4 +218,4 @@
 <div id="surveyDeleteBody" class="note"></div>
 <div class="dialog-actions"><button type="submit" value="ok" class="danger">削除する</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
 </form>
-</dialog></main><script src="app.js?v=6cc60626"></script></body></html>
+</dialog></main><script src="app.js?v=ef042516"></script></body></html>

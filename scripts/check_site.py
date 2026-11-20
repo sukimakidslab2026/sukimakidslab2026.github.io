@@ -35,6 +35,9 @@
  26. ハンバーガーのメニューとポップアップの関係（メニューを開いたまま、ポップアップが開いても、操作できなくならないか）
  27. 個人情報（発送先）を、スプレッドシートに同期しない：SQL・Apps Script・READMEに、個人情報を同期する仕組みが、残っていないか
  28. 文言の統一：「お魚」の表記・「景品をゲットできる」・川のタイトル・ルール説明の仮の注記の削除
+ 29. 公開の設定（管理画面）：掲示板の地図を出すか（初期は非公開）・Googleマイマップのリンク・開催開始日が、SQL（列・関数・権限・URLの形）・
+     スタンプラリー画面（地図は最初は隠す・公開のときだけ表示・開催開始日はバナーの下）・管理画面（入力・保存）で、そろっているか。
+     マイマップのURLの形（正規表現）が、SQL・参加者の画面・管理画面で、同じか
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -746,6 +749,71 @@ def check_wording():
         ok("文言：お魚の表記・「景品をゲットできる」・川のタイトル（お魚を集めよう！）・オリジナルマステプレゼントの申し込み、が統一され、ルール説明の仮の注記は、ありません")
 
 
+def check_publish_settings():
+    """公開の設定：掲示板の地図を出すか（初期は非公開）・マイマップのURL・開催開始日。SQL・参加者の画面・管理画面が、そろっているか"""
+    sql, rally_js, rally_html = read("sql/schema.sql"), read("rally/app.js"), read("rally/index.html")
+    admin_js, admin_html, data_js, readme = read("admin/app.js"), read("admin/index.html"), read("js/rally-data.js"), read("README.md")
+    problems = []
+
+    # --- SQL ---
+    for col in ("places_public boolean not null default false", "mymap_embed_url text", "start_date date"):
+        if f"add column if not exists {col}" not in sql:
+            problems.append(f"sql/schema.sql: rally_settings に、列「{col}」がありません（地図は、初期は非公開 = false）")
+    config = re.search(r"function public\.rally_config\(\).*?\n\$\$;", sql, flags=re.S)
+    cfg = config.group(0) if config else ""
+    for needle in ("'places_public'", "'start_date'", "case when coalesce(s.places_public, false) then s.mymap_embed_url end"):
+        if needle not in cfg:
+            problems.append(f"sql/schema.sql: rally_config に「{needle}」がありません（マイマップのURLは、地図を公開している間だけ返します）")
+    for fn, sig in (("admin_rally_info", "()"), ("admin_set_rally_info", "(boolean, text, date)")):
+        body = re.search(rf"function public\.{fn}\(.*?\n\$\$;", sql, flags=re.S)
+        if not body or "public.is_admin()" not in body.group(0):
+            problems.append(f"sql/schema.sql: {fn} に、管理者の確認（is_admin）がありません")
+        if f"revoke all on function public.{fn}{sig} from public, anon;" not in sql or f"grant execute on function public.{fn}{sig} to authenticated;" not in sql:
+            problems.append(f"sql/schema.sql: {fn} の権限（匿名は実行不可・ログイン済みだけ）の指定がありません")
+    setter = re.search(r"function public\.admin_set_rally_info\(.*?\n\$\$;", sql, flags=re.S)
+    if not setter or "rally_valid_mymap_url" not in setter.group(0) or "invalid start date" not in setter.group(0):
+        problems.append("sql/schema.sql: admin_set_rally_info が、マイマップのURLの形・開催開始日の範囲を、検査していません")
+
+    # --- マイマップのURLの形：SQL・参加者の画面・管理画面で、同じか ---
+    pattern = re.search(r"p_url ~ '([^']+)'", sql)
+    forms = {"sql/schema.sql": pattern.group(1) if pattern else None}
+    for rel, src in (("rally/app.js", rally_js), ("admin/app.js", admin_js)):
+        m = re.search(r"MYMAP_EMBED_OK=/(\^.+?\$)/;", src)
+        forms[rel] = m.group(1).replace("\\/", "/") if m else None
+    if None in forms.values():
+        problems.append("マイマップのURLの形（MYMAP_EMBED_OK / rally_valid_mymap_url）が、" + "・".join(k for k, v in forms.items() if v is None) + " に見つかりません")
+    elif len(set(forms.values())) != 1:
+        problems.append("マイマップのURLの形（正規表現）が、SQL・参加者の画面・管理画面で、一致していません")
+
+    # --- 参加者の画面 ---
+    if not re.search(r'<section[^>]*id="placesCard"[^>]*\bhidden\b', rally_html):
+        problems.append("rally/index.html: 「掲示板のある場所」（#placesCard）が、最初から隠されていません（公開するまでは、出してはいけません）")
+    if not re.search(r'<h1[^>]*>.*?</h1>\s*(<!--.*?-->\s*)?<p id="startDate"[^>]*\bhidden\b[^>]*>.*?<time id="startDateValue"', rally_html, flags=re.S):
+        problems.append("rally/index.html: 開催開始日（#startDate）が、バナー（h1）の下に、最初は隠した状態でありません")
+    if "config.places_public===true" not in rally_js or "applyPublicInfo(config)" not in rally_js:
+        problems.append("rally/app.js: 地図は、rally_config の places_public が true のときだけ表示する処理（applyPlaces / applyPublicInfo）がありません")
+    if re.search(r"^\s*buildPlaces\(\);", rally_js, flags=re.M) or "RALLY_MAP_EMBED_URL" in rally_js or "RALLY_MAP_VIEW_URL" in rally_js:
+        problems.append("rally/app.js: 公開の設定に関係なく、地図を作る処理（buildPlaces()・RALLY_MAP_*）が、残っています")
+    if "startDateLabel" not in rally_js or "applyStartDate" not in rally_js:
+        problems.append("rally/app.js: 開催開始日の表示（applyStartDate）がありません")
+    if re.search(r"^\s*window\.RALLY_MAP_(VIEW|EMBED)_URL\s*=", data_js, flags=re.M):
+        problems.append("js/rally-data.js: マイマップのURLの欄（RALLY_MAP_*）が、残っています（管理画面の「公開の設定」で入力します）")
+    if any("RALLY_MAP_" in line and "廃止" not in line for line in readme.splitlines()):
+        problems.append("README.md: 廃止した設定（RALLY_MAP_*）が、「廃止した」と書かずに、残っています")
+
+    # --- 管理画面 ---
+    for needle in ('href="#publish"', 'id="publishSettings"', 'id="mymapInput"', 'id="startDateInput"', 'name="placesPublic"', 'id="publishSave"', 'id="logoutBtnPublish"', "../js/rally-data.js"):
+        if needle not in admin_html:
+            problems.append(f"admin/index.html に「{needle}」がありません")
+    for needle in ('admin_rally_info', 'admin_set_rally_info', 'parseMymapInput', 'publish:"publishSettings"', '"logoutBtnPublish"', "infoDirty"):
+        if needle not in admin_js:
+            problems.append(f"admin/app.js に「{needle}」がありません")
+    if problems:
+        bad("；".join(problems[:8]))
+    else:
+        ok("公開の設定：地図（初期は非公開・公開のときだけ表示）・マイマップ・開催開始日が、SQL（列・関数・権限・URLの形）・スタンプラリー画面・管理画面で、そろっています。マイマップのURLの形も、3か所で同じです")
+
+
 def check_sources_ignored():
     for folder in ("fish-stamp-images", "logo-banner-images", "about-images", "prize-images"):
         tracked = subprocess.run(["git", "ls-files", folder], cwd=ROOT, capture_output=True, text=True).stdout.strip()
@@ -987,6 +1055,9 @@ def main():
 
     print("28. 文言の統一")
     check_wording()
+
+    print("29. 公開の設定（掲示板の地図を出すか・マイマップ・開催開始日）")
+    check_publish_settings()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

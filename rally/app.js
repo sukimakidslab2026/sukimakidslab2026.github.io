@@ -228,26 +228,27 @@ const mapUrls=t=>({
   route:`${MAPS}/dir/?api=1&destination=${encodeURIComponent(t.query)}&travelmode=walking`,
   embed:`${MAPS}?q=${encodeURIComponent(t.query)}&z=17&output=embed&hl=ja`
 });
-// Googleマイマップの共有URL・埋め込みURLだけを受け付ける（それ以外のURLは無視する）
-const OVERVIEW_URL_OK=/^https:\/\/(www\.google\.(com|co\.jp)\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)/;
-const EMBED_URL_OK=/^https:\/\/www\.google\.(com|co\.jp)\/maps\/d\/(u\/\d+\/)?embed\?/;
+// Googleマイマップ：管理画面の「公開の設定」で入力したURL（rally_config が返す）だけを、埋め込む。
+// 次の形でなければ、無視する（sql/schema.sql の rally_valid_mymap_url と、同じ形にする）。
+const MYMAP_EMBED_OK=/^https:\/\/www\.google\.com\/maps\/d\/embed\?mid=[A-Za-z0-9_-]{8,100}(&ll=-?[0-9]{1,3}(\.[0-9]{1,12})?,-?[0-9]{1,3}(\.[0-9]{1,12})?)?(&z=[0-9]{1,2})?$/;
+const mymapViewUrl=embed=>embed.replace("/maps/d/embed?","/maps/d/viewer?");   // 「すべての掲示板の地図を開く」のボタン用（同じ地図を、Googleマイマップで開く）
 
 const mapFrame=(url,title)=>`<iframe src="${esc(url)}" title="${esc(title)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>`;
 const mapButtonLabel=(name,open)=>`${name}の地図を${open?"閉じる":"表示"}`;
 
-function buildPlaces(){
+function buildPlaces(mymapUrl){
   const places=(Array.isArray(window.RALLY_PLACES)?window.RALLY_PLACES:[]).filter(p=>p&&typeof p==="object");
   const preview=window.RALLY_PLACES_PREVIEW!==false;
   const showMap=preview&&window.RALLY_PLACES_PREVIEW_OPEN===true; // true：最初から地図を表示する（画面の近くまで来たときに読み込む）
-  const embedUrl=String(window.RALLY_MAP_EMBED_URL||"").trim();
-  const viewUrl=String(window.RALLY_MAP_VIEW_URL||"").trim();
-  const hasEmbed=preview&&EMBED_URL_OK.test(embedUrl), hasView=OVERVIEW_URL_OK.test(viewUrl);
+  const embedUrl=typeof mymapUrl==="string"&&MYMAP_EMBED_OK.test(mymapUrl)?mymapUrl:"";   // 管理画面で入力したマイマップ（なければ、何も表示しない）
+  const viewUrl=embedUrl?mymapViewUrl(embedUrl):"";
+  const hasEmbed=!!embedUrl, hasView=!!viewUrl;
   const info=places.map((p,i)=>({name:String(p.name||"").trim()||`場所 ${i+1}`,desc:String(p.description||"").trim(),target:mapTarget(p)}));
   const anyInfo=info.some(x=>x.desc||x.target)||hasEmbed||hasView;
 
   // すべての掲示板をまとめた地図（Googleマイマップ）
   const embedBox=$("placesEmbed");
-  embedBox.innerHTML=hasEmbed?mapFrame(embedUrl,"すべての掲示板の地図"):"";
+  embedBox.innerHTML=hasEmbed?mapFrame(embedUrl,"すべての掲示板の地図（Googleマイマップ）"):"";
   embedBox.hidden=!hasEmbed;
 
   $("placeList").innerHTML=(anyInfo?"":`<li class="place-lead small">掲示板の場所は、準備ができしだい、ここに表示されます。</li>`)+info.map(({name,desc,target},i)=>{
@@ -273,6 +274,42 @@ function buildPlaces(){
     overviewBox.hidden=false;
   } else overviewBox.hidden=true;
 }
+// 掲示板の地図（「掲示板のある場所」）：管理画面の「公開の設定」で「公開する」にしている間だけ表示する。
+// 公開していないとき（設定がないとき・読み込めないときも）は、何も作らない（Googleにも接続しない）。
+let placesKey="";
+function applyPlaces(config){
+  const open=!!config&&config.places_public===true;
+  const url=open&&typeof config.mymap_embed_url==="string"?config.mymap_embed_url:"";
+  const key=open?`1|${url}`:"0";
+  if(key===placesKey) return;   // 変わっていないときは、作り直さない（地図の位置が、もとに戻らないように）
+  placesKey=key;
+  if(!open){
+    $("placesEmbed").innerHTML=""; $("placeList").innerHTML=""; $("placesOverview").innerHTML="";
+    $("placesCard").hidden=true;
+    return;
+  }
+  buildPlaces(url);
+  $("placesCard").hidden=false;
+}
+
+// 開催開始日（管理画面の「公開の設定」）：バナーの下に出す。入力がないとき（形が正しくないときも）は、何も出さない
+const WEEKDAYS=["日","月","火","水","木","金","土"];
+function startDateLabel(value){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||""));
+  if(!m) return null;
+  const y=+m[1], mo=+m[2], d=+m[3], date=new Date(y,mo-1,d);
+  if(date.getFullYear()!==y||date.getMonth()!==mo-1||date.getDate()!==d) return null;   // 2月31日のような、ない日付は出さない
+  return `${y}年${mo}月${d}日（${WEEKDAYS[date.getDay()]}）`;
+}
+function applyStartDate(config){
+  const label=startDateLabel(config&&config.start_date), box=$("startDate");
+  if(!label){ box.hidden=true; return; }
+  const time=$("startDateValue");
+  time.textContent=label; time.setAttribute("datetime",config.start_date);
+  box.hidden=false;
+}
+function applyPublicInfo(config){ applyStartDate(config); applyPlaces(config); }
+
 // 地図の表示／非表示：ボタンを押したときに、Googleマップを読み込む（または取り除く）
 $("placeList").addEventListener("click",e=>{
   const button=e.target.closest("[data-map-toggle]"); if(!button) return;
@@ -815,15 +852,17 @@ async function restoreCompletion(){
   }
 }
 
-// お魚が増えていく順番を、サーバーから読み込む（管理画面の「スタンプ設定」で変えた順番が、すぐに反映される）。
-// 読み込めなくても、前回の順番（なければ初期の順番）で、そのまま使えます。
+// 管理画面で決めた設定を、サーバーから読み込む（お魚が増えていく順番・地図を出すか・マイマップ・開催開始日）。
+// お魚の順番は、読み込めなくても、前回の順番（なければ初期の順番）で、そのまま使えます。
+// 地図は、読み込めなかったときは、出しません（公開してよいと分かるまで、隠しておく）。
 let configReady=Promise.resolve();
 let lastConfigAt=0;
-async function loadFishOrder(){
+async function loadConfig(){
   if(!isSupabaseConfigured()) return;
   lastConfigAt=Date.now();
   try{
     const config=await callRpc("rally_config",{});
+    try{ applyPublicInfo(config); } catch(error){ console.error(error); }   // 地図・開催開始日の表示で、万一エラーが起きても、お魚の順番の更新は続ける
     const order=Fish.normalizeOrder(config&&config.fish_order);
     if(!order) return;
     store.set(fishOrderKey,JSON.stringify(order));
@@ -834,11 +873,10 @@ async function loadFishOrder(){
 }
 
 async function init(){
-  buildPlaces();
   $("requiredCount").textContent=PRIZE_REQUIRED;
   $("riverTotal").textContent=RIVER_TOTAL;
   // 順番の読み込みは、画面の表示と並行して始め、最大2.5秒だけ待つ（スタンプの結果を出す前に、最新の順番にそろえるため）
-  configReady=Promise.race([loadFishOrder(),new Promise(resolve=>setTimeout(resolve,2500))]);
+  configReady=Promise.race([loadConfig(),new Promise(resolve=>setTimeout(resolve,2500))]);
   const params=new URLSearchParams(location.search);
   // QRコードの作成ツールなどで、大文字や前後の空白が入っていても、同じスタンプとして扱う
   const code=(params.get("stamp")||"").trim().toLowerCase();
@@ -878,5 +916,5 @@ async function init(){
 init();
 // 開いたままにしていたページを、また見たとき（アプリの切り替えなどから戻ったとき）も、1分以上たっていれば、お魚の順番とリセットの有無を読み込み直す
 document.addEventListener("visibilitychange",()=>{
-  if(!document.hidden&&Date.now()-lastConfigAt>60000){ loadFishOrder(); syncReset(); }
+  if(!document.hidden&&Date.now()-lastConfigAt>60000){ loadConfig(); syncReset(); }
 });
