@@ -31,7 +31,7 @@ Googleスプレッドシートは閲覧・集計用の同期先にしていま�
 | `prize.css`, `js/prize-info.js` | 「？ 景品について」のボタンとポップアップ（スタンプラリー画面・アンケート画面で共通。3章） |
 | `sql/schema.sql` | データベースの定義（Supabaseで実行） |
 | `gas/sheets-sync.gs` | スプレッドシートへの自動同期（Google Apps Script） |
-| `scripts/` | `make_boards.py`（掲示板のQRコードを作る）、`make_fish_assets.py`（お魚・ロゴ・バナーの画像を、サイト用に変換する）、`stamp_assets.py`・`check_site.py`（公開前のチェック） |
+| `scripts/` | `make_boards.py`（掲示板のQRコードを作る）、`make_boards_sheet.py`（掲示板の番号・コード・URLのスプレッドシートを作る）、`make_fish_assets.py`（お魚・ロゴ・バナーの画像を、サイト用に変換する）、`stamp_assets.py`・`check_site.py`（公開前のチェック） |
 | `fish-stamp-images/`, `logo-banner-images/`, `about-images/`, `prize-images/` | デザインの元の画像（大きいため、**GitHubには送られません**＝`.gitignore`）。パソコンの中に置いて、`make_fish_assets.py` で変換します（3章） |
 | `qr/` | QRコードの画像。**`qr/boards/`（掲示板のQRコード）は、GitHubに公開されません**（4章） |
 
@@ -181,6 +181,9 @@ Supabaseのダッシュボード（Table Editor・SQL Editor）からは、こ�
 - **`qr/boards/` は、GitHubに送られません**（`.gitignore` で除外しています）。コードを知っていれば、掲示板に行かなくてもスタンプを取れてしまうためです。
   このフォルダは、パソコンの中（できれば、非公開の別の場所にもバックアップ）に、保管してください。`boards.csv` をなくすと、同じコードを作り直せません（Supabaseの `stamp_boards` テーブルから、番号とコードを取り出すことはできます）。
 - `python3 scripts/check_site.py` が、掲示板のコードが、公開されるファイルに混ざっていないかも確認します。
+- **掲示板の「番号・コード・URL」のスプレッドシート：** `python3 scripts/make_boards_sheet.py` で、`private/boards_sheet.xlsx` を作ります（`qr/boards/boards.csv` から。追加のライブラリは要りません）。
+  `private/` は、`qr/boards/` と同じく**GitHubに送られないフォルダ**です（`.gitignore`。`check_site.py` が、除外されていること・Gitに登録されていないことを確認します）。
+  Googleスプレッドシートにするには、Googleドライブに `boards_sheet.xlsx` をアップロードし、ダブルクリック →「Googleスプレッドシートで開く」（または、スプレッドシートの「ファイル」→「インポート」）。**共有（リンクを知っている全員など）は、しないでください**（コードが知られると、掲示板に行かなくてもスタンプを取れてしまいます）。
 - `qr/` の直下にあるのは、トップページ・スタンプラリーのページを開くだけのQRコードです（隠す必要のないもの）。
 
 ### 掲示板を入れ替える・なくす
@@ -847,7 +850,7 @@ python3 scripts/check_site.py        # サイト全体の整合性を検査す�
 ```
 
 - `check_site.py` が調べること：HTMLの構造・IDの重複、JavaScriptが参照するIDの有無、読み込むファイルの存在、CSS変数の定義、ブランドカラー以外の色が使われていないか、フォントファイルが混ざっていないか、`hidden` の表示、版が最新か、JavaScriptの文法、秘密鍵が含まれていないか、`js/config.js` が変更されていないか、**共通ヘッダー（ロゴ・メニュー・Instagram）が、公開ページ（5ページ）で同じか**、**景品の条件の個数がJavaScript・SQL・HTMLで同じか**、**掲示板のコードが公開されるファイルに含まれていないか**、旧仕様の記述が残っていないか。
-- **自動で実行したい場合（最初に1回だけ）：** ターミナルで `git config core.hooksPath .githooks` を実行すると、コミットのたびに、版が自動で更新されます。
+- **コミットのたびに、版が自動で更新されます**（`git config core.hooksPath .githooks`。2026-11-22 に、このパソコンで設定済みです）。この設定は、**パソコンごとに1回**必要です（別のパソコンで `git clone` したときは、もう一度実行してください。設定していないと、`check_site.py` が注意を出します）。自動で更新されたHTMLは、同じコミットに入ります。
 - 公開後、スマートフォンで古い表示が残る場合は、ブラウザの履歴・キャッシュを消すか、10分ほど待ってから開き直してください。
 
 ## 14. 公開URLと、GitHubの設定

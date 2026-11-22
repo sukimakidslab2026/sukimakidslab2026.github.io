@@ -9,3 +9,6 @@ fish-stamp-images/
 logo-banner-images/
 about-images/
 prize-images/
+
+# 非公開の置き場（掲示板のコード一覧のスプレッドシートなど。GitHubには送りません。ここに置いたものは、公開されません）
+private/

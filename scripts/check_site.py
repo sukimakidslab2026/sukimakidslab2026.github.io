@@ -838,6 +838,11 @@ def check_board_secrets():
     tracked = subprocess.run(["git", "ls-files", "qr/boards"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     if tracked:
         bad(f"qr/boards/ のファイルが、すでにGitに登録されています：{tracked.splitlines()[:3]}（git rm --cached で外してください）")
+    priv_ignored = subprocess.run(["git", "check-ignore", "-q", "private/x.xlsx"], cwd=ROOT).returncode == 0
+    (ok if priv_ignored else bad)("private/（コード一覧のスプレッドシートの置き場）は、GitHubに送られない設定です" if priv_ignored else "private/ が .gitignore に入っていません（コード一覧が公開されてしまいます）")
+    priv_tracked = subprocess.run(["git", "ls-files", "private"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    if priv_tracked:
+        bad(f"private/ のファイルが、すでにGitに登録されています：{priv_tracked.splitlines()[:3]}（git rm --cached で外してください）")
     csv_path = os.path.join(ROOT, "qr", "boards", "boards.csv")
     if not os.path.exists(csv_path):
         warn("qr/boards/boards.csv がありません（掲示板のQRコードを、まだ作っていません。scripts/make_boards.py を実行してください）")
@@ -854,6 +859,14 @@ def check_board_secrets():
             continue
         leaked += [f"{rel}" for c in codes if c and c in text]
     (bad if leaked else ok)(f"掲示板のコードが、公開されるファイルに含まれています：{sorted(set(leaked))}" if leaked else f"掲示板のコード（{len(codes)} 個）は、公開されるファイルに含まれていません")
+
+
+def check_hooks():
+    path = subprocess.run(["git", "config", "--get", "core.hooksPath"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    if path == ".githooks" and os.access(os.path.join(ROOT, ".githooks", "pre-commit"), os.X_OK):
+        ok("コミットのたびに、CSS・JavaScriptの版（?v=…）が自動で更新される設定です（.githooks）")
+    else:
+        warn("コミット時の版の自動更新が、このパソコンでは無効です（git config core.hooksPath .githooks を1回実行してください）")
 
 
 def check_legacy():
@@ -1007,6 +1020,7 @@ def main():
 
     print("12. 掲示板のQRコードの文字列が、公開されるファイルに含まれていないか")
     check_board_secrets()
+    check_hooks()
 
     print("13. 旧仕様（6か所の名前付きスタンプ）の記述")
     check_legacy()
