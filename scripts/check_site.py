@@ -850,14 +850,19 @@ def check_phrase_break():
         if needle not in model_src or needle not in code_src:
             problems.append(f"{model_rel}・{code_rel}: ライセンス・出どころの表示「{needle}」がありません（BudouX は Apache-2.0。表示を残す決まりです）")
     # 本体：大事な処理（区切りの判定・<wbr>・後から足された文章・flex を避ける・隠れた要素・確認用の口）
-    for needle in ("document.createElement(\"wbr\")", "MutationObserver", "NO_DIRECT_TEXT", "flex|grid|contents|none", "data-nopb", "window.PhraseBreak", "function boundaries"):
+    for needle in ("document.createElement(\"wbr\")", "MutationObserver", "NO_DIRECT_TEXT", "flex|grid|contents|none", "data-nopb", "window.PhraseBreak", "function boundaries", "Intl.Segmenter", "function refine", "function finish", "function anchorFor", "MAX_PHRASE", "noWrap", "pb=0"):
         if needle not in code_src:
             problems.append(f"{code_rel} に「{needle}」がありません")
     if chr(0x200B) in code_src or re.search(r"\\u200b|zero.?width", code_src, flags=re.I):   # 見えないゼロ幅スペースそのもの、または、その書き方（\u200b）
         problems.append(f"{code_rel}: ゼロ幅スペースを入れる処理があります（コピーしたときに、見えない文字が混ざるため、<wbr> だけを使います）")
-    # CSS：区切りを入れた文章は、区切りでだけ折り返す（auto-phrase より優先）
-    if not re.search(r"\[data-pb\]\{word-break:keep-all!important;overflow-wrap:anywhere\}", css):
-        problems.append("brand.css: [data-pb]{word-break:keep-all!important;overflow-wrap:anywhere} がありません")
+    # CSS：区切りを入れた文章は、区切りでだけ折り返す（auto-phrase より優先）。anywhere・pretty・balance は使わない
+    #   （iPhone の Safari で、text-wrap:pretty / balance や overflow-wrap:anywhere のために、文節の途中・かっこの直後で折り返す崩れが出たため）
+    if not re.search(r"\[data-pb\]\{word-break:keep-all!important;overflow-wrap:break-word\}", css):
+        problems.append("brand.css: [data-pb]{word-break:keep-all!important;overflow-wrap:break-word} がありません（text-wrap は書かない：white-space:nowrap の「折り返さない」まで、打ち消してしまうため）")
+    for rel in ("brand.css", "style.css", "prize.css", "rally/style.css", "survey/style.css", "reset/style.css"):
+        m = re.search(r"text-wrap\s*:\s*(pretty|balance|stable)", re.sub(r"/\*.*?\*/", "", read(rel), flags=re.S))
+        if m:
+            problems.append(f"{rel}: text-wrap:{m.group(1)} が使われています。日本語の文章には使わない決まりです（iPhone の Safari で、行の長さをそろえるために、文節の途中・かっこの直後で折り返す崩れが出たため）")
     # 公開ページ：head に、モデル → 本体 の順に、defer で読み込む（管理画面には入れない）
     for rel in PUBLIC_PAGES:
         src = read(rel)
@@ -1157,7 +1162,7 @@ def main():
     print("29. 公開の設定（掲示板の地図を出すか・マイマップ・開催開始日・開催中！）")
     check_publish_settings()
 
-    print("30. 日本語の文章を、文節の区切りでだけ折り返す仕組み")
+    print("30. 日本語の文章を、文節の区切りでだけ折り返す仕組み（pretty・balance・anywhere は使わない）")
     check_phrase_break()
 
     print("31. トップページ・アンケートの、バナー・見出しの中央揃え")

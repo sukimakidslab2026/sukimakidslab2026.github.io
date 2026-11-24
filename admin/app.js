@@ -613,6 +613,10 @@ function applyInfo(data){
  $("ongoingInput").checked=infoSaved.ongoing;
  $("ongoingInput").disabled=!infoHasOngoing;
  $("ongoingNote").hidden=infoHasOngoing;
+ if(!infoHasOngoing){   // サーバーが、「開催中！」の設定（rally_ongoing）を返していない：どのSupabaseに接続しているかを示す（別のプロジェクトにSQLを実行していないかの確認用）
+  let host="";try{host=new URL(window.SUPABASE_URL).hostname.replace(/\.supabase\.co$/,"");}catch(e){/* 表示できなくても、使い方には影響しない */}
+  $("ongoingNote").textContent=`サーバーから、「開催中！」の設定（rally_ongoing）が返ってきません。先に、sql/schema.sql の全体を、SupabaseのSQL Editorで実行してください（実行するまで、チェックできません）。${host?`この管理画面が接続しているSupabaseのプロジェクト：${host}。このプロジェクトのSQL Editorで、実行してください。`:""}`;
+ }
  $("publishForm").disabled=false;
  renderInfo();
 }
