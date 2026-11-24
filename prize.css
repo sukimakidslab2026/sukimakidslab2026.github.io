@@ -33,13 +33,6 @@ html.prize-open{overflow:hidden}
 .prize-photo{margin:12px 0 0;border-radius:var(--radius-control);overflow:hidden;background:var(--tint-primary-08);border:2px solid var(--color-line)}
 .prize-photo img{display:block;width:100%;height:auto}
 
-/* 数に限りがあること（先着◯名・おひとり様一つ限り）：目立つように、淡いマスタードの面と、太い枠で見せる */
-.prize-limit{margin:16px 0 0;padding:12px 14px 12px;border:3px solid var(--color-mustard);border-radius:var(--radius-control);background:var(--tint-mustard-20);text-align:center}
-.prize-limit-title{margin:0;font-weight:700;font-size:16px;line-height:1.5;color:var(--color-primary)}
-.prize-chips{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
-.prize-chips li{padding:4px 16px;border-radius:var(--radius-pill);background:var(--color-primary);color:var(--color-white);font-weight:700;font-size:17px;line-height:1.5}
-.prize-limit-note{margin:8px 0 0;font-size:13px;line-height:1.6;word-break:auto-phrase}
-
 .prize-steps{list-style:none;margin:0;padding:0;counter-reset:prize;display:grid;gap:10px}
 .prize-steps li{position:relative;min-height:36px;padding-left:46px;counter-increment:prize}
 .prize-steps li:before{content:counter(prize);position:absolute;left:0;top:0;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--color-primary);color:var(--color-white);font-family:var(--font-en);font-weight:700;font-size:17px}

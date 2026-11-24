@@ -12,7 +12,7 @@
 --   登録されていないコードの読み取りは、record_scan が 'invalid_stamp' を返して、何も記録しない。
 --   スタンプを取るたびに、図鑑のお魚（コイ・ドジョウ・ナマズ・ハゼ・フナ・メダカの6種類）が、決まった順番で増えていく
 --   （取った掲示板には関係なく、順番は固定）。この順番は、管理画面の「スタンプ設定」で変えられる（rally_settings）。
---   「掲示板のある場所」（地図）を参加者に見せるか・マイマップのURL・開催開始日は、管理画面の「公開の設定」で変えられる（rally_settings。地図は初期は非公開）。
+--   「掲示板のある場所」（地図）を参加者に見せるか・マイマップのURL・開催開始日・「開催中！」の表示は、管理画面の「公開の設定」で変えられる（rally_settings。地図は初期は非公開）。
 --   参加者のスタンプは、管理画面から、参加者ごとにリセット（0個に戻す）できる（admin_reset_progress / participant_resets）。
 --   旧版（river / bridge / fish / island / water / goal の6か所すべてを集める方式）からの更新にも対応しています。
 begin;
@@ -144,11 +144,13 @@ on conflict (id) do nothing;
 --                    サイト自体を公開しても、スタンプラリーが始まるまでは、地図を出さないために使う。
 --   mymap_embed_url  掲示板の地図に埋め込む GoogleマイマップのURL（空なら、何も表示しない）。places_public が false の間は、参加者には返さない。
 --   start_date       開催開始日（空なら、何も表示しない）。スタンプラリー画面のバナーの下に表示する。
+--   rally_ongoing    true のとき、バナーの下に、開催開始日の代わりに「開催中！」と表示する。初期は false。
 alter table public.rally_settings add column if not exists places_public boolean not null default false;
 alter table public.rally_settings add column if not exists mymap_embed_url text
   check (mymap_embed_url is null or public.rally_valid_mymap_url(mymap_embed_url));
 alter table public.rally_settings add column if not exists start_date date
   check (start_date is null or start_date between date '2000-01-01' and date '2100-12-31');
+alter table public.rally_settings add column if not exists rally_ongoing boolean not null default false;
 alter table public.rally_settings add column if not exists info_updated_at timestamptz;
 alter table public.rally_settings add column if not exists info_updated_by uuid;
 
@@ -520,6 +522,7 @@ grant execute on function public.is_completed(text) to anon, authenticated;
 --   places_public   「掲示板のある場所」（地図）を見せるか（true／false。設定がなければ false）
 --   mymap_embed_url 地図に埋め込む GoogleマイマップのURL。places_public が true のときだけ返す（false の間は null）
 --   start_date      開催開始日（'2026-12-05' の形。設定がなければ null）
+--   rally_ongoing   「開催中！」と表示するか（true／false。設定がなければ false）
 create or replace function public.rally_config()
 returns jsonb
 language sql
@@ -533,7 +536,8 @@ as $$
     'updated_at', s.updated_at,
     'places_public', coalesce(s.places_public, false),
     'mymap_embed_url', case when coalesce(s.places_public, false) then s.mymap_embed_url end,
-    'start_date', s.start_date
+    'start_date', s.start_date,
+    'rally_ongoing', coalesce(s.rally_ongoing, false)
   )
   from (select 1) as one
   left join public.rally_settings s on s.id = 1;
@@ -1088,6 +1092,7 @@ begin
       'places_public', coalesce(s.places_public, false),
       'mymap_embed_url', s.mymap_embed_url,
       'start_date', s.start_date,
+      'rally_ongoing', coalesce(s.rally_ongoing, false),
       'info_updated_at', s.info_updated_at
     )
     from (select 1) as one
@@ -1100,8 +1105,12 @@ $$;
 --   p_places_public    「掲示板のある場所」（地図）を、参加者に見せるか
 --   p_mymap_embed_url  GoogleマイマップのURL（rally_valid_mymap_url の形だけ。空（null・空の文字）なら、何も表示しない）
 --   p_start_date       開催開始日（2000〜2100年。null なら、何も表示しない）
+--   p_rally_ongoing    「開催中！」と表示するか（true の間は、開催開始日の代わりに、バナーの下に「開催中！」と出る）。
+--                      null（省略）のときは、いまの設定のまま変えない（3つの引数だけを送る、古い管理画面でも、動くように）
 -- 形が正しくない値は、何も保存せずに、エラーにする。戻り値は、保存後の設定（admin_rally_info() と同じ）。
-create or replace function public.admin_set_rally_info(p_places_public boolean, p_mymap_embed_url text, p_start_date date)
+-- 引数が3つだった旧版の関数は、削除する（残すと、同じ名前の関数が2つになり、呼び出しが曖昧になるため）。
+drop function if exists public.admin_set_rally_info(boolean, text, date);
+create or replace function public.admin_set_rally_info(p_places_public boolean, p_mymap_embed_url text, p_start_date date, p_rally_ongoing boolean default null)
 returns jsonb
 language plpgsql
 security definer
@@ -1129,6 +1138,7 @@ begin
      set places_public = p_places_public,
          mymap_embed_url = v_url,
          start_date = p_start_date,
+         rally_ongoing = coalesce(p_rally_ongoing, rally_ongoing),
          info_updated_at = now(),
          info_updated_by = auth.uid()
    where id = 1;
@@ -1450,7 +1460,7 @@ $$;
 revoke all on function public.admin_stats() from public, anon;
 revoke all on function public.admin_set_fish_order(text[]) from public, anon;
 revoke all on function public.admin_rally_info() from public, anon;
-revoke all on function public.admin_set_rally_info(boolean, text, date) from public, anon;
+revoke all on function public.admin_set_rally_info(boolean, text, date, boolean) from public, anon;
 revoke all on function public.admin_reset_progress(text, boolean) from public, anon;
 revoke all on function public.admin_set_excluded(text, boolean, text) from public, anon;
 revoke all on function public.admin_exclude_before(timestamptz, text) from public, anon;
@@ -1463,7 +1473,7 @@ revoke all on function public.admin_full_reset_many(text[], boolean) from public
 grant execute on function public.admin_stats() to authenticated;
 grant execute on function public.admin_set_fish_order(text[]) to authenticated;
 grant execute on function public.admin_rally_info() to authenticated;
-grant execute on function public.admin_set_rally_info(boolean, text, date) to authenticated;
+grant execute on function public.admin_set_rally_info(boolean, text, date, boolean) to authenticated;
 grant execute on function public.admin_reset_progress(text, boolean) to authenticated;
 grant execute on function public.admin_set_excluded(text, boolean, text) to authenticated;
 grant execute on function public.admin_exclude_before(timestamptz, text) to authenticated;
@@ -1555,12 +1565,13 @@ comment on function public.rally_required_stamps() is '景品をゲットでき�
 comment on table public.rally_settings is 'スタンプラリーの設定（1行）。お魚が増えていく順番と、公開の設定（地図を出すか・マイマップのURL・開催開始日）。参加者は rally_config()、管理者は admin_set_fish_order() / admin_rally_info() / admin_set_rally_info() で読み書きする';
 comment on column public.rally_settings.places_public is '「掲示板のある場所」（地図）を参加者に見せるか。初期は false（スタンプラリーが始まるまで見せない）';
 comment on column public.rally_settings.mymap_embed_url is '地図に埋め込むGoogleマイマップのURL（rally_valid_mymap_url の形だけ）。places_public が false の間は、参加者には返さない';
+comment on column public.rally_settings.rally_ongoing is 'true のとき、バナーの下に、開催開始日の代わりに「開催中！」と表示する。初期は false';
 comment on column public.rally_settings.start_date is '開催開始日。スタンプラリー画面のバナーの下に表示する（空なら何も表示しない）';
 comment on function public.rally_valid_mymap_url(text) is 'Googleマイマップの埋め込みURL（https://www.google.com/maps/d/embed?mid=…）として、保存してよい形か';
 comment on function public.rally_config() is '参加者の画面が読み込む設定（景品の条件・お魚の順番・地図を出すか・マイマップのURL・開催開始日）。誰でも読める。マイマップのURLは、地図を公開している間だけ返す';
 comment on function public.admin_set_fish_order(text[]) is 'お魚が増えていく順番を保存する（管理者のみ）';
 comment on function public.admin_rally_info() is '公開の設定（地図を出すか・マイマップのURL・開催開始日）を読む（管理者のみ）。地図を公開していない間も、マイマップのURLを返す';
-comment on function public.admin_set_rally_info(boolean, text, date) is '公開の設定（地図を出すか・マイマップのURL・開催開始日）を保存する（管理者のみ）。形が正しくない値は、何も保存せずにエラーにする';
+comment on function public.admin_set_rally_info(boolean, text, date, boolean) is '公開の設定（地図を出すか・マイマップのURL・開催開始日・開催中！の表示）を保存する（管理者のみ）。形が正しくない値は、何も保存せずにエラーにする';
 comment on table public.participant_resets is '管理者が参加者のスタンプをリセットした回数。参加者の端末が、自分の記録を消すかどうかの判断に使う。参加者は rally_reset_count()、管理者は admin_reset_progress() で読み書きする';
 comment on function public.rally_reset_count(text) is '参加者のスタンプが、管理者にリセットされた回数（なければ 0）。誰でも呼べる';
 comment on function public.rally_reset_state(text) is '参加者の端末が確かめる状態：リセットの回数・完全リセットの回数・アンケートの回答の有無（jsonb）。誰でも呼べる';

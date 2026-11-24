@@ -100,6 +100,7 @@ fieldset.pub-form{border:0;padding:0;margin:0;min-width:0}
 fieldset.pub-field>legend{padding:0 8px;font-weight:700}
 .pub-field .toggle{padding:6px 0;font-size:15px;gap:10px}
 .pub-field .toggle input{flex:none;width:20px;height:20px}
+.pub-date+.toggle{margin-top:8px;align-items:flex-start}.pub-date+.toggle input{margin-top:3px}   /* 「開催中！」のチェック：説明が2行以上になっても、チェック欄は、1行目にそろえる */
 #mymapInput{display:block;width:100%;max-width:720px;margin:8px 0 0}
 .pub-date{display:flex;flex-wrap:wrap;align-items:center}
 .pub-date input,.pub-date button{margin:5px 8px 5px 0}

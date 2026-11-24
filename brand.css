@@ -69,6 +69,9 @@ body{padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-a
 
 /* 日本語の見出しを、文節の区切りでだけ折り返す */
 .ph{display:inline-block}
+/* js/phrase-break.js が、文節の区切りに <wbr> を入れた文章：区切りでだけ折り返す（iPhone の Safari などで、単語の途中で折り返さないように）。
+   overflow-wrap:anywhere は、1つの文節が行より長いときに、はみ出さないための保険（文字の最小幅の計算も、これまでと同じ） */
+[data-pb]{word-break:keep-all!important;overflow-wrap:anywhere}   /* !important：Chrome の word-break:auto-phrase（各ページのCSSで指定）より、BudouX の区切りを優先して、どのブラウザでも、同じ位置で折り返す */
 
 a{color:var(--color-primary);text-decoration-color:var(--color-secondary);text-underline-offset:3px;text-decoration-thickness:2px}
 :focus-visible{outline:3px solid var(--color-primary);outline-offset:2px}
@@ -130,7 +133,7 @@ html.menu-open{overflow:hidden}
 
 /* ── ページ上部のバナー画像（ロゴの横長版）と、見出しの下の差し色の線 ──
  * バナー・ロゴには、枠線も背景も付けません（透明な画像を、そのまま置きます）。 */
-.hero-banner{display:block;width:min(100%,360px);height:auto;margin:0 0 var(--space-3)}
+.hero-banner{display:block;width:min(100%,360px);height:auto;margin:0 auto var(--space-3)}   /* 左右の中央 */
 .hero-banner.sm{width:min(58%,210px)}
 .page-title:after{content:"";display:block;width:44px;height:6px;margin-top:var(--space-3);border-radius:3px;background:var(--color-mustard)}
 

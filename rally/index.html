@@ -15,9 +15,12 @@
   <!-- 日本語：筑紫A丸ゴシックのWebフォントを契約した場合は、ここに読み込みタグを追加します（README参照）
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
-  <link rel="stylesheet" href="../brand.css?v=4335dc45">
-  <link rel="stylesheet" href="style.css?v=dc0d41da">
-  <link rel="stylesheet" href="../prize.css?v=79c50350">
+  <link rel="stylesheet" href="../brand.css?v=9e426e74">
+  <link rel="stylesheet" href="style.css?v=33cedcfe">
+  <link rel="stylesheet" href="../prize.css?v=d2a04383">
+  <!-- 日本語の文章を、文節の区切りでだけ折り返す（iPhone の Safari などで、単語の途中で折り返さないように）。文章を書きかえても、何もしなくて大丈夫です（js/phrase-break.js） -->
+  <script src="../js/vendor/budoux-ja-model.js?v=cde40551" defer></script>
+  <script src="../js/phrase-break.js?v=e679b171" defer></script>
 </head>
 <body>
 <noscript><p style="margin:16px;font-size:14px">このページを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
@@ -38,7 +41,7 @@
   <div class="menu-head"><span class="menu-title en">MENU</span><button type="button" class="menu-close" aria-label="メニューを閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div>
   <ul class="menu-list">
     <li><a href="../rally/" aria-current="page">スタンプラリー</a></li>
-    <li><a href="../">「すきまキッズラボ」とは？</a></li>
+    <li><a href="../"><span><span class="ph">「すきまキッズラボ」</span><span class="ph">とは？</span></span></a></li>
   </ul>
   <div class="menu-sns"><a class="menu-instagram" href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer" aria-label="すきまキッズラボのInstagram（外部サイトが開きます）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/></svg></a></div>
 </nav>
@@ -49,6 +52,8 @@
   <h1 class="page-title hero-title"><img class="hero-banner rally" src="../assets/banner-rally.webp" width="1000" height="280" alt="すきまキッズラボ スタンプラリー"></h1>
   <!-- 開催開始日：管理画面の「公開の設定」で入力したときだけ出ます（rally/app.js の applyStartDate）。入力がなければ、何も出しません -->
   <p id="startDate" class="start-date" hidden><span class="start-date-label">開催開始日</span> <time id="startDateValue" class="start-date-value"></time></p>
+  <!-- 「開催中！」：管理画面の「公開の設定」で選んだときだけ出ます。出ている間は、開催開始日の代わりに、これが出ます（rally/app.js の applyStartDate） -->
+  <p id="ongoing" class="ongoing" hidden><span class="ongoing-dot" aria-hidden="true"></span>開催中！</p>
   <p class="lead"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">お魚のスタンプを集めよう！</span><br>
     <span class="ph"><span id="requiredCount">3</span>個で景品をゲットでき、</span><span class="ph"><span id="riverTotal">6</span>個そろうと、画面上で川が完成します。</span></p>
   <p class="hero-actions"><button type="button" class="rules-open" id="rulesOpen" aria-haspopup="dialog"><span class="rules-open-mark en" aria-hidden="true">?</span>ルールを見る</button></p>
@@ -180,7 +185,7 @@
       <ol class="rules-steps" role="list">
         <li><strong>掲示板のQRコードを読み取る</strong><span>スマートフォンで読み取ります。</span></li>
         <li><strong>お魚のスタンプがもらえる</strong><span>同じ掲示板は、何度読み取っても1つです。</span></li>
-        <li><strong>3つ集めると、景品をゲットできる</strong><span><span class="ph">アンケートで、申し込みを受け付けます。</span><span class="ph">数に限りがあります</span><span class="ph">（くわしくは「景品について」）。</span></span></li>
+        <li><strong>3つ集めると、景品をゲットできる</strong><span><span class="ph">アンケートで、申し込みを受け付けます。</span><span class="ph">数に限りがあります。</span></span></li>
         <li><strong>6つそろうと、川が完成する</strong><span>6種類のお魚が、画面の川にそろいます。</span></li>
       </ol>
       <!-- ▲▲ ルール説明（ここまで） ▲▲ -->
@@ -228,8 +233,8 @@
 <script src="../js/rally-data.js?v=d0102201"></script>
 <script src="../js/fish-data.js?v=acd0a4fc"></script>
 <script src="../js/fish.js?v=aabe1ce9"></script>
-<script src="app.js?v=79e621d8"></script>
-<script src="../js/prize-info.js?v=9f6917b3"></script>
+<script src="app.js?v=7a592778"></script>
+<script src="../js/prize-info.js?v=fce68e91"></script>
 <script src="../js/site-nav.js?v=cc0a8009"></script>
 </body>
 </html>

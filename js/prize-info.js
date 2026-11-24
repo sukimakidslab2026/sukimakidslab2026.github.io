@@ -10,9 +10,7 @@
   // ▼▼ 景品の内容（ここを書きかえると、スタンプラリー画面・アンケート画面の、両方のポップアップが、いっしょに変わります） ▼▼
   var PRIZE = {
     name: "オリジナルマステ",
-    required: 3,                          // 景品をゲットできる条件（スタンプの個数）。rally/app.js の PRIZE_REQUIRED と同じ数にします
-    limit: "先着100名",                   // 数の限り（ポップアップに、目立つ形で出ます）
-    perPerson: "おひとり様 一つ限り"
+    required: 3                           // 景品をゲットできる条件（スタンプの個数）。rally/app.js の PRIZE_REQUIRED と同じ数にします
   };
   // 画像（assets/prize/ の中）。width・height は、画像の大きさと同じ値にします（scripts/check_site.py が確認します）
   var IMAGES = {
@@ -54,11 +52,6 @@
           '<h3 class="prize-lead">' + esc(PRIZE.name) + 'をゲット！</h3>' +
           '<p class="prize-text">スタンプを<strong>' + PRIZE.required + '個</strong>集めて、アンケートから申し込むと、<strong>' + esc(PRIZE.name) + '</strong>（マスキングテープ）をゲットできます。</p>' +
           '<figure class="prize-photo">' + image("tape") + '</figure>' +
-          '<div class="prize-limit" role="note">' +
-            '<p class="prize-limit-title">数に限りがあります</p>' +
-            '<ul class="prize-chips" role="list"><li>' + esc(PRIZE.limit) + '</li><li>' + esc(PRIZE.perPerson) + '</li></ul>' +
-            '<p class="prize-limit-note">なくなってしまう前に、お早めにお申し込みください。</p>' +
-          '</div>' +
           '<h3 class="prize-lead">お申し込みの方法</h3>' +
           '<ol class="prize-steps" role="list">' +
             '<li><strong>スタンプを' + PRIZE.required + '個集める</strong><span>掲示板のQRコードを読み取ります。</span></li>' +

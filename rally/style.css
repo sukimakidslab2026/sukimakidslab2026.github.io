@@ -15,7 +15,11 @@
 /* マスタードは、文字に重ねず、下線として添える（主色の文字がマスタードに重なると、コントラストが 4.5:1 に届かないため） */
 .start-date-value{padding:0 2px 1px;border-bottom:4px solid var(--color-mustard);color:var(--color-primary);font-size:18px;font-weight:700;letter-spacing:.02em;line-height:1.5}
 @keyframes start-date-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.start-date{animation:none}}
+/* 「開催中！」（開催開始日の代わりに出る）：紺色の丸い札に、白い文字。左の黄色い点は、「いま行われている」しるし（3回だけ、ゆっくり光る） */
+.ongoing{display:flex;align-items:center;justify-content:center;gap:10px;width:fit-content;margin:0 auto var(--space-3);padding:5px 22px 5px 18px;border-radius:var(--radius-pill);background:var(--color-primary);color:var(--color-on-primary);font-size:19px;font-weight:700;letter-spacing:.06em;line-height:1.5;animation:start-date-in .6s var(--ease) both}
+.ongoing-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--color-mustard);animation:ongoing-glow 1.8s ease-out .6s 3}
+@keyframes ongoing-glow{0%{box-shadow:0 0 0 0 rgba(222,198,50,.6)}70%,100%{box-shadow:0 0 0 9px rgba(222,198,50,0)}}
+@media (prefers-reduced-motion:reduce){.start-date,.ongoing,.ongoing-dot{animation:none}}
 /* 「ルールを見る」：ルール説明のポップアップを、いつでも、もういちど開く */
 .rules-open{display:inline-flex;align-items:center;gap:var(--space-2);min-height:44px;margin:0;padding:6px 18px 6px 10px;border:2px solid var(--color-secondary);border-radius:var(--radius-pill);background:var(--color-white);color:var(--color-primary);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
 .rules-open:active{background:var(--tint-accent-12)}

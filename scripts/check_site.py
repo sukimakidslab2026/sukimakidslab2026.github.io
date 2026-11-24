@@ -30,14 +30,17 @@
  21. 管理画面の一括操作：参加者・アンケートのチェックボックス、一括の除外・リセット、アンケートの削除が、SQL（関数・管理者のみ・権限）と、画面で、そろっているか
  22. この端末の履歴の完全リセット（reset/）：サイトが端末に保存している履歴の名前が、すべて載っているか、消す処理・別のタブの開き直し・管理画面のリンクが、そろっているか
  23. 管理画面の「完全リセット」（参加者の端末のサイトの履歴も消す）と、アンケートを削除したあとの答え直し：SQL（列・関数・権限）・スタンプラリー画面・アンケート画面・管理画面が、そろっているか
- 24. 「？ 景品について」のポップアップ（js/prize-info.js・prize.css・assets/prize/）：スタンプラリー画面・アンケート画面のボタンと、中身（数の限り・画像の大きさ・スタンプの個数）が、そろっているか
+ 24. 「？ 景品について」のポップアップ（js/prize-info.js・prize.css・assets/prize/）：スタンプラリー画面・アンケート画面のボタンと、中身（画像の大きさ・スタンプの個数。先着・おひとり様一つ限りの説明は入れない）が、そろっているか
  25. コンプリート（お魚が全部そろった）ときの、川の左上のバナー・日時・完成画像の保存：画面と、保存する画像で、位置・大きさが同じか
  26. ハンバーガーのメニューとポップアップの関係（メニューを開いたまま、ポップアップが開いても、操作できなくならないか）
  27. 個人情報（発送先）を、スプレッドシートに同期しない：SQL・Apps Script・READMEに、個人情報を同期する仕組みが、残っていないか
  28. 文言の統一：「お魚」の表記・「景品をゲットできる」・川のタイトル・ルール説明の仮の注記の削除
- 29. 公開の設定（管理画面）：掲示板の地図を出すか（初期は非公開）・Googleマイマップのリンク・開催開始日が、SQL（列・関数・権限・URLの形）・
+ 29. 公開の設定（管理画面）：掲示板の地図を出すか（初期は非公開）・Googleマイマップのリンク・開催開始日・「開催中！」の表示が、SQL（列・関数・権限・URLの形）・
      スタンプラリー画面（地図は最初は隠す・公開のときだけ表示・開催開始日はバナーの下）・管理画面（入力・保存）で、そろっているか。
      マイマップのURLの形（正規表現）が、SQL・参加者の画面・管理画面で、同じか
+ 30. 日本語の文章を、文節の区切りでだけ折り返す仕組み（js/phrase-break.js・js/vendor/budoux-ja-model.js・brand.css の [data-pb]）が、
+     すべての公開ページで読み込まれ、モデル・ライセンス表示・CSS が、そろっているか
+ 31. トップページ（「すきまキッズラボとは？」）とアンケートの、バナー・見出し・見出しの下の線が、左右の中央にそろっているか
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
 import html.parser
@@ -173,7 +176,8 @@ def check_header():
             ok(f"共通ヘッダーは、{len(blocks)} ページで同じ内容です（ロゴ → スタンプラリー、メニュー → 「すきまキッズラボ」とは？・Instagram）")
     # メニューの順番：「すきまキッズラボ」とは？ の直後に Instagram
     for rel, (_, block, _) in blocks.items():
-        if block.find("「すきまキッズラボ」とは？") == -1 or block.find("menu-instagram") < block.find("「すきまキッズラボ」とは？"):
+        about = re.search(r"「すきまキッズラボ」(?:<[^>]+>)*とは？", block)   # 狭い画面で折り返す位置を決めるため、文節ごとに <span class="ph"> で区切ってある
+        if not about or block.find("menu-instagram") < about.start():
             bad(f"{rel}: メニューで、「すきまキッズラボ」とは？ の下にInstagramがありません")
     for name in ("logo.webp", "banner.webp", "banner-rally.webp", "apple-touch-icon.png", "favicon-64.png", "favicon-32.png"):
         (ok if os.path.exists(os.path.join(ROOT, "assets", name)) else bad)(f"assets/{name}" + ("" if os.path.exists(os.path.join(ROOT, "assets", name)) else " がありません"))
@@ -581,11 +585,9 @@ def check_prize_info():
     prize_required = re.search(r"const\s+PRIZE_REQUIRED\s*=\s*(\d+)", read("rally/app.js"))
     if not required or not prize_required or required.group(1) != prize_required.group(1):
         problems.append(f"js/prize-info.js の required（{required.group(1) if required else 'なし'}）が、rally/app.js の PRIZE_REQUIRED（{prize_required.group(1) if prize_required else 'なし'}）と違います")
-    # 数に限りがあること（先着の人数・おひとり様一つ限り）を、目立つ形で伝える
-    limit = re.search(r'limit:\s*"([^"]+)"', js)
-    per = re.search(r'perPerson:\s*"([^"]+)"', js)
-    if not limit or "先着" not in limit.group(1) or not per or "一つ" not in per.group(1) or "数に限りがあります" not in js:
-        problems.append("js/prize-info.js: 「数に限りがあります」と、先着の人数（limit）・おひとり様の制限（perPerson）が、ありません")
+    # 先着の人数・おひとり様一つ限りの説明は、ポップアップに入れない（運営の判断で外した。書く場合は、運営に確認する）
+    if re.search(r"先着|おひとり|prize-limit|prize-chips", js + css):
+        problems.append("js/prize-info.js・prize.css: 先着の人数・おひとり様一つ限りの説明（数に限りがあります）が、残っています。ポップアップには入れない決まりです")
     # 画像：assets/prize/ にあり、width / height が、画像の大きさと同じ
     try:
         from PIL import Image
@@ -622,7 +624,7 @@ def check_prize_info():
     if problems:
         bad("；".join(problems))
     else:
-        ok(f"「景品について」：スタンプラリー画面・アンケート画面のボタンと、ポップアップ（スタンプ {required.group(1)} 個・{limit.group(1)}・{per.group(1)}・画像2枚）が、そろっています")
+        ok(f"「景品について」：スタンプラリー画面・アンケート画面のボタンと、ポップアップ（スタンプ {required.group(1)} 個・画像2枚・先着や一つ限りの説明なし）が、そろっています")
 
 
 def check_complete_image():
@@ -756,15 +758,15 @@ def check_publish_settings():
     problems = []
 
     # --- SQL ---
-    for col in ("places_public boolean not null default false", "mymap_embed_url text", "start_date date"):
+    for col in ("places_public boolean not null default false", "mymap_embed_url text", "start_date date", "rally_ongoing boolean not null default false"):
         if f"add column if not exists {col}" not in sql:
             problems.append(f"sql/schema.sql: rally_settings に、列「{col}」がありません（地図は、初期は非公開 = false）")
     config = re.search(r"function public\.rally_config\(\).*?\n\$\$;", sql, flags=re.S)
     cfg = config.group(0) if config else ""
-    for needle in ("'places_public'", "'start_date'", "case when coalesce(s.places_public, false) then s.mymap_embed_url end"):
+    for needle in ("'places_public'", "'start_date'", "'rally_ongoing', coalesce(s.rally_ongoing, false)", "case when coalesce(s.places_public, false) then s.mymap_embed_url end"):
         if needle not in cfg:
             problems.append(f"sql/schema.sql: rally_config に「{needle}」がありません（マイマップのURLは、地図を公開している間だけ返します）")
-    for fn, sig in (("admin_rally_info", "()"), ("admin_set_rally_info", "(boolean, text, date)")):
+    for fn, sig in (("admin_rally_info", "()"), ("admin_set_rally_info", "(boolean, text, date, boolean)")):
         body = re.search(rf"function public\.{fn}\(.*?\n\$\$;", sql, flags=re.S)
         if not body or "public.is_admin()" not in body.group(0):
             problems.append(f"sql/schema.sql: {fn} に、管理者の確認（is_admin）がありません")
@@ -773,6 +775,11 @@ def check_publish_settings():
     setter = re.search(r"function public\.admin_set_rally_info\(.*?\n\$\$;", sql, flags=re.S)
     if not setter or "rally_valid_mymap_url" not in setter.group(0) or "invalid start date" not in setter.group(0):
         problems.append("sql/schema.sql: admin_set_rally_info が、マイマップのURLの形・開催開始日の範囲を、検査していません")
+    # 引数が4つになった（開催中！）。旧い3引数の関数を残すと、同じ名前の関数が2つになり、呼び出しが曖昧になる
+    if "drop function if exists public.admin_set_rally_info(boolean, text, date);" not in sql:
+        problems.append("sql/schema.sql: 旧い3引数の admin_set_rally_info を削除していません（残ると、呼び出しが曖昧になります）")
+    if not setter or "p_rally_ongoing boolean default null" not in setter.group(0) or "coalesce(p_rally_ongoing, rally_ongoing)" not in setter.group(0):
+        problems.append("sql/schema.sql: admin_set_rally_info の p_rally_ongoing（省略したら、いまの設定のまま）がありません")
 
     # --- マイマップのURLの形：SQL・参加者の画面・管理画面で、同じか ---
     pattern = re.search(r"p_url ~ '([^']+)'", sql)
@@ -796,22 +803,99 @@ def check_publish_settings():
         problems.append("rally/app.js: 公開の設定に関係なく、地図を作る処理（buildPlaces()・RALLY_MAP_*）が、残っています")
     if "startDateLabel" not in rally_js or "applyStartDate" not in rally_js:
         problems.append("rally/app.js: 開催開始日の表示（applyStartDate）がありません")
+    # 「開催中！」：最初は隠れていて、rally_ongoing が true のときだけ出る（開催開始日の代わり）
+    if not re.search(r'<p id="ongoing"[^>]*\bhidden\b[^>]*>.*?開催中！</p>', rally_html, flags=re.S):
+        problems.append("rally/index.html: 「開催中！」（#ongoing）が、最初は隠した状態でありません")
+    if "config.rally_ongoing===true" not in rally_js:
+        problems.append("rally/app.js: 「開催中！」は、rally_config の rally_ongoing が true のときだけ表示する処理がありません")
     if re.search(r"^\s*window\.RALLY_MAP_(VIEW|EMBED)_URL\s*=", data_js, flags=re.M):
         problems.append("js/rally-data.js: マイマップのURLの欄（RALLY_MAP_*）が、残っています（管理画面の「公開の設定」で入力します）")
     if any("RALLY_MAP_" in line and "廃止" not in line for line in readme.splitlines()):
         problems.append("README.md: 廃止した設定（RALLY_MAP_*）が、「廃止した」と書かずに、残っています")
 
     # --- 管理画面 ---
-    for needle in ('href="#publish"', 'id="publishSettings"', 'id="mymapInput"', 'id="startDateInput"', 'name="placesPublic"', 'id="publishSave"', 'id="logoutBtnPublish"', "../js/rally-data.js"):
+    for needle in ('href="#publish"', 'id="publishSettings"', 'id="mymapInput"', 'id="startDateInput"', 'id="ongoingInput"', 'name="placesPublic"', 'id="publishSave"', 'id="logoutBtnPublish"', "../js/rally-data.js"):
         if needle not in admin_html:
             problems.append(f"admin/index.html に「{needle}」がありません")
-    for needle in ('admin_rally_info', 'admin_set_rally_info', 'parseMymapInput', 'publish:"publishSettings"', '"logoutBtnPublish"', "infoDirty"):
+    for needle in ('admin_rally_info', 'admin_set_rally_info', 'parseMymapInput', 'publish:"publishSettings"', '"logoutBtnPublish"', "infoDirty", "p_rally_ongoing", "infoHasOngoing"):
         if needle not in admin_js:
             problems.append(f"admin/app.js に「{needle}」がありません")
     if problems:
         bad("；".join(problems[:8]))
     else:
-        ok("公開の設定：地図（初期は非公開・公開のときだけ表示）・マイマップ・開催開始日が、SQL（列・関数・権限・URLの形）・スタンプラリー画面・管理画面で、そろっています。マイマップのURLの形も、3か所で同じです")
+        ok("公開の設定：地図（初期は非公開・公開のときだけ表示）・マイマップ・開催開始日・開催中！が、SQL（列・関数・権限・URLの形）・スタンプラリー画面・管理画面で、そろっています。マイマップのURLの形も、3か所で同じです")
+
+
+def check_phrase_break():
+    """文節の区切りで折り返す仕組み：5つの公開ページが、モデル → 本体 の順に読み込む。モデルの形・ライセンス表示・CSS・本体の大事な処理"""
+    problems = []
+    model_rel, code_rel = "js/vendor/budoux-ja-model.js", "js/phrase-break.js"
+    for rel in (model_rel, code_rel):
+        if not os.path.isfile(os.path.join(ROOT, rel)):
+            problems.append(f"{rel} がありません")
+    if problems:
+        bad("；".join(problems))
+        return
+    model_src, code_src, css = read(model_rel), read(code_rel), read("brand.css")
+    # モデル：BudouX の日本語モデル（13のグループ）。Apache-2.0 のライセンス表示と、出どころ
+    m = re.search(r"window\.BUDOUX_JA_MODEL=(\{.*\});\s*$", model_src, flags=re.S)
+    try:
+        import json
+        groups = sorted(json.loads(m.group(1)).keys()) if m else []
+    except ValueError:
+        groups = []
+    if groups != sorted(["UW1", "UW2", "UW3", "UW4", "UW5", "UW6", "BW1", "BW2", "BW3", "TW1", "TW2", "TW3", "TW4"]):
+        problems.append(f"{model_rel}: BudouX の日本語モデル（window.BUDOUX_JA_MODEL = {{UW1〜TW4 の13グループ}}）の形になっていません")
+    for needle in ("Apache License, Version 2.0", "Copyright 2021 Google LLC", "github.com/google/budoux"):
+        if needle not in model_src or needle not in code_src:
+            problems.append(f"{model_rel}・{code_rel}: ライセンス・出どころの表示「{needle}」がありません（BudouX は Apache-2.0。表示を残す決まりです）")
+    # 本体：大事な処理（区切りの判定・<wbr>・後から足された文章・flex を避ける・隠れた要素・確認用の口）
+    for needle in ("document.createElement(\"wbr\")", "MutationObserver", "NO_DIRECT_TEXT", "flex|grid|contents|none", "data-nopb", "window.PhraseBreak", "function boundaries"):
+        if needle not in code_src:
+            problems.append(f"{code_rel} に「{needle}」がありません")
+    if chr(0x200B) in code_src or re.search(r"\\u200b|zero.?width", code_src, flags=re.I):   # 見えないゼロ幅スペースそのもの、または、その書き方（\u200b）
+        problems.append(f"{code_rel}: ゼロ幅スペースを入れる処理があります（コピーしたときに、見えない文字が混ざるため、<wbr> だけを使います）")
+    # CSS：区切りを入れた文章は、区切りでだけ折り返す（auto-phrase より優先）
+    if not re.search(r"\[data-pb\]\{word-break:keep-all!important;overflow-wrap:anywhere\}", css):
+        problems.append("brand.css: [data-pb]{word-break:keep-all!important;overflow-wrap:anywhere} がありません")
+    # 公開ページ：head に、モデル → 本体 の順に、defer で読み込む（管理画面には入れない）
+    for rel in PUBLIC_PAGES:
+        src = read(rel)
+        prefix = "../" * rel.count("/")
+        a = src.find(f'src="{prefix}js/vendor/budoux-ja-model.js')
+        b = src.find(f'src="{prefix}js/phrase-break.js')
+        head_end = src.find("</head>")
+        if a < 0 or b < 0 or not (a < b < head_end):
+            problems.append(f"{rel}: <head> に、モデル（js/vendor/budoux-ja-model.js）→ 本体（js/phrase-break.js）の順で、読み込んでいません")
+        elif not re.search(r"<script[^>]*budoux-ja-model\.js[^>]*\bdefer\b", src) or not re.search(r"<script[^>]*phrase-break\.js[^>]*\bdefer\b", src):
+            problems.append(f"{rel}: js/phrase-break.js・モデルは、defer を付けて読み込んでください（ページの表示を、止めないため）")
+    if "phrase-break" in read("admin/index.html"):
+        problems.append("admin/index.html: 管理画面には、文節の区切りの仕組みを入れない決まりです（管理画面の表・入力欄の並びが変わらないように）")
+    size = os.path.getsize(os.path.join(ROOT, model_rel)) + os.path.getsize(os.path.join(ROOT, code_rel))
+    if size > 60 * 1024:
+        problems.append(f"文節の区切りの仕組みの大きさが {size // 1024}KB です（60KB 以下の決まり。読み込みが遅くなります）")
+    if problems:
+        bad("；".join(problems[:6]))
+    else:
+        ok(f"文節の区切りで折り返す仕組み：{len(PUBLIC_PAGES)} ページが、モデル → 本体の順に読み込み、ライセンス表示・CSS・処理が、そろっています（合計 {size // 1024}KB）")
+
+
+def check_centered_heads():
+    """トップページ・アンケートのページの頭（バナー・見出し・見出しの下の線）：左右の中央。スタンプラリーの画面（rally/）と同じ"""
+    brand, top, survey = read("brand.css"), read("style.css"), read("survey/style.css")
+    problems = []
+    if not re.search(r"\.hero-banner\{[^}]*margin:0 auto var\(--space-3\)", brand):
+        problems.append("brand.css: バナー（.hero-banner）が、左右の中央（margin: 0 auto …）になっていません")
+    if not re.search(r"\.hero\{[^}]*text-align:center", top) or not re.search(r"\.hero \.page-title:after\{[^}]*margin-left:auto;margin-right:auto", top):
+        problems.append("style.css: トップページの頭（.hero）の文字・見出しの下の線が、中央になっていません（text-align:center・.hero .page-title:after の margin-left / margin-right:auto）")
+    if not re.search(r"\.page-head\{[^}]*text-align:center", survey) or not re.search(r"\.page-head \.page-title:after\{[^}]*margin-left:auto;margin-right:auto", survey):
+        problems.append("survey/style.css: アンケートの頭（.page-head）の文字・見出しの下の線が、中央になっていません")
+    if "back-center" not in read("survey/index.html") or ".back-center{text-align:center}" not in survey:
+        problems.append("survey/: 「スタンプラリーに戻る」（.back-center）が、中央になっていません")
+    if problems:
+        bad("；".join(problems))
+    else:
+        ok("トップページ・アンケート：バナー・見出し・見出しの下の線（と、アンケートの説明文・「スタンプラリーに戻る」）が、左右の中央にそろっています")
 
 
 def check_sources_ignored():
@@ -1070,8 +1154,14 @@ def main():
     print("28. 文言の統一")
     check_wording()
 
-    print("29. 公開の設定（掲示板の地図を出すか・マイマップ・開催開始日）")
+    print("29. 公開の設定（掲示板の地図を出すか・マイマップ・開催開始日・開催中！）")
     check_publish_settings()
+
+    print("30. 日本語の文章を、文節の区切りでだけ折り返す仕組み")
+    check_phrase_break()
+
+    print("31. トップページ・アンケートの、バナー・見出しの中央揃え")
+    check_centered_heads()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

@@ -89,7 +89,7 @@ function render(stamps,fx={}){
 
 // ---- 進捗バナー ----
 // ゲージは、川が完成するまでの個数（6）。その途中の3個目に、景品の条件の目盛りがあります。
-// 「景品をゲットできる条件」は、申し込みの手続き（アンケート）に進める条件のことです（数に限りがあります。先着の人数は js/prize-info.js）。
+// 「景品をゲットできる条件」は、申し込みの手続き（アンケート）に進める条件のことです（数に限りがあります）。
 // message は、文節ごとに分けた配列（画面では、文節の区切りでだけ折り返す）
 function bannerContent(got){
   const toPrize=Math.max(PRIZE_REQUIRED-got,0), toRiver=Math.max(RIVER_TOTAL-got,0);
@@ -143,7 +143,8 @@ function renderRiver(stamps,fx){
   river.classList.toggle("is-complete",complete);
   river.setAttribute("aria-label",got?`川の絵。${got}種類のお魚が泳いでいます（${keys.map(k=>FISH[k].name).join("、")}）。`+(complete?`コンプリートしました。${at?`コンプリート日時は、${dateLabel(at)}です。`:""}`:""):"川の絵。まだお魚はいません。");
   $("riverCount").textContent=`${got} / ${RIVER_TOTAL}`;
-  $("riverMessage").textContent=complete?`川が完成しました！${at?`（コンプリート日時：${dateLabel(at)}）`:""}`:got?`あと ${RIVER_TOTAL-got} 個で、川が完成します。`:"スタンプを集めると、お魚が泳ぎはじめるよ。";
+  // コンプリートの日時は、「2026年11月20日 12:40）」を、1かたまりにする（「12:40）」だけが、次の行に離れないように）
+  $("riverMessage").innerHTML=complete?phrases("川が完成しました！",...(at?["（コンプリート日時：",`${dateLabel(at)}）`]:[])):got?`あと ${RIVER_TOTAL-got} 個で、川が完成します。`:"スタンプを集めると、お魚が泳ぎはじめるよ。";
   // コンプリート（お魚が全部そろった）ときだけ、川の左上に、バナーと日時を出し、「完成画像を保存」を出す
   $("riverBadge").hidden=!complete; $("riverActions").hidden=!complete;
   $("riverBadgeDate").textContent=at?dateLabel(at):"";
@@ -301,9 +302,12 @@ function startDateLabel(value){
   if(date.getFullYear()!==y||date.getMonth()!==mo-1||date.getDate()!==d) return null;   // 2月31日のような、ない日付は出さない
   return `${y}年${mo}月${d}日（${WEEKDAYS[date.getDay()]}）`;
 }
+// 「開催中！」（rally_ongoing が true のときだけ）：開催開始日の代わりに出す。それ以外（設定がないとき・読み込めないときも）は、開催開始日だけを出す
 function applyStartDate(config){
+  const ongoing=!!config&&config.rally_ongoing===true;
   const label=startDateLabel(config&&config.start_date), box=$("startDate");
-  if(!label){ box.hidden=true; return; }
+  $("ongoing").hidden=!ongoing;
+  if(ongoing||!label){ box.hidden=true; return; }
   const time=$("startDateValue");
   time.textContent=label; time.setAttribute("datetime",config.start_date);
   box.hidden=false;

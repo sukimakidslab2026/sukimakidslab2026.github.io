@@ -593,22 +593,26 @@ function startDateLabel(value){
 // js/rally-data.js に、確認用の「（仮）」の場所が残っていないか（残ったまま公開すると、参加者の画面に出てしまう）
 const tentativePlaces=()=>(Array.isArray(window.RALLY_PLACES)?window.RALLY_PLACES:[]).filter(p=>p&&/[（(]仮[）)]/.test(String(p.name||""))).map(p=>String(p.name));
 
-let infoSaved=null,previewUrl="";   // infoSaved：保存済みの設定 {places:boolean,mymap:"保存する形のURL（なければ空）",date:"YYYY-MM-DD（なければ空）",at:"保存した日時"}
+let infoSaved=null,previewUrl="",infoHasOngoing=false;   // infoSaved：保存済みの設定 {places:boolean,mymap:"保存する形のURL（なければ空）",date:"YYYY-MM-DD（なければ空）",ongoing:boolean,at:"保存した日時"}。infoHasOngoing：サーバー（SQL）が「開催中！」の設定に対応しているか
 function setPublishStatus(text,isError=false){const el=$("publishStatus");el.textContent=text;el.classList.toggle("error",isError);}
 function readInfo(){
- return {places:document.querySelector('input[name="placesPublic"]:checked')?.value==="1",mymap:parseMymapInput($("mymapInput").value),date:$("startDateInput").value};
+ return {places:document.querySelector('input[name="placesPublic"]:checked')?.value==="1",mymap:parseMymapInput($("mymapInput").value),date:$("startDateInput").value,ongoing:$("ongoingInput").checked};
 }
 const infoDirty=()=>{
  if(!infoSaved)return false;
  const f=readInfo();
- return f.places!==infoSaved.places||f.date!==infoSaved.date||(f.mymap.empty?"":f.mymap.url||"\u0000")!==infoSaved.mymap;
+ return f.places!==infoSaved.places||f.date!==infoSaved.date||f.ongoing!==infoSaved.ongoing||(f.mymap.empty?"":f.mymap.url||"\u0000")!==infoSaved.mymap;
 };
 // サーバーから受け取った設定を、画面に入れる（保存済みの内容として）
 function applyInfo(data){
- infoSaved={places:data?.places_public===true,mymap:MYMAP_EMBED_OK.test(data?.mymap_embed_url||"")?data.mymap_embed_url:"",date:startDateLabel(data?.start_date)?data.start_date:"",at:data?.info_updated_at||""};
+ infoHasOngoing=!!data&&Object.prototype.hasOwnProperty.call(data,"rally_ongoing");   // 古いSQLは、この項目を返さない（その間は、「開催中！」のチェックを使えなくする）
+ infoSaved={places:data?.places_public===true,mymap:MYMAP_EMBED_OK.test(data?.mymap_embed_url||"")?data.mymap_embed_url:"",date:startDateLabel(data?.start_date)?data.start_date:"",ongoing:data?.rally_ongoing===true,at:data?.info_updated_at||""};
  document.querySelector(`input[name="placesPublic"][value="${infoSaved.places?1:0}"]`).checked=true;
  $("mymapInput").value=infoSaved.mymap?mymapViewUrl(infoSaved.mymap):"";
  $("startDateInput").value=infoSaved.date;
+ $("ongoingInput").checked=infoSaved.ongoing;
+ $("ongoingInput").disabled=!infoHasOngoing;
+ $("ongoingNote").hidden=infoHasOngoing;
  $("publishForm").disabled=false;
  renderInfo();
 }
@@ -617,7 +621,7 @@ function renderInfo(){
  // いま参加者の画面に出ている内容（保存済み）
  if(infoSaved){
   $("publishCurrent").hidden=false;
-  $("publishCurrent").textContent=`いまの参加者の画面：掲示板の地図は、${infoSaved.places?"公開中です":"公開していません"}。マイマップは、${infoSaved.mymap?"入力済みです"+(infoSaved.places?"（表示されます）":"（地図を公開すると表示されます）"):"入力されていません（表示されません）"}。開催開始日は、${infoSaved.date?`${startDateLabel(infoSaved.date)}と表示されます`:"入力されていません（表示されません）"}。`;
+  $("publishCurrent").textContent=`いまの参加者の画面：掲示板の地図は、${infoSaved.places?"公開中です":"公開していません"}。マイマップは、${infoSaved.mymap?"入力済みです"+(infoSaved.places?"（表示されます）":"（地図を公開すると表示されます）"):"入力されていません（表示されません）"}。バナーの下は、${infoSaved.ongoing?"「開催中！」と表示されます（開催開始日は、表示されません）":infoSaved.date?`開催開始日（${startDateLabel(infoSaved.date)}）が表示されます`:"何も表示されません（開催開始日は、入力されていません）"}。`;
  }
  // マイマップ：読み取れたか・プレビュー
  const state=$("mymapState");
@@ -630,7 +634,7 @@ function renderInfo(){
  if(url!==previewUrl){previewUrl=url;if(url)$("mymapPreview").src=url;else $("mymapPreview").removeAttribute("src");}
  // 開催開始日
  const label=startDateLabel(f.date);
- $("startDatePreview").textContent=label?`スタンプラリー画面のバナーの下に、「開催開始日 ${label}」と表示されます。`:"入力されていません。開催開始日は表示されません。";
+ $("startDatePreview").textContent=f.ongoing?`スタンプラリー画面のバナーの下に、「開催中！」と表示されます。${label?`開催開始日（${label}）は、表示されません。`:"（開催開始日は、入力されていません）"}`:label?`スタンプラリー画面のバナーの下に、「開催開始日 ${label}」と表示されます。`:"入力されていません。開催開始日は表示されません。";
  $("startDateClear").disabled=!f.date;
  // 「（仮）」の場所が残ったまま公開しようとしているとき
  const warn=$("placesTentative");
@@ -649,14 +653,17 @@ async function loadPublishSettings(){
 ["placesPublic"].forEach(name=>document.querySelectorAll(`input[name="${name}"]`).forEach(el=>el.addEventListener("change",renderInfo)));
 $("mymapInput").addEventListener("input",renderInfo);
 $("startDateInput").addEventListener("input",renderInfo);$("startDateInput").addEventListener("change",renderInfo);
+$("ongoingInput").addEventListener("change",renderInfo);
 $("startDateClear").onclick=()=>{$("startDateInput").value="";renderInfo();$("startDateInput").focus();};
-$("publishReset").onclick=()=>{if(!infoSaved)return;applyInfo({places_public:infoSaved.places,mymap_embed_url:infoSaved.mymap,start_date:infoSaved.date,info_updated_at:infoSaved.at});setPublishStatus("保存した内容に戻しました。");};
+$("publishReset").onclick=()=>{if(!infoSaved)return;applyInfo({places_public:infoSaved.places,mymap_embed_url:infoSaved.mymap,start_date:infoSaved.date,...(infoHasOngoing?{rally_ongoing:infoSaved.ongoing}:{}),info_updated_at:infoSaved.at});setPublishStatus("保存した内容に戻しました。");};
 $("publishSave").onclick=async()=>{
  const f=readInfo();
  if(f.mymap.error)return setPublishStatus(f.mymap.error,true);
  if(f.places&&tentativePlaces().length&&!confirm(`js/rally-data.js の場所に、確認用の「${tentativePlaces().join("」「")}」が残っています。\nこのまま、掲示板の地図を公開しますか？`))return;
  $("publishSave").disabled=true;setPublishStatus("保存しています…");
- const {data,error}=await db.rpc("admin_set_rally_info",{p_places_public:f.places,p_mymap_embed_url:f.mymap.url||null,p_start_date:f.date||null});
+ const args={p_places_public:f.places,p_mymap_embed_url:f.mymap.url||null,p_start_date:f.date||null};
+ if(infoHasOngoing)args.p_rally_ongoing=f.ongoing;   // 古いSQLには、この引数がない（送ると、関数が見つからない）。そのときは、これまでの3つだけを送る
+ const {data,error}=await db.rpc("admin_set_rally_info",args);
  if(error){
   console.error(error);renderInfo();
   const bad=/invalid mymap url/.test(String(error.message))?"マイマップのリンクの形が正しくありません。":/invalid start date/.test(String(error.message))?"開催開始日は、2000年〜2100年の日付を入力してください。":dbHint(error);
