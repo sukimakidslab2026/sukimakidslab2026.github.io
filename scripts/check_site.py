@@ -38,8 +38,8 @@
  29. 公開の設定（管理画面）：掲示板の地図を出すか（初期は非公開）・Googleマイマップのリンク・開催開始日・「開催中！」の表示が、SQL（列・関数・権限・URLの形）・
      スタンプラリー画面（地図は最初は隠す・公開のときだけ表示・開催開始日はバナーの下）・管理画面（入力・保存）で、そろっているか。
      マイマップのURLの形（正規表現）が、SQL・参加者の画面・管理画面で、同じか
- 30. 日本語の文章を、文節の区切りでだけ折り返す仕組み（js/phrase-break.js・js/vendor/budoux-ja-model.js・brand.css の [data-pb]）が、
-     すべての公開ページで読み込まれ、モデル・ライセンス表示・CSS が、そろっているか
+ 30. 日本語の折り返しは、ブラウザの標準に任せる：文節の区切りを文章に入れる仕組み（phrase-break・BudouX・<wbr>）が、残っていないか。
+     text-wrap（pretty・balance）・word-break:keep-all を、使っていないか
  31. トップページ（「すきまキッズラボとは？」）とアンケートの、バナー・見出し・見出しの下の線が、左右の中央にそろっているか
 問題があると、× を表示して、終了コード1で終わります（注意は、終了コードに影響しません）。
 """
@@ -176,7 +176,7 @@ def check_header():
             ok(f"共通ヘッダーは、{len(blocks)} ページで同じ内容です（ロゴ → スタンプラリー、メニュー → 「すきまキッズラボ」とは？・Instagram）")
     # メニューの順番：「すきまキッズラボ」とは？ の直後に Instagram
     for rel, (_, block, _) in blocks.items():
-        about = re.search(r"「すきまキッズラボ」(?:<[^>]+>)*とは？", block)   # 狭い画面で折り返す位置を決めるため、文節ごとに <span class="ph"> で区切ってある
+        about = re.search(r"「すきまキッズラボ」(?:<[^>]+>)*とは？", block)
         if not about or block.find("menu-instagram") < about.start():
             bad(f"{rel}: メニューで、「すきまキッズラボ」とは？ の下にInstagramがありません")
     for name in ("logo.webp", "banner.webp", "banner-rally.webp", "apple-touch-icon.png", "favicon-64.png", "favicon-32.png"):
@@ -826,63 +826,36 @@ def check_publish_settings():
         ok("公開の設定：地図（初期は非公開・公開のときだけ表示）・マイマップ・開催開始日・開催中！が、SQL（列・関数・権限・URLの形）・スタンプラリー画面・管理画面で、そろっています。マイマップのURLの形も、3か所で同じです")
 
 
-def check_phrase_break():
-    """文節の区切りで折り返す仕組み：5つの公開ページが、モデル → 本体 の順に読み込む。モデルの形・ライセンス表示・CSS・本体の大事な処理"""
+def check_plain_wrapping():
+    """日本語の折り返し：ブラウザの標準の折り返しに任せる（文章の中に、折り返す位置を入れる仕組みを、置かない）"""
     problems = []
-    model_rel, code_rel = "js/vendor/budoux-ja-model.js", "js/phrase-break.js"
-    for rel in (model_rel, code_rel):
-        if not os.path.isfile(os.path.join(ROOT, rel)):
-            problems.append(f"{rel} がありません")
-    if problems:
-        bad("；".join(problems))
-        return
-    model_src, code_src, css = read(model_rel), read(code_rel), read("brand.css")
-    # モデル：BudouX の日本語モデル（13のグループ）。Apache-2.0 のライセンス表示と、出どころ
-    m = re.search(r"window\.BUDOUX_JA_MODEL=(\{.*\});\s*$", model_src, flags=re.S)
-    try:
-        import json
-        groups = sorted(json.loads(m.group(1)).keys()) if m else []
-    except ValueError:
-        groups = []
-    if groups != sorted(["UW1", "UW2", "UW3", "UW4", "UW5", "UW6", "BW1", "BW2", "BW3", "TW1", "TW2", "TW3", "TW4"]):
-        problems.append(f"{model_rel}: BudouX の日本語モデル（window.BUDOUX_JA_MODEL = {{UW1〜TW4 の13グループ}}）の形になっていません")
-    for needle in ("Apache License, Version 2.0", "Copyright 2021 Google LLC", "github.com/google/budoux"):
-        if needle not in model_src or needle not in code_src:
-            problems.append(f"{model_rel}・{code_rel}: ライセンス・出どころの表示「{needle}」がありません（BudouX は Apache-2.0。表示を残す決まりです）")
-    # 本体：大事な処理（区切りの判定・<wbr>・後から足された文章・flex を避ける・隠れた要素・確認用の口）
-    for needle in ("document.createElement(\"wbr\")", "MutationObserver", "NO_DIRECT_TEXT", "flex|grid|contents|none", "data-nopb", "window.PhraseBreak", "function boundaries", "Intl.Segmenter", "function refine", "function finish", "function anchorFor", "MAX_PHRASE", "noWrap", "pb=0"):
-        if needle not in code_src:
-            problems.append(f"{code_rel} に「{needle}」がありません")
-    if chr(0x200B) in code_src or re.search(r"\\u200b|zero.?width", code_src, flags=re.I):   # 見えないゼロ幅スペースそのもの、または、その書き方（\u200b）
-        problems.append(f"{code_rel}: ゼロ幅スペースを入れる処理があります（コピーしたときに、見えない文字が混ざるため、<wbr> だけを使います）")
-    # CSS：区切りを入れた文章は、区切りでだけ折り返す（auto-phrase より優先）。anywhere・pretty・balance は使わない
-    #   （iPhone の Safari で、text-wrap:pretty / balance や overflow-wrap:anywhere のために、文節の途中・かっこの直後で折り返す崩れが出たため）
-    if not re.search(r"\[data-pb\]\{word-break:keep-all!important;overflow-wrap:break-word\}", css):
-        problems.append("brand.css: [data-pb]{word-break:keep-all!important;overflow-wrap:break-word} がありません（text-wrap は書かない：white-space:nowrap の「折り返さない」まで、打ち消してしまうため）")
-    for rel in ("brand.css", "style.css", "prize.css", "rally/style.css", "survey/style.css", "reset/style.css"):
-        m = re.search(r"text-wrap\s*:\s*(pretty|balance|stable)", re.sub(r"/\*.*?\*/", "", read(rel), flags=re.S))
+    for rel in ("js/phrase-break.js", "js/vendor/budoux-ja-model.js"):
+        if os.path.exists(os.path.join(ROOT, rel)):
+            problems.append(f"{rel} が残っています（文節の区切りを、文章に入れる仕組みは、やめました）")
+    stripped_css = {}
+    for rel in ("brand.css", "style.css", "prize.css", "rally/style.css", "survey/style.css", "reset/style.css", "admin/style.css"):
+        stripped_css[rel] = re.sub(r"/\*.*?\*/", "", read(rel), flags=re.S)
+    for rel, css in stripped_css.items():
+        m = re.search(r"text-wrap\s*:\s*(pretty|balance|stable)", css)
         if m:
-            problems.append(f"{rel}: text-wrap:{m.group(1)} が使われています。日本語の文章には使わない決まりです（iPhone の Safari で、行の長さをそろえるために、文節の途中・かっこの直後で折り返す崩れが出たため）")
-    # 公開ページ：head に、モデル → 本体 の順に、defer で読み込む（管理画面には入れない）
-    for rel in PUBLIC_PAGES:
+            problems.append(f"{rel}: text-wrap:{m.group(1)} が使われています。日本語の文章には使わない決まりです（端末によって、文節の途中・かっこの直後で折り返す崩れが出うるため）")
+        if re.search(r"word-break\s*:\s*keep-all", css):
+            problems.append(f"{rel}: word-break:keep-all が使われています（日本語の文章が、折り返せなくなるため。使うのは auto-phrase まで）")
+        if "[data-pb]" in css:
+            problems.append(f"{rel}: [data-pb]（文節の区切りの仕組みの印）が残っています")
+    for rel in PUBLIC_PAGES + ["admin/index.html"]:
         src = read(rel)
-        prefix = "../" * rel.count("/")
-        a = src.find(f'src="{prefix}js/vendor/budoux-ja-model.js')
-        b = src.find(f'src="{prefix}js/phrase-break.js')
-        head_end = src.find("</head>")
-        if a < 0 or b < 0 or not (a < b < head_end):
-            problems.append(f"{rel}: <head> に、モデル（js/vendor/budoux-ja-model.js）→ 本体（js/phrase-break.js）の順で、読み込んでいません")
-        elif not re.search(r"<script[^>]*budoux-ja-model\.js[^>]*\bdefer\b", src) or not re.search(r"<script[^>]*phrase-break\.js[^>]*\bdefer\b", src):
-            problems.append(f"{rel}: js/phrase-break.js・モデルは、defer を付けて読み込んでください（ページの表示を、止めないため）")
-    if "phrase-break" in read("admin/index.html"):
-        problems.append("admin/index.html: 管理画面には、文節の区切りの仕組みを入れない決まりです（管理画面の表・入力欄の並びが変わらないように）")
-    size = os.path.getsize(os.path.join(ROOT, model_rel)) + os.path.getsize(os.path.join(ROOT, code_rel))
-    if size > 60 * 1024:
-        problems.append(f"文節の区切りの仕組みの大きさが {size // 1024}KB です（60KB 以下の決まり。読み込みが遅くなります）")
+        if re.search(r"phrase-break|budoux", src, flags=re.I):
+            problems.append(f"{rel}: 文節の区切りの仕組み（phrase-break・BudouX）の読み込みが残っています")
+        if "<wbr" in src:
+            problems.append(f"{rel}: <wbr>（折り返し位置の指定）が、書かれています")
+    for rel in ("js/app.js", "rally/app.js", "survey/app.js", "js/prize-info.js", "js/site-nav.js", "js/reveal.js"):
+        if os.path.exists(os.path.join(ROOT, rel)) and re.search(r"createElement\(.wbr.\)|data-pb", read(rel)):
+            problems.append(f"{rel}: 文章に、折り返し位置を入れる処理が、書かれています")
     if problems:
         bad("；".join(problems[:6]))
     else:
-        ok(f"文節の区切りで折り返す仕組み：{len(PUBLIC_PAGES)} ページが、モデル → 本体の順に読み込み、ライセンス表示・CSS・処理が、そろっています（合計 {size // 1024}KB）")
+        ok("日本語の折り返しは、ブラウザの標準に任せています（<wbr>・文節の区切りの仕組み・text-wrap・keep-all は、使っていません）。見出しの「かたまり」は、CSSだけの .ph（inline-block）です")
 
 
 def check_centered_heads():
@@ -1162,8 +1135,8 @@ def main():
     print("29. 公開の設定（掲示板の地図を出すか・マイマップ・開催開始日・開催中！）")
     check_publish_settings()
 
-    print("30. 日本語の文章を、文節の区切りでだけ折り返す仕組み（pretty・balance・anywhere は使わない）")
-    check_phrase_break()
+    print("30. 日本語の折り返しは、ブラウザの標準に任せる（文節の区切りを入れる仕組み・text-wrap・keep-all は使わない）")
+    check_plain_wrapping()
 
     print("31. トップページ・アンケートの、バナー・見出しの中央揃え")
     check_centered_heads()

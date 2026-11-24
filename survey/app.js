@@ -160,7 +160,7 @@ async function start(){
 		return block("コンプリート状況を確認できませんでした。通信環境をご確認のうえ、再読み込みしてください。");
 	}
 	if(!completion.data) return block(RESULT_MESSAGES.not_completed+"スタンプラリーのページで取得状況をご確認ください。"+previewHint);
-	lead.textContent="オリジナルマステをゲットできる条件を達成しました！アンケートにご協力ください。";   // 折り返しは、js/phrase-break.js が、文節の区切りに合わせる
+	lead.textContent="オリジナルマステをゲットできる条件を達成しました！アンケートにご協力ください。";
 	surveyForm.hidden=false;
 	loadPrivacy();
 }

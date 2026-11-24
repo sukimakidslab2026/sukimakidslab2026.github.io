@@ -69,12 +69,6 @@ body{padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-a
 
 /* 日本語の見出しを、文節の区切りでだけ折り返す */
 .ph{display:inline-block}
-/* js/phrase-break.js が、文節の区切りに <wbr> を入れた文章：区切りでだけ折り返す（iPhone の Safari などで、単語の途中で折り返さないように）。
-   ・word-break:keep-all!important：Chrome の word-break:auto-phrase（各ページのCSSで指定）より、この区切りを優先して、どのブラウザでも、同じ位置で折り返す
-   ・overflow-wrap:break-word：1つの文節が、行より長いときだけ、途中で折り返す（はみ出さないための保険。anywhere は使わない：折り返し位置の候補が、文字ごとに増えてしまうため）
-   ・text-wrap は、ここでは指定しない（text-wrap:wrap を指定すると、white-space:nowrap の「折り返さない」まで、打ち消してしまうため）。
-     text-wrap:pretty / balance は、どのCSSにも書かない（iPhone の Safari で、行の長さをそろえるために、文節の途中・かっこの直後で折り返すことがあったため。scripts/check_site.py が確認します） */
-[data-pb]{word-break:keep-all!important;overflow-wrap:break-word}
 
 a{color:var(--color-primary);text-decoration-color:var(--color-secondary);text-underline-offset:3px;text-decoration-thickness:2px}
 :focus-visible{outline:3px solid var(--color-primary);outline-offset:2px}
