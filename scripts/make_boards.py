@@ -4,6 +4,7 @@
 
   python3 scripts/make_boards.py                 掲示板70個ぶんのQRコードを作る（初回）
   python3 scripts/make_boards.py --count 80      80個にする（すでにあるコードは、そのまま。増やした分だけ新しく作る）
+  python3 scripts/make_boards.py --seed-only     画像は作らず、boards_seed.sql と js/debug-boards.js だけを作り直す（コードは、boards.csv のまま）
 
 作るもの（掲示板のQRコードは、すべて、中央の白い枠の中に「No.01」のような番号が入ります）
   qr/boards/with_title/board_01_title.png ...  A3・縦・300dpi。上に「スタンプラリー」、QRコードの下に「No.01」の番号を入れたもの
@@ -11,9 +12,16 @@
   qr/boards/transparent/board_01.png ...       QRコードだけ。画像いっぱいの正方形で、背景は透明（透過PNG）。余白（クワイエットゾーン）はつけていません
                                                （ご自身のデザインに組み込むとき用。明るい背景に、周りに余白をとって置いてください）
   qr/boards/boards.csv              掲示板の番号とコード、QRコードのURLの一覧（元データ。なくさないでください）
-  qr/boards/boards_seed.sql         Supabase に掲示板のコードを登録するSQL（SQL Editor で実行します）
+  qr/boards/boards_seed.sql         Supabase に掲示板のコードを登録するSQL（SQL Editor で実行します。デバッグ用の No.61〜70 は、登録しません）
+  js/debug-boards.js                デバッグ用の掲示板（No.61〜70）の見分け方（公開されるファイル。コードそのものではなく、コードから計算した値だけが入ります）
   qr/qr_top.png, qr_top_title.png   トップページ（「すきまキッズラボ」とは？）を開くQRコード（番号なし）
   qr/qr_rally.png, qr_rally_title.png  スタンプラリーのページを開くQRコード（番号なし。スタンプはつきません）
+
+デバッグ用の掲示板（No.61〜70）
+  - チーム専用の、動作確認用のQRコードです。サーバー（Supabase）には登録せず、読み取っても、記録は何も残りません。
+    読み取ると、その端末の中だけで、スタンプの進み具合（1個ずつ増やす・3個・コンプリートなど）を確かめられます（rally/app.js）。
+  - 画面は、読み取ったコードが、デバッグ用かどうかを、js/debug-boards.js にある「計算した値」と照らして調べます（コードそのものは、公開しません）。
+  - 画像は、ほかの掲示板と同じように作られます（番号が入ります）。印刷は、チームの分だけにしてください。
 
 大切な決まり
   - 掲示板のQRコードに入る「コード」は、推測されにくい文字列です。これを知っていれば、掲示板に行かなくても
@@ -30,6 +38,7 @@
 """
 import argparse
 import csv
+import hashlib
 import io
 import os
 import secrets
@@ -58,6 +67,11 @@ LABEL_MAX_COVER = 0.07      # 白い四角が、QRコード全体に占める割
 TRANSPARENT_PX = 2400       # 透過PNG（QRコードだけ）の一辺の目安（ピクセル）。マス目の整数倍になるよう、少し小さくなります
 DIR_TITLE = "with_title"
 DIR_TRANSPARENT = "transparent"
+# チーム専用のデバッグ用の掲示板。sql/schema.sql の rally_is_debug_board と、同じ範囲にする（scripts/check_site.py が確認します）
+DEBUG_FIRST, DEBUG_LAST = 61, 70
+# デバッグ用のコードの見分け方：PBKDF2-HMAC-SHA256。js/debug-boards.js と rally/app.js の debugBoardNo と、同じ方法にする
+DEBUG_SALT = "sukima-rally-debug-v1"
+DEBUG_ITERATIONS = 100000
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
@@ -95,6 +109,50 @@ def load_font(path, size):
             return font
         best = best or font
     return best or ImageFont.truetype(path, size)
+
+
+def is_debug(n):
+    return DEBUG_FIRST <= n <= DEBUG_LAST
+
+
+def debug_hash(code):
+    """デバッグ用のコードから計算した値（16進数）。コードそのものは、ここから取り出せないようにする（繰り返し回数を多くしてある）"""
+    return hashlib.pbkdf2_hmac("sha256", code.encode("utf-8"), DEBUG_SALT.encode("utf-8"), DEBUG_ITERATIONS, 32).hex()
+
+
+def write_seed(out_dir, boards):
+    """Supabase に登録するSQL。デバッグ用の掲示板（No.61〜70）は、登録しない。戻り値：登録する数"""
+    real = [n for n in sorted(boards) if not is_debug(n)]
+    values = ",\n".join(f"  ('{boards[n]}', {n})" for n in real)
+    codes = ", ".join(f"'{boards[n]}'" for n in real)
+    with open(os.path.join(out_dir, "boards_seed.sql"), "w", encoding="utf-8") as f:
+        f.write(
+            "-- 掲示板のQRコードの登録（このファイルは公開しないでください）。SupabaseのSQL Editorに貼り付けて Run します。\n"
+            "-- 何度実行しても同じ結果になります（登録済みの番号・コードは、そのまま残ります）。\n"
+            f"-- デバッグ用の掲示板（No.{DEBUG_FIRST}〜{DEBUG_LAST}）は、チーム専用の動作確認用なので、登録しません（読み取っても、サーバーには何も記録されません）。\n"
+            "insert into public.stamp_boards (code, board_no) values\n"
+            f"{values}\n"
+            "on conflict do nothing;\n\n"
+            "-- 確認：「登録済み」と「期待する数」が同じなら、すべて登録されています。\n"
+            f"select count(*) as 登録済み, {len(real)} as 期待する数 from public.stamp_boards where code in ({codes});\n"
+        )
+    return len(real)
+
+
+def write_debug_js(boards):
+    """デバッグ用の掲示板の見分け方（公開されるファイル）。コードそのものは入れず、計算した値だけを入れる。戻り値：入れた数"""
+    debug = [n for n in sorted(boards) if is_debug(n)]
+    hashes = ",\n".join(f'  "{debug_hash(boards[n])}": {n}' for n in debug)
+    with open(os.path.join(ROOT, "js", "debug-boards.js"), "w", encoding="utf-8") as f:
+        f.write(
+            "// チーム専用の、デバッグ用のQRコード（掲示板 No.61〜70）の見分け方。scripts/make_boards.py が作ります（手で書きかえないでください）。\n"
+            "// QRコードに入っている合言葉そのものは、ここには入れていません（掲示板のコードは、公開しない決まりのため）。\n"
+            "// 合言葉から、次の方法で計算した値だけを入れています：PBKDF2-HMAC-SHA256（塩・繰り返しの回数は、下の値）→ 16進数の文字列。\n"
+            "// 画面（rally/app.js の debugBoardNo）は、読み取った合言葉を同じ方法で計算して、ここにあるかを調べます。あれば、デバッグ用の掲示板（値は、掲示板の番号）。\n"
+            "// デバッグ用のQRコードは、サーバーに記録を残さず、景品にも関係しません（端末の中だけで、スタンプの進み具合を確かめるためのものです）。\n"
+            f'window.RALLY_DEBUG_BOARDS={{salt:"{DEBUG_SALT}",iterations:{DEBUG_ITERATIONS},hashes:{{\n{hashes}\n}}}};\n'
+        )
+    return len(debug)
 
 
 def make_code(existing):
@@ -251,6 +309,7 @@ def main():
     ap.add_argument("--base-url", default=DEFAULT_BASE, help=f"サイトのURL（初期値 {DEFAULT_BASE}）")
     ap.add_argument("--font", help="題名に使うフォントファイル（省略すると、Macの筑紫A丸ゴシックを探します）")
     ap.add_argument("--no-public", action="store_true", help="トップページ・スタンプラリーのQRコード（qr/ の直下）は作らない")
+    ap.add_argument("--seed-only", action="store_true", help="画像は作らず、boards_seed.sql と js/debug-boards.js だけを作り直す（コードは、boards.csv のまま）")
     args = ap.parse_args()
     if args.count < 1 or args.count > 99:
         sys.exit("--count は 1〜99 の数にしてください。")
@@ -279,19 +338,13 @@ def main():
         for n in numbers:
             w.writerow([n, boards[n], f"{base}/rally/?stamp={boards[n]}"])
 
-    # Supabase に登録するSQL
-    values = ",\n".join(f"  ('{boards[n]}', {n})" for n in numbers)
-    codes = ", ".join(f"'{boards[n]}'" for n in numbers)
-    with open(os.path.join(out_dir, "boards_seed.sql"), "w", encoding="utf-8") as f:
-        f.write(
-            "-- 掲示板のQRコードの登録（このファイルは公開しないでください）。SupabaseのSQL Editorに貼り付けて Run します。\n"
-            "-- 何度実行しても同じ結果になります（登録済みの番号・コードは、そのまま残ります）。\n"
-            "insert into public.stamp_boards (code, board_no) values\n"
-            f"{values}\n"
-            "on conflict do nothing;\n\n"
-            "-- 確認：「登録済み」と「期待する数」が同じなら、すべて登録されています。\n"
-            f"select count(*) as 登録済み, {len(numbers)} as 期待する数 from public.stamp_boards where code in ({codes});\n"
-        )
+    # Supabase に登録するSQL（デバッグ用の No.61〜70 は、登録しない）と、デバッグ用の見分け方（js/debug-boards.js）
+    registered = write_seed(out_dir, boards)
+    debug_n = write_debug_js(boards)
+    if args.seed_only:
+        print(f"boards_seed.sql を作り直しました（登録する掲示板：{registered} 個。デバッグ用の No.{DEBUG_FIRST}〜{DEBUG_LAST} は、登録しません）。")
+        print(f"js/debug-boards.js を作り直しました（デバッグ用の掲示板：{debug_n} 個）。")
+        return 0
 
     # 画像：中央に番号を入れた2種類（A3・題名つき／透過PNG・QRコードだけ）を、別々のフォルダに作る
     title_dir, transparent_dir = os.path.join(out_dir, DIR_TITLE), os.path.join(out_dir, DIR_TRANSPARENT)
@@ -328,6 +381,7 @@ def main():
     print(f"    {DIR_TITLE}/    A3・題名つき（{len(numbers)} 枚）　　{DIR_TRANSPARENT}/    透過PNG・QRコードだけ（{len(numbers)} 枚）")
     print(f"  QRコード：{modules}×{modules} マス（誤り訂正レベルH）。中央の番号の白い枠：{geom['w']}×{geom['h']} マス（全体の {geom['cover']:.1%}）")
     print(f"  使ったフォント：{font_path}")
+    print(f"  デバッグ用の掲示板：No.{DEBUG_FIRST}〜{DEBUG_LAST}（{debug_n} 個。Supabase には登録せず、読み取っても記録は残りません）")
     print("次の作業：")
     print("  1. Supabase の SQL Editor で、sql/schema.sql（まだなら）→ qr/boards/boards_seed.sql の順に実行する")
     print("  2. 印刷する前に、スマートフォンで読み取って、スタンプが取れることを確認する")

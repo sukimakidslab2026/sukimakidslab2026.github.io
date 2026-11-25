@@ -19,4 +19,6 @@ URLの形： https://sukimakidslab2026.github.io/rally/?stamp=（掲示板ごと
   qr/boards/board_01.png ...   QRコードだけ（A3・縦・300dpi）
   qr/boards/board_01_title.png ...  題名「スタンプラリー」と番号（No.01）つき
   qr/boards/boards_seed.sql    Supabaseに掲示板のコードを登録するSQL
+※ 掲示板 No.61〜70 は、チーム専用の「デバッグ用」のQRコードです（本物の掲示板は No.1〜60）。読み取っても、サーバーには何も記録されず、
+  その端末の中だけで、スタンプの進み具合などを確かめられます（README の「デバッグ用の掲示板」を見てください）。
 作り方・登録のしかたは、README の「4. 掲示板のQRコード」を見てください。

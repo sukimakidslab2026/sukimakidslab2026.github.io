@@ -3,7 +3,7 @@
 <title>QRスタンプラリー 管理画面</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=d2d90fff"><link rel="stylesheet" href="style.css?v=7672173d">
+<link rel="stylesheet" href="../brand.css?v=c680fdae"><link rel="stylesheet" href="style.css?v=b09f7b02">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="../js/config.js?v=aae7ba99"></script>
 <script src="../js/fish-data.js?v=acd0a4fc"></script><script src="../js/fish.js?v=aabe1ce9"></script>
@@ -22,7 +22,8 @@
 <div class="menu-cards">
 <a class="menu-card" href="#survey"><strong>アンケート・集計</strong><span>参加者・QR読み込み履歴・アンケートの回答・景品の発送先・CSVの書き出し・テストデータの除外</span></a>
 <a class="menu-card" href="#stamps"><strong>スタンプ設定</strong><span>お魚が増えていく順番を決める。保存すると、参加者の画面に、すぐに反映されます</span></a>
-<a class="menu-card" href="#publish"><strong>公開の設定</strong><span>掲示板の地図を公開するか・Googleマイマップのリンク・開催開始日・「開催中！」の表示。サイトを公開していても、ここで「公開する」にするまで、地図は出ません</span></a>
+<a class="menu-card" href="#publish"><strong>公開の設定</strong><span>掲示板の地図を公開するか・Googleマイマップのリンク・開催開始日・開催終了日。サイトを公開していても、ここで「公開する」にするまで、地図は出ません</span></a>
+<a class="menu-card" href="#schedule"><strong>開催の状態</strong><span>開催前・開催中・終了の切り替え（30分だけの手動の切り替え）・「開催まで待ってね」「開催終了しました」の画面の確認・記録の自動削除（開催開始の1秒前）と、CSVでの保存</span></a>
 <a class="menu-card" href="../reset/"><strong>この端末の履歴を消す</strong><span>この端末のブラウザに保存された、サイトの履歴（参加者ID・スタンプ・「次回からは表示しない」の設定・管理者のログイン情報など）を、すべて消して、はじめて開いたときの状態に戻す（動作確認用）</span></a>
 </div>
 <p><button id="logoutBtnMenu" class="secondary">ログアウト</button></p>
@@ -47,20 +48,21 @@
 <div class="card"><span>総スキャン数</span><strong id="cScans">-</strong><small id="cRescans"></small></div>
 <div class="card"><span>アンケート回答</span><strong id="cSurveys">-</strong><small id="cSurveyRate"></small></div>
 <div class="card"><span>景品希望</span><strong id="cPrize">-</strong></div>
-<div class="card"><span>平均満足度</span><strong id="cAvg">-</strong><small>5点満点</small></div>
+<div class="card"><span>平均（楽しかった度）</span><strong id="cAvg">-</strong><small>5点満点</small></div>
 <div class="card"><span>除外した参加者</span><strong id="cExcluded">-</strong></div>
 </div>
 
 <details open class="box"><summary>集計</summary>
 <div class="grid2">
 <div><h3>獲得数別の人数（どこで離脱しているか）</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>獲得数</th><th>ちょうど</th><th>その数以上</th><th>割合（以上）</th></tr></thead><tbody id="funnelBody"></tbody></table></div></div>
-<div><h3>ワークショップ参加別（アンケート）</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>区分</th><th>回答数</th><th>平均満足度</th><th>景品希望</th></tr></thead><tbody id="workshopBody"></tbody></table></div></div>
+<div><h3>ワークショップ参加別（アンケート）</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>区分</th><th>回答数</th><th>平均（楽しかった度）</th><th>景品希望</th></tr></thead><tbody id="workshopBody"></tbody></table></div></div>
 </div>
 <h3>掲示板別</h3><div class="table-wrap"><table><thead><tr><th>掲示板</th><th>総読み込み</th><th>ユニーク参加者</th><th>再スキャン</th><th>取得者数</th><th>取得率</th></tr></thead><tbody id="spotBody"></tbody></table></div>
 <div class="grid2">
 <div><h3>日別（日本時間・新しい順）</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>日付</th><th>新規参加者</th><th>読み取り</th><th>コンプリート</th><th>アンケート</th></tr></thead><tbody id="dailyBody"></tbody></table></div></div>
-<div><h3>満足度の分布</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>満足度</th><th>回答数</th></tr></thead><tbody id="satBody"></tbody></table></div></div>
+<div><h3>「今回のスタンプラリーは楽しかったですか？」の分布</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>楽しかった度（1〜5）</th><th>回答数</th></tr></thead><tbody id="satBody"></tbody></table></div></div>
 </div>
+<h3>アンケート（はい／いいえ）</h3><div class="table-wrap"><table class="small-table"><thead><tr><th>質問</th><th>はい</th><th>いいえ</th><th>未回答</th></tr></thead><tbody id="yesNoBody"></tbody></table></div>
 </details>
 
 <h2>参加者 <span class="count" id="participantCount"></span></h2>
@@ -109,7 +111,7 @@
 <label>期間（から）<input type="date" id="surveyFrom"></label>
 <label>期間（まで）<input type="date" id="surveyTo"></label>
 </div>
-<div class="table-wrap"><table><thead><tr><th class="sel"><label class="selcell"><input type="checkbox" id="surveyAll" aria-label="表示中の回答を、すべて選択"></label></th><th>回答日時</th><th>参加者ID</th><th>満足度</th><th>自由記述</th><th>ワークショップ</th><th>景品</th><th>発送先</th></tr></thead><tbody id="surveyBody"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th class="sel"><label class="selcell"><input type="checkbox" id="surveyAll" aria-label="表示中の回答を、すべて選択"></label></th><th>回答日時</th><th>参加者ID</th><th>楽しかった度</th><th>普段行かない場所</th><th>普段掲示板を見る</th><th>他の掲示物も見た</th><th>きっかけ（ワークショップ不参加の方）</th><th>ご意見・ご感想</th><th>ワークショップ</th><th>景品</th><th>発送先</th></tr></thead><tbody id="surveyBody"></tbody></table></div>
 <div id="surveyBulk" class="bulkbar" role="region" aria-label="選択した回答のまとめての操作" hidden>
 <span>選択中：<strong id="surveySelected">0</strong>件</span>
 <button id="bulkDeleteSurvey" class="mini danger">選択した回答を削除…</button>
@@ -152,10 +154,10 @@
 <p id="fishStatus" class="note" role="status"></p>
 </section>
 
-<!-- 公開の設定：掲示板の地図を出すか・マイマップのURL・開催開始日・「開催中！」の表示（rally_settings。初期は、地図を出さない） -->
+<!-- 公開の設定：掲示板の地図を出すか・マイマップのURL・開催開始日・開催終了日（rally_settings。初期は、地図を出さない） -->
 <section id="publishSettings" hidden>
 <p class="crumbs"><a href="#">← メニューに戻る</a></p>
-<h2>公開の設定（掲示板の地図・開催開始日・開催中！）</h2>
+<h2>公開の設定（掲示板の地図・開催開始日・開催終了日）</h2>
 <p class="note">サイトを公開していても、ここで「公開する」にするまでは、スタンプラリー画面に、<strong>掲示板の地図（「掲示板のある場所」）は出ません</strong>（初期は非公開です）。
 保存すると、参加者の画面には、次に開いたとき（再読み込みしたとき）から反映されます。</p>
 <p id="publishCurrent" class="notice" role="status" hidden></p>
@@ -187,11 +189,18 @@
 </div>
 
 <div class="pub-field">
-<label for="startDateInput"><strong>開催開始日</strong>（入力しなければ、何も表示されません）</label>
+<label for="startDateInput"><strong>開催開始日</strong>（この日の 0:00 から、スタンプを獲得できます。バナーの下にも、開催前の間、表示されます）</label>
 <div class="pub-date"><input id="startDateInput" type="date" min="2000-01-01" max="2100-12-31" aria-describedby="startDatePreview"><button type="button" id="startDateClear" class="secondary">日付を消す</button></div>
-<label class="toggle" for="ongoingInput"><input type="checkbox" id="ongoingInput" aria-describedby="ongoingNote startDatePreview"> <span><strong>「開催中！」と表示する</strong>（開催が始まったら、チェックします）</span></label>
-<p id="ongoingNote" class="note pub-state error" hidden>この設定を使うには、先に、<code>sql/schema.sql</code> の全体を、SupabaseのSQL Editorで実行してください（実行するまで、チェックできません）。</p>
+<p class="note">空にすると、開催開始日は、バナーの下に表示されません（スタンプを獲得できるのは、初期値の 2026年12月9日 0:00 からです）。</p>
 <p id="startDatePreview" class="note pub-state"></p>
+</div>
+
+<div class="pub-field">
+<label for="endDateInput"><strong>開催終了日</strong>（この日の 23:59:59 まで、スタンプを獲得できます。そのあとは「開催終了しました」の画面になります）</label>
+<div class="pub-date"><input id="endDateInput" type="date" min="2000-01-01" max="2100-12-31" required aria-describedby="endDatePreview"></div>
+<p id="endDateNote" class="note pub-state error" hidden>この設定を使うには、先に、<code>sql/schema.sql</code> の全体を、SupabaseのSQL Editorで実行してください（実行するまで、変えられません）。</p>
+<p id="endDatePreview" class="note pub-state"></p>
+<p class="note">バナーの下は、開催の期間に合わせて、自動で変わります（開催前：開催開始日／開催中：「開催中！」／終了のあと：「開催は終了しました」）。</p>
 </div>
 </fieldset>
 
@@ -202,6 +211,68 @@
 </div>
 <p id="publishStatus" class="note" role="status"></p>
 </section>
+
+<!-- 開催の状態：時刻どおりの状態・30分だけの手動の切り替え・お知らせのプレビュー・記録の自動削除・保存した記録（rally_settings / rally_archive） -->
+<section id="scheduleSettings" hidden>
+<p class="crumbs"><a href="#">← メニューに戻る</a></p>
+<h2>開催の状態（開催前・開催中・終了）と、記録の自動削除</h2>
+<p class="note">スタンプのQRコードを読み取ったときに、スタンプをもらえるのは、<strong>開催の期間の間だけ</strong>です（開催開始日の 0:00 〜 開催終了日の 23:59:59。日本時間）。期間の外では、スタンプはもらえず、「開催まで待ってね」「開催終了しました」の画面が出ます（サイトは、そのまま見られます）。
+期間の日付は、「公開の設定」で変えられます。</p>
+<p id="scheduleNotice" class="notice" role="status" hidden></p>
+<p id="scheduleStatus" class="note" role="status"></p>
+
+<div id="scheduleBody" hidden>
+<details open class="box"><summary>いまの状態</summary>
+<p id="phaseNow" class="phase-now" role="status"></p>
+<p id="overrideInfo" class="phase-now" role="status" hidden>手動で切り替え中：あと <strong id="overrideLeft"></strong> で、時刻どおりの状態（<span id="overrideBack"></span>）に、自動で戻ります。</p>
+<div class="table-wrap"><table class="small-table"><tbody id="scheduleTimes"></tbody></table></div>
+</details>
+
+<details open class="box"><summary>手動で切り替える（30分だけ）</summary>
+<p class="note">動作確認などのために、スタンプを受け付けるかを、一時的に切り替えられます。<strong>切り替えは、30分だけ有効</strong>で、30分たつと、何もしなくても、自動で、時刻どおりの状態に戻ります。「自動に戻す」で、すぐに戻すこともできます。
+切り替えられるのは、<strong>スタンプを受け付けるか</strong>だけです（参加者の画面の「開催中！」などの表示は、時刻どおりのままです）。開催前に「開催中にする」で読み取ったスタンプは、開催開始の1秒前の自動削除で、消えます。</p>
+<div class="fish-actions">
+<button id="phaseBefore" class="secondary">開催前にする（30分）</button>
+<button id="phaseOpen">開催中にする（30分）</button>
+<button id="phaseClosed" class="secondary">終了にする（30分）</button>
+<button id="phaseAuto" class="secondary">自動（時刻どおり）に戻す</button>
+</div>
+</details>
+
+<details open class="box"><summary>お知らせの画面を確認する（プレビュー）</summary>
+<p class="note">スタンプのQRコードを、開催の期間の外で読み取ったときに出る画面を、そのまま確認できます（スタンプは、もらえません。記録も、されません）。</p>
+<p class="linkrow"><a class="linkbtn" href="../rally/?preview=before" target="_blank" rel="noopener">「開催まで待ってね」の画面を確認（プレビュー）</a>
+<a class="linkbtn" href="../rally/?preview=ended" target="_blank" rel="noopener">「開催終了しました」の画面を確認（プレビュー）</a></p>
+</details>
+
+<details open class="box"><summary>記録の自動削除</summary>
+<p class="note">開催が始まる前の記録（動作確認で読み取ったデータなど）は、<strong>開催開始の1秒前（初期は 12月8日 23:59:59）に、自動で削除</strong>されます。
+削除の直前に、<strong>削除する記録を、そのまま、データベースの中に保存</strong>します（保存できなければ、削除もしません）。保存した記録は、下から、CSVにして手元に保存できます。
+削除するのは、開催開始より前にできた記録（読み取り履歴・取得したスタンプ・アンケートの回答・景品の発送先・除外した参加者）だけです。開催が始まってからの記録は、残ります。削除された参加者の端末は、次に開いたとき、はじめての状態（新しい参加者）に戻ります。
+自動削除は、1回だけ行われます（あとから、動作確認の記録が増えても、自動では、消えません）。</p>
+<p id="purgeStatus" class="notice" role="status"></p>
+<div class="table-wrap"><table class="small-table"><thead><tr><th>記録</th><th>削除の予定（いま）</th><th>削除した件数</th></tr></thead><tbody id="purgeCounts"></tbody></table></div>
+<p class="note">念のため、<strong>自動削除の前に</strong>、いまの記録を、CSVで保存しておくと安心です（個人情報を含みます。取り扱いに注意してください）。</p>
+<div class="fish-actions"><button id="backupNow" class="secondary">いまの記録をCSVで保存（ZIP）</button></div>
+</details>
+
+<details open class="box"><summary>自動削除のときに保存した記録</summary>
+<p class="note">自動削除のときに保存した記録です。「CSVで保存（ZIP）」で、手元に保存できます。<strong>保存したあとは、「削除」で、この記録を消してください</strong>（景品の発送先などの個人情報を含むため、いつまでも、残さないようにします。元に戻せません）。</p>
+<div class="table-wrap"><table class="small-table"><thead><tr><th>保存した日時</th><th>件数</th><th>操作</th></tr></thead><tbody id="archiveBody"></tbody></table></div>
+</details>
+<p><button id="logoutBtnSchedule" class="secondary">ログアウト</button></p>
+</div>
+</section>
+
+<!-- 開催開始日を、記録の自動削除が、いますぐ動く日付にするときの確認（記録が保存されたうえで、すべて削除される） -->
+<dialog id="purgeDialog" aria-labelledby="purgeTitle">
+<form method="dialog">
+<h3 id="purgeTitle">記録を、いますぐ削除しますか？</h3>
+<div id="purgeBody" class="note"></div>
+<label class="toggle"><input type="checkbox" id="purgeSure"> 上の内容を確認しました</label>
+<div class="dialog-actions"><button type="submit" value="ok" class="danger" id="purgeOk" disabled>保存して、削除する</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
+</form>
+</dialog>
 
 <!-- 参加者のスタンプのリセット：確認（アンケートに回答済みの参加者では、回答も削除するかを選べる） -->
 <dialog id="resetDialog" aria-labelledby="resetTitle">
@@ -220,4 +291,4 @@
 <div id="surveyDeleteBody" class="note"></div>
 <div class="dialog-actions"><button type="submit" value="ok" class="danger">削除する</button><button type="submit" value="cancel" class="secondary" autofocus>やめる</button></div>
 </form>
-</dialog></main><script src="app.js?v=0ddf3f47"></script></body></html>
+</dialog></main><script src="app.js?v=2854663d"></script></body></html>

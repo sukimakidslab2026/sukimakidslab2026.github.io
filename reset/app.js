@@ -21,6 +21,11 @@ const LABELS = [
   { key: "stamp_rally_reset_count", name: "管理者のリセットの確認回数", detail: v => v },
   { key: "stamp_rally_fish_order", name: "お魚が増えていく順番（前回の保存）" },
   { key: "stamp_rally_hide_rules", name: "ルール説明の「次回からは表示しない」の設定", detail: v => v === "1" ? "表示しない" : "" },
+  { key: "stamp_rally_debug", name: "デバッグモード（チーム用）", detail: v => v === "1" ? "オン" : "" },
+  { key: "stamp_rally_debug_stamps", name: "デバッグ用のスタンプ（サーバーには記録されない）", detail: v => `${listLength(v)}個` },
+  { key: "stamp_rally_debug_stamp_times", name: "デバッグ用のスタンプを取った時刻" },
+  { key: "stamp_rally_debug_pending", name: "デバッグ用：サーバーに、まだ送っていないスタンプ", detail: v => `${listLength(v)}個` },
+  { key: "stamp_rally_debug_survey_submitted", name: "デバッグ用：アンケートに回答した印" },
 ];
 const ADMIN_LOGIN = /^sb-.+-auth-token/;   // 管理者のログイン情報（Supabase Auth が保存するもの）
 

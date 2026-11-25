@@ -5,7 +5,7 @@
 <!-- 欧文・数字：Josefin Sans Bold（Google Fonts / SIL Open Font License）。日本語：筑紫A丸ゴシック（Webフォント未契約のため、brand.css の代替フォントで表示） -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&display=swap">
-<link rel="stylesheet" href="../brand.css?v=d2d90fff"><link rel="stylesheet" href="style.css?v=375d8031"></head><body>
+<link rel="stylesheet" href="../brand.css?v=c680fdae"><link rel="stylesheet" href="style.css?v=375d8031"></head><body>
 <!-- 共通ヘッダー：ロゴ（スタンプラリーへ）とメニュー。他のページと同じ内容です（scripts/check_site.py が確認します） -->
 <header class="site-header">
   <a class="site-logo" href="../rally/" aria-label="すきまキッズラボ スタンプラリーへ"><img src="../assets/logo.webp" width="196" height="144" alt="すきまキッズラボ"></a>
@@ -62,5 +62,17 @@
 
 <p class="back"><a href="../rally/">スタンプラリーに戻る</a></p>
 </main>
-<script src="app.js?v=5340af45"></script><script src="../js/site-nav.js?v=cc0a8009"></script>
+<!-- 共通フッター：お問い合わせと、運営のロゴ。他のページと同じ内容です（scripts/check_site.py が確認します） -->
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <section class="contact" aria-labelledby="contactTitle">
+      <p class="contact-kicker en" aria-hidden="true">CONTACT</p>
+      <h2 id="contactTitle" class="contact-title">お問い合わせ</h2>
+      <p class="contact-text"><span class="ph">公式Instagram（<a href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer">@sukima.kids.lab</a>）の</span><span class="ph">DM、または</span> <span class="ph"><a href="mailto:info@ponddesignlab.com">info@ponddesignlab.com</a> まで</span></p>
+    </section>
+    <p class="partner-logo"><img src="../assets/pond-logo.webp" width="640" height="134" alt="Pond Design Laboratory × INTERIOR DESIGN STUDIO" loading="lazy" decoding="async"></p>
+    <p class="copyright en">sukima kids lab.</p>
+  </div>
+</footer>
+<script src="app.js?v=d3d116eb"></script><script src="../js/site-nav.js?v=cc0a8009"></script>
 </body></html>

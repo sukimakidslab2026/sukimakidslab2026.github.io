@@ -43,6 +43,10 @@ legend{font-weight:700;padding:0;margin:var(--space-4) 0 10px;font-size:15px;lin
 .option:has(input:checked){border-color:var(--color-primary);background:var(--tint-accent-12)}
 .choice .note{margin:10px 0 4px}
 
+/* ワークショップに「参加していない」と答えた方にだけ出る質問（左に、差し色の線） */
+.followup{margin:var(--space-4) 0;padding:2px 0 2px 14px;border-left:5px solid var(--color-mustard)}
+.followup-title{margin:var(--space-3) 0 0;font-weight:700;font-size:15px;line-height:1.55}
+
 /* 個人情報の取り扱い：同意欄（規約の全文は、「プライバシー規約」のリンクから開く） */
 .inline-link{display:inline;width:auto;margin:0;padding:0;border:0;background:none;color:var(--color-primary);font-size:inherit;font-weight:700;text-decoration:underline;text-decoration-color:var(--color-secondary);text-decoration-thickness:2px;text-underline-offset:3px}
 .consent{margin-top:20px;padding:14px;border:2px solid var(--color-line);border-radius:var(--radius-control);background:var(--color-white)}

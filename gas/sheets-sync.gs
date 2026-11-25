@@ -20,7 +20,7 @@
  */
 
 // シートの列や見た目を変えたときに上げる数字。変えると、次の同期で全シートを作り直します。
-const LAYOUT_VERSION = '4';
+const LAYOUT_VERSION = '5';
 const SYNC_MINUTES = 5;
 
 const SUMMARY_SHEET = '概要';
@@ -75,8 +75,12 @@ const SPOT_COLUMNS = [
 const SURVEY_COLUMNS = [
   { title: '回答日時', key: 'submitted_at', type: 'datetime', width: 150 },
   { title: '参加者ID', key: 'participant_id', type: 'text', width: 110 },
-  { title: '満足度（1〜5）', key: 'satisfaction', type: 'int', width: 100 },
-  { title: 'コメント', key: 'comment', type: 'text', width: 380, wrap: true },
+  { title: '楽しかった度（1〜5）', key: 'satisfaction', type: 'int', width: 120 },
+  { title: '普段行かない場所に足を運んだ', key: 'visited_new_place', type: 'text', width: 150 },
+  { title: '普段掲示板を見る', key: 'checks_boards', type: 'text', width: 120 },
+  { title: '他の掲示物も見た', key: 'saw_other_notices', type: 'text', width: 120 },
+  { title: 'きっかけ（ワークショップ不参加の方）', key: 'motivation', type: 'text', width: 300, wrap: true },
+  { title: 'ご意見・ご感想', key: 'comment', type: 'text', width: 380, wrap: true },
   { title: 'ワークショップ参加', key: 'workshop', type: 'text', width: 170 },
   { title: '景品', key: 'prize', type: 'text', width: 90 },
 ];
@@ -407,7 +411,7 @@ function buildSummary_(data, now, ss) {
   add('meta', ['アンケート回答数', s.surveys]);
   add('meta', ['アンケート回答率', pct(s.surveys, s.completers), 'アンケート回答数 ÷ クリア人数']);
   add('meta', ['景品希望数', s.prize_requests]);
-  add('meta', ['平均満足度', dec(s.avg_satisfaction), '5点満点']);
+  add('meta', ['平均（楽しかった度）', dec(s.avg_satisfaction), '「今回のスタンプラリーは楽しかったですか？」の平均（5点満点）']);
   add('meta', ['除外した参加者数', s.excluded_participants, 'テストなどで集計から外した人数（管理画面で設定。この表・各シートには含まれません）']);
   add('blank');
 
@@ -417,15 +421,23 @@ function buildSummary_(data, now, ss) {
   add('blank');
 
   add('heading', ['■ ワークショップ参加別（アンケート回答者）']);
-  add('header', ['ワークショップ参加', '回答数', '平均満足度', '景品希望数']);
+  add('header', ['ワークショップ参加', '回答数', '平均（楽しかった度）', '景品希望数']);
   data.workshop.forEach(w => add('body', [w.label, w.responses, dec(w.avg_satisfaction), w.prize_requests]));
   add('body', ['合計', sum(data.workshop, 'responses'), dec(s.avg_satisfaction), sum(data.workshop, 'prize_requests')]);
   add('blank');
 
-  add('heading', ['■ 満足度の分布']);
-  add('header', ['満足度', '回答数']);
+  add('heading', ['■ 「今回のスタンプラリーは楽しかったですか？」の分布']);
+  add('header', ['楽しかった度', '回答数']);
   data.satisfaction.forEach(x => add('body', [{ v: x.score, f: '0' }, x.count]));
   add('blank');
+
+  // アンケートの「はい／いいえ」の質問（古いSQLは、この集計を返さない：そのときは、載せない）
+  if (data.survey_yesno && data.survey_yesno.length) {
+    add('heading', ['■ アンケート（はい／いいえ）']);
+    add('header', ['質問', 'はい', 'いいえ', '未回答']);
+    data.survey_yesno.forEach(q => add('body', [q.label, q.yes, q.no, q.unanswered]));
+    add('blank');
+  }
 
   add('heading', ['■ 日別（日本時間・新しい順）']);
   add('header', ['日付', '新規参加者', '読み取り数', 'コンプリート', 'アンケート回答']);
@@ -475,12 +487,12 @@ function ensureFreeSheet_(ss) {
   sheet.getRange('A1').setValue('このシートは自動同期の対象外です。メモ・集計・グラフなどは、ここに自由に作ってください。').setFontWeight('bold');
   sheet.getRange('A3:A5').setValues([
     ['例1：コンプリートした人数'],
-    ['例2：ワークショップ参加者の平均満足度'],
+    ['例2：ワークショップ参加者の平均（楽しかった度）'],
     ['例3：iPhoneからの読み取り回数'],
   ]);
   sheet.getRange('B3:B5').setFormulas([
     ["=COUNTIF('" + PARTICIPANT_SHEET + "'!B:B,\"コンプリート\")"],
-    ["=IFERROR(AVERAGEIF('" + SURVEY_SHEET + "'!E:E,\"参加した\",'" + SURVEY_SHEET + "'!C:C),\"\")"],
+    ["=IFERROR(AVERAGEIF('" + SURVEY_SHEET + "'!I:I,\"参加した\",'" + SURVEY_SHEET + "'!C:C),\"\")"],   // アンケートのシート：I列＝ワークショップ参加、C列＝楽しかった度
     ["=COUNTIF('" + SCAN_SHEET + "'!E:E,\"iPhone\")"],
   ]);
   sheet.getRange('A7').setValue('※ 「概要」「参加者」「アンケート」などの同期されるシートは、データが変わるたびに中身が書き直されます。' +

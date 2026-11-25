@@ -15,8 +15,8 @@
   <!-- 日本語：筑紫A丸ゴシックのWebフォントを契約した場合は、ここに読み込みタグを追加します（README参照）
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
-  <link rel="stylesheet" href="../brand.css?v=d2d90fff">
-  <link rel="stylesheet" href="style.css?v=33cedcfe">
+  <link rel="stylesheet" href="../brand.css?v=c680fdae">
+  <link rel="stylesheet" href="style.css?v=78d542a0">
   <link rel="stylesheet" href="../prize.css?v=d2a04383">
 </head>
 <body>
@@ -44,13 +44,30 @@
 </nav>
 
 <main>
+<!-- デバッグモード（チーム専用のQRコード No.61〜70 を読み取ったあと）の間だけ出る帯。rally/app.js が表示します。
+     このあいだ、スタンプ・アンケートは、この端末の中だけで扱われ、サーバーには何も記録されません。 -->
+<div id="debugBar" class="debug-bar" role="status" hidden>
+  <p class="debug-bar-text"><strong>デバッグ中（チーム用）</strong><span class="ph">この端末のスタンプは、動作確認用です。</span><span class="ph">サーバーには記録されません。</span></p>
+  <details class="debug-bar-help"><summary>デバッグ用QRコードの使い方</summary>
+    <ul>
+      <li>No.61：スタンプを1個ふやす（6個まで）</li>
+      <li>No.62〜68：スタンプを 0・1・2・3・4・5・6 個にする（3個＝景品の条件、6個＝コンプリート）</li>
+      <li>No.69：「開催まで待ってね」の画面を出す</li>
+      <li>No.70：「開催終了しました」の画面を出す</li>
+    </ul>
+  </details>
+  <button type="button" class="debug-bar-end" id="debugEnd">デバッグを終わる</button>
+</div>
+
 <div class="hero">
   <!-- バナーには「スタンプラリー」の文字が入っているので、バナーの画像そのものを、ページの見出し（h1）にしています -->
   <h1 class="page-title hero-title"><img class="hero-banner rally" src="../assets/banner-rally.webp" width="1000" height="280" alt="すきまキッズラボ スタンプラリー"></h1>
   <!-- 開催開始日：管理画面の「公開の設定」で入力したときだけ出ます（rally/app.js の applyStartDate）。入力がなければ、何も出しません -->
   <p id="startDate" class="start-date" hidden><span class="start-date-label">開催開始日</span> <time id="startDateValue" class="start-date-value"></time></p>
-  <!-- 「開催中！」：管理画面の「公開の設定」で選んだときだけ出ます。出ている間は、開催開始日の代わりに、これが出ます（rally/app.js の applyStartDate） -->
+  <!-- 「開催中！」：開催の期間（開催開始日の 0:00 〜 開催終了日の 23:59:59）の間だけ、自動で出ます。出ている間は、開催開始日の代わりに、これが出ます（rally/app.js の applyStartDate） -->
   <p id="ongoing" class="ongoing" hidden><span class="ongoing-dot" aria-hidden="true"></span>開催中！</p>
+  <!-- 「開催は終了しました」：開催終了日の 23:59:59 を過ぎたあとに出ます（開催中！と同じ場所） -->
+  <p id="ended" class="ongoing is-ended" hidden>開催は終了しました</p>
   <p class="lead"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">お魚のスタンプを集めよう！</span><br>
     <span class="ph"><span id="requiredCount">3</span>個で景品をゲットでき、</span><span class="ph"><span id="riverTotal">6</span>個そろうと、画面上で川が完成します。</span></p>
   <p class="hero-actions"><button type="button" class="rules-open" id="rulesOpen" aria-haspopup="dialog"><span class="rules-open-mark en" aria-hidden="true">?</span>ルールを見る</button></p>
@@ -139,7 +156,18 @@
 </div>
 </main>
 
-<footer class="en">sukima kids lab.</footer>
+<!-- 共通フッター：お問い合わせと、運営のロゴ。他のページと同じ内容です（scripts/check_site.py が確認します） -->
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <section class="contact" aria-labelledby="contactTitle">
+      <p class="contact-kicker en" aria-hidden="true">CONTACT</p>
+      <h2 id="contactTitle" class="contact-title">お問い合わせ</h2>
+      <p class="contact-text"><span class="ph">公式Instagram（<a href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer">@sukima.kids.lab</a>）の</span><span class="ph">DM、または</span> <span class="ph"><a href="mailto:info@ponddesignlab.com">info@ponddesignlab.com</a> まで</span></p>
+    </section>
+    <p class="partner-logo"><img src="../assets/pond-logo.webp" width="640" height="134" alt="Pond Design Laboratory × INTERIOR DESIGN STUDIO" loading="lazy" decoding="async"></p>
+    <p class="copyright en">sukima kids lab.</p>
+  </div>
+</footer>
 
 <!-- スタンプを獲得した瞬間の演出（後光つきの画面）。中身は rally/app.js が入れて、開きます。
      画面のどこかをタップするか、OK を押すと閉じます。閉じたあとに、ルール説明が出ます（下の rulesDialog） -->
@@ -180,7 +208,9 @@
     <div class="rules-body" tabindex="0" role="region" aria-labelledby="rulesTitle">
       <!-- ▼▼ ルール説明（ここから） ▼▼ -->
       <ol class="rules-steps" role="list">
-        <li><strong>掲示板のQRコードを読み取る</strong><span>スマートフォンで読み取ります。</span></li>
+        <li><strong>掲示板のQRコードを読み取る</strong><span>スマートフォンで読み取ります。</span>
+          <!-- 掲示板に貼り出されるポスターの見本：ポスターの中央にあるQRコードを読み取る -->
+          <figure class="rules-sample"><img src="../assets/rules-poster-sample.webp" width="765" height="285" alt="掲示板に貼り出されるポスターのイメージ。ポスターの中央にあるQRコードを読み取って、スタンプをゲットします。まちなかの掲示板、約60か所に貼り出されます。" loading="lazy" decoding="async"></figure></li>
         <li><strong>お魚のスタンプがもらえる</strong><span>同じ掲示板は、何度読み取っても1つです。</span></li>
         <li><strong>3つ集めると、景品をゲットできる</strong><span><span class="ph">アンケートで、申し込みを受け付けます。</span><span class="ph">数に限りがあります。</span></span></li>
         <li><strong>6つそろうと、川が完成する</strong><span>6種類のお魚が、画面の川にそろいます。</span></li>
@@ -198,6 +228,29 @@
     <div class="rules-foot">
       <label class="rules-check" id="rulesHideRow"><input type="checkbox" id="rulesHide"><span>次回からは表示しない</span></label>
       <button type="button" class="btn" id="rulesOk">とじる</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- 開催前・開催終了のお知らせ。スタンプのQRコードを、開催の期間の外（開催前・開催終了のあと）に読み取ったときに、自動で出ます（rally/app.js の showPhase）。
+     スタンプは、もらえません（何も記録されません）。このページは、そのまま見られます。
+     管理画面の「開催の状態」から、確認用の表示（?preview=before ・ ?preview=ended）も、開けます。 -->
+<dialog id="phaseDialog" class="rules-dialog phase-dialog" aria-labelledby="phaseTitle">
+  <div class="rules-card" tabindex="-1" autofocus>
+    <div class="rules-head">
+      <div>
+        <p id="phaseKicker" class="rules-kicker en">COMING SOON</p>
+        <h2 id="phaseTitle" class="rules-title">開催まで待ってね</h2>
+      </div>
+      <button type="button" class="rules-x" id="phaseX" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+    </div>
+    <div class="rules-body phase-body" tabindex="0" role="region" aria-labelledby="phaseTitle">
+      <p id="phaseLead" class="phase-lead"></p>
+      <p id="phaseNote" class="phase-note"></p>
+      <p id="phasePreview" class="phase-preview" hidden>プレビュー（確認用の表示です。スタンプは、もらえません）</p>
+    </div>
+    <div class="rules-foot phase-foot">
+      <button type="button" class="btn" id="phaseOk">とじる</button>
     </div>
   </div>
 </dialog>
@@ -228,9 +281,10 @@
 
 <script src="../js/config.js?v=aae7ba99"></script>
 <script src="../js/rally-data.js?v=d0102201"></script>
+<script src="../js/debug-boards.js?v=83411ce9"></script>
 <script src="../js/fish-data.js?v=acd0a4fc"></script>
 <script src="../js/fish.js?v=aabe1ce9"></script>
-<script src="app.js?v=7a592778"></script>
+<script src="app.js?v=0ed2ca62"></script>
 <script src="../js/prize-info.js?v=fce68e91"></script>
 <script src="../js/site-nav.js?v=cc0a8009"></script>
 </body>

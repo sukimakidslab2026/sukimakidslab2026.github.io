@@ -3,6 +3,8 @@ const lead=document.getElementById("lead");
 const participantId=document.getElementById("participantId");
 const satisfaction=document.getElementById("satisfaction");
 const comment=document.getElementById("comment");
+const motivation=document.getElementById("motivation");
+const motivationBlock=document.getElementById("motivationBlock");
 const prizeRequested=document.getElementById("prizeRequested");
 const shipping=document.getElementById("shipping");
 const recipientName=document.getElementById("name");
@@ -31,6 +33,10 @@ const participant=(query.get("participant_id")||safeGet("stamp_rally_participant
 // 画面を開くだけで、送信しても記録は保存しない（submit_survey は呼ばない）。管理者でなければ、通常どおりの動作になる。
 const wantsPreview=query.get("preview")==="1";
 let previewMode=false;
+let previewLabel="プレビュー";
+// デバッグモード（チーム用）：スタンプラリーの画面の、デバッグ用QRコード（掲示板 No.61〜70）で入る。このあいだ、アンケートの画面は、管理者プレビューと同じ
+// （コンプリートしていなくても開け、送信しても、記録は保存されない）。デバッグを終わるときは、スタンプラリーの画面の「デバッグを終わる」を押す。
+const debugOn=safeGet("stamp_rally_debug")==="1";
 const submittedKey="stamp_rally_survey_submitted";
 participantId.value=participant;
 
@@ -38,8 +44,9 @@ const RESULT_MESSAGES={
 	already_submitted:"この参加者IDのアンケートは回答済みです。ご協力ありがとうございました。",
 	not_completed:"景品をゲットできる数のスタンプ取得が確認できません。",
 	invalid_participant:"参加者IDが確認できません。スタンプラリーのページからお進みください。",
-	invalid_satisfaction:"満足度を選択してください。",
-	invalid_comment:"自由記述は2000文字以内で入力してください。",
+	invalid_satisfaction:"スタンプラリーが楽しかったかを（1〜5で）選択してください。",
+	invalid_comment:"ご意見・ご感想は2000文字以内で入力してください。",
+	invalid_motivation:"きっかけは2000文字以内で入力してください。",
 	invalid_name:"氏名を100文字以内で入力してください。",
 	invalid_postal:"郵便番号を7桁の数字で入力してください。",
 	invalid_address:"住所を300文字以内で入力してください。",
@@ -106,6 +113,17 @@ prizeRequested.onchange=syncPrize;
 consent.onchange=syncSubmit;
 syncPrize(); // 再読み込みで、ブラウザがチェックの状態を戻した場合にも、画面とボタンの状態をそろえる
 
+// 「すきまキッズラボに参加していない方へ」の質問（きっかけ）：ワークショップに「参加していない」と答えたときだけ出す
+function syncMotivation(){
+	motivationBlock.hidden=surveyForm.elements.workshop.value!=="not_attended";
+}
+surveyForm.querySelectorAll('input[name="workshop"]').forEach(radio=>radio.addEventListener("change",syncMotivation));
+syncMotivation();
+// 「はい／いいえ」の質問の答え：はい＝true・いいえ＝false（選んでいなければ null）
+const yesNo=name=>{ const value=surveyForm.elements[name].value; return value==="yes"?true:value==="no"?false:null; };
+// SQL（新しい質問への対応）を、まだ実行していない間は、新しい引数を受け付ける関数が、サーバーにない（PGRST202）。そのときは、これまでの質問の答えだけを送る
+const isMissingFunction=error=>!!error&&(error.code==="PGRST202"||/Could not find the function|schema cache/i.test(String(error.message||"")));
+
 // プライバシー規約：privacy.html の本文をモーダルで表示します（入力中の内容はそのまま残ります）。
 async function loadPrivacy(){
 	try{
@@ -142,6 +160,18 @@ async function surveyStillSubmitted(){
 }
 
 async function start(){
+	if(debugOn){
+		previewMode=true;
+		previewLabel="デバッグ";
+		participantId.value=participant||"（デバッグ）";
+		lead.textContent="デバッグ中のアンケート画面です。";
+		const banner=document.getElementById("previewBanner");
+		banner.innerHTML="<strong>デバッグ中（チーム用）：</strong>この画面は、動作確認用です。<strong>送信しても、記録は保存されません。</strong>デバッグを終わるときは、スタンプラリーの画面の「デバッグを終わる」を押してください。";
+		banner.hidden=false;
+		surveyForm.hidden=false;
+		loadPrivacy();
+		return;
+	}
 	if(wantsPreview&&await isAdminSession()){
 		previewMode=true;
 		participantId.value=participant||"（プレビュー）";
@@ -177,15 +207,15 @@ surveyForm.onsubmit=async e=>{
 	if(prize && !emailValue) return message.textContent=RESULT_MESSAGES.invalid_email;
 
 	if(previewMode){ // プレビューでは、入力の確認までを行い、送信（記録）はしない
-		return block(prize ? "【プレビュー】送信ありがとうございました。景品の発送先を受け付けました。（記録は保存されていません）" : "【プレビュー】送信ありがとうございました。（記録は保存されていません）");
+		return block(prize ? `【${previewLabel}】送信ありがとうございました。景品の発送先を受け付けました。（記録は保存されていません）` : `【${previewLabel}】送信ありがとうございました。（記録は保存されていません）`);
 	}
 	submitBtn.disabled=true;
 	submitBtn.textContent="送信中…";
-	const result=await db.rpc("submit_survey",{
+	const answers={
 		p_participant_id:participant,
-		p_satisfaction:Number(satisfaction.value),
+		p_satisfaction:Number(satisfaction.value), // 「今回のスタンプラリーは楽しかったですか？」（1〜5）
 		p_memorable_spot:null, // 印象に残ったスポットの質問は廃止（掲示板に名前がなくなったため）。引数だけ残してある
-		p_comment:comment.value.trim()||null,
+		p_comment:comment.value.trim()||null, // 「その他、ご意見・ご感想」
 		p_prize_requested:prize,
 		p_recipient_name:prize ? recipientName.value.trim() : null,
 		p_postal_code:postalValue,
@@ -195,7 +225,15 @@ surveyForm.onsubmit=async e=>{
 		p_workshop_participation:surveyForm.elements.workshop.value||null,
 		p_privacy_version:prize ? privacyVersion : null,
 		p_email:emailValue
-	});
+	};
+	const added={
+		p_visited_new_place:yesNo("visitedNewPlace"),
+		p_checks_boards:yesNo("checksBoards"),
+		p_saw_other_notices:yesNo("sawOtherNotices"),
+		p_motivation:motivationBlock.hidden ? null : (motivation.value.trim()||null) // 「参加していない」と答えた方だけの質問
+	};
+	let result=await db.rpc("submit_survey",{...answers,...added});
+	if(isMissingFunction(result.error)) result=await db.rpc("submit_survey",answers); // SQLを、まだ更新していない間は、これまでの質問の答えだけを送る
 	submitBtn.textContent="送信する";
 	syncSubmit();
 

@@ -19,6 +19,8 @@
 .ongoing{display:flex;align-items:center;justify-content:center;gap:10px;width:fit-content;margin:0 auto var(--space-3);padding:5px 22px 5px 18px;border-radius:var(--radius-pill);background:var(--color-primary);color:var(--color-on-primary);font-size:19px;font-weight:700;letter-spacing:.06em;line-height:1.5;animation:start-date-in .6s var(--ease) both}
 .ongoing-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--color-mustard);animation:ongoing-glow 1.8s ease-out .6s 3}
 @keyframes ongoing-glow{0%{box-shadow:0 0 0 0 rgba(222,198,50,.6)}70%,100%{box-shadow:0 0 0 9px rgba(222,198,50,0)}}
+/* 「開催は終了しました」：開催中！と同じ形の札。終わったので、白地に主色の枠にして、色を落とす */
+.ongoing.is-ended{padding:5px 22px;border:2px solid var(--color-primary);background:var(--color-white);color:var(--color-primary);font-size:17px}
 @media (prefers-reduced-motion:reduce){.start-date,.ongoing,.ongoing-dot{animation:none}}
 /* 「ルールを見る」：ルール説明のポップアップを、いつでも、もういちど開く */
 .rules-open{display:inline-flex;align-items:center;gap:var(--space-2);min-height:44px;margin:0;padding:6px 18px 6px 10px;border:2px solid var(--color-secondary);border-radius:var(--radius-pill);background:var(--color-white);color:var(--color-primary);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
@@ -179,7 +181,6 @@
 .status-row span{font-size:13px;color:var(--color-text-muted)}
 code{font-size:14px;letter-spacing:.08em;background:var(--tint-primary-08);padding:6px 10px;border-radius:10px;color:var(--color-primary)}
 .small{font-size:12px;color:var(--color-text-muted);line-height:1.7;margin:var(--space-2) 0 0}
-footer{text-align:center;color:var(--color-text-muted);font-size:11px;letter-spacing:.16em;padding:var(--space-2) 0 var(--space-6)}
 
 /* ポップアップ（<dialog>）：未対応の古いブラウザで、閉じているはずの中身が、ページに出てしまわないように */
 dialog:not([open]){display:none}
@@ -272,6 +273,29 @@ html.modal-open{overflow:hidden}
 .save-hint{margin:10px 0 0;font-size:12.5px;line-height:1.7;color:var(--color-text-muted)}
 .save-foot{display:flex;flex-wrap:nowrap;gap:var(--space-2)}
 .save-foot .btn{flex:1 1 0;max-width:none;margin-left:0}
+
+/* ルール①の下の、ポスターの見本の画像（掲示板に貼り出されるポスターの、どこを読み取るか） */
+.rules-sample{margin:10px 0 0;padding:0}
+.rules-sample img{display:block;width:100%;height:auto;border-radius:var(--radius-control)}
+
+/* 開催前・開催終了のお知らせのポップアップ（外側の形は、ルール説明と同じ） */
+.phase-dialog .rules-body{padding-top:16px;padding-bottom:10px}
+.phase-lead{margin:0 0 var(--space-3);font-size:17px;font-weight:700;line-height:1.7}
+.phase-note{margin:0;font-size:14px;line-height:1.85}
+.phase-note+.phase-note{margin-top:var(--space-2)}
+.phase-preview{margin:var(--space-4) 0 0;padding:8px 12px;border:2px dashed var(--color-secondary);border-radius:var(--radius-control);background:var(--tint-primary-08);font-size:12.5px;line-height:1.7;color:var(--color-text-muted)}
+.phase-foot{justify-content:center}
+.phase-foot .btn{flex:0 1 220px;max-width:none;margin:0 auto}
+
+/* デバッグモードの帯（チーム専用。出ている間は、この端末のスタンプ・アンケートは、サーバーに記録されない） */
+.debug-bar{padding:10px var(--space-4) 12px;background:var(--tint-mustard-20);border-bottom:3px solid var(--color-mustard);color:var(--color-primary);font-size:13px;line-height:1.7;text-align:center}
+.debug-bar>*{max-width:560px;margin-left:auto;margin-right:auto}
+.debug-bar-text{margin-top:0;margin-bottom:0}
+.debug-bar-text strong{display:block;font-size:15px}
+.debug-bar-help{margin-top:6px;margin-bottom:0;text-align:left}
+.debug-bar-help summary{display:flex;align-items:center;justify-content:center;min-height:36px;font-weight:700;cursor:pointer}
+.debug-bar-help ul{margin:4px 0 0;padding-left:1.3em}
+.debug-bar-end{display:block;min-height:44px;margin-top:8px;margin-bottom:0;padding:8px 18px;border:2px solid var(--color-primary);border-radius:var(--radius-pill);background:var(--color-white);color:var(--color-primary);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
 
 @keyframes press{0%{transform:scale(1.55) rotate(-12deg);opacity:0}55%{transform:scale(.94) rotate(2deg);opacity:1}100%{transform:none;opacity:1}}
 @keyframes ring{0%{box-shadow:0 0 0 0 rgba(222,198,50,.7)}100%{box-shadow:0 0 0 12px rgba(222,198,50,0)}}

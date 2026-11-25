@@ -3,6 +3,7 @@ const $=id=>document.getElementById(id);
 const db=window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY);
 const workshopLabels={attended:"参加した",not_attended:"参加していない",unsure:"わからない／覚えていない"};
 const workshopName=v=>workshopLabels[v]||"";
+const yesNoName=v=>v===true?"はい":v===false?"いいえ":"";   // アンケートの「はい／いいえ」の質問（答えていないときは、空）
 const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const fmt=v=>v?new Date(v).toLocaleString("ja-JP"):"";
 const fmtShort=v=>new Date(v).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
@@ -22,10 +23,10 @@ function notify(text,isError=false){
  const el=$("notice");el.textContent=text;el.hidden=false;el.classList.toggle("error",isError);
  clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{el.hidden=true},isError?12000:7000);
 }
-// 画面は4つ：メニュー（ログイン後の最初の画面）／アンケート・集計（#survey）／スタンプ設定（#stamps）／公開の設定（#publish）。URLの # で切り替わる
-const SECTIONS={menu:"adminMenu",survey:"dashboard",stamps:"stampSettings",publish:"publishSettings"};
+// 画面は5つ：メニュー（ログイン後の最初の画面）／アンケート・集計（#survey）／スタンプ設定（#stamps）／公開の設定（#publish）／開催の状態（#schedule）。URLの # で切り替わる
+const SECTIONS={menu:"adminMenu",survey:"dashboard",stamps:"stampSettings",publish:"publishSettings",schedule:"scheduleSettings"};
 let loggedIn=false,currentSection="";
-const routeFromHash=()=>{const h=location.hash.replace(/^#/,"");return h==="survey"||h==="stamps"||h==="publish"?h:"menu";};
+const routeFromHash=()=>{const h=location.hash.replace(/^#/,"");return h==="survey"||h==="stamps"||h==="publish"||h==="schedule"?h:"menu";};
 function showSection(name){
  currentSection=name;
  $("login").hidden=true;
@@ -33,6 +34,7 @@ function showSection(name){
  if(name==="survey")loadDashboard();
  if(name==="stamps")loadStampSettings();
  if(name==="publish")loadPublishSettings();
+ if(name==="schedule")loadSchedule();
  window.scrollTo(0,0);
 }
 function showLogin(text="",isError=false){
@@ -50,7 +52,7 @@ function loginErrorMessage(error){
 }
 function dbHint(error){
  const m=String(error?.message||error);
- return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|rally_config|admin_set_fish_order|admin_rally_info|admin_set_rally_info|rally_settings|admin_reset_progress|admin_full_reset_many|admin_delete_surveys|participant_resets|schema cache|does not exist/.test(m)
+ return /admin_stats|v_admin_|prize_shipping|excluded_participants|admin_set_excluded|rally_config|admin_set_fish_order|admin_rally_info|admin_set_rally_info|admin_rally_schedule|admin_set_phase_override|admin_delete_archive|rally_archive|rally_settings|admin_reset_progress|admin_full_reset_many|admin_delete_surveys|participant_resets|schema cache|does not exist/.test(m)
   ?`${m}（Supabaseで最新の sql/schema.sql を実行したか確認してください）`:m;
 }
 
@@ -153,6 +155,8 @@ function renderStats(st){
  $("dailyBody").innerHTML=st.daily.map(d=>`<tr><td>${esc(d.date)}</td><td>${d.new_participants}</td><td>${d.scans}</td><td>${d.completers}</td><td>${d.surveys}</td></tr>`).join("")
   ||`<tr><td colspan="5" class="muted">まだデータがありません。</td></tr>`;
  $("satBody").innerHTML=st.satisfaction.map(x=>`<tr><td>${x.score}</td><td>${x.count}</td></tr>`).join("");
+ $("yesNoBody").innerHTML=(st.survey_yesno||[]).map(q=>`<tr><td>${esc(q.label)}</td><td>${q.yes}</td><td>${q.no}</td><td>${q.unanswered}</td></tr>`).join("")
+  ||`<tr><td colspan="4" class="muted">（最新の sql/schema.sql を実行すると、集計が表示されます）</td></tr>`;
 }
 
 // 読み取り履歴の「掲示板」の絞り込みの選択肢を、登録されている掲示板から作る（更新しても、選んでいる値は保つ）
@@ -227,9 +231,10 @@ function renderSurveys(){
  $("surveyCount").textContent=`${list.length}件`;
  visibleSurveyIds=list.map(x=>x.participant_id);pruneSelection(selectedSurveys,visibleSurveyIds);
  $("surveyBody").innerHTML=list.map(x=>`<tr class="${excludedIds.has(x.participant_id)?"excluded":""}">${checkCell(selectedSurveys,x.participant_id,`参加者 ${x.participant_id} の回答を選択`)}<td>${fmt(x.submitted_at)}</td><td>${esc(x.participant_id)}${badge(excludedIds.has(x.participant_id))}</td><td>${x.satisfaction??""}</td>
+  <td>${yesNoName(x.visited_new_place)}</td><td>${yesNoName(x.checks_boards)}</td><td>${yesNoName(x.saw_other_notices)}</td><td>${esc(x.motivation)}</td>
   <td>${esc(x.comment)}</td><td>${esc(workshopName(x.workshop_participation))}</td><td>${x.prize_requested?"希望":"—"}</td>
   <td>${shipIds.has(x.participant_id)?"登録あり":"—"}</td></tr>`).join("")
-  ||`<tr><td colspan="8" class="muted">該当する回答はありません。</td></tr>`;
+  ||`<tr><td colspan="12" class="muted">該当する回答はありません。</td></tr>`;
  updateSurveyBar();
 }
 
@@ -279,8 +284,8 @@ $("csvShippingBtn").onclick=()=>exportCsv($("csvShippingBtn"),async()=>{
 $("csvSurveyBtn").onclick=()=>exportCsv($("csvSurveyBtn"),async()=>{
  const [svs,ex]=await Promise.all([fetchAll(()=>db.from("survey_responses").select("*").order("submitted_at").order("id")),freshExclusions()]);
  const rows=svs.filter(x=>!ex.has(x.participant_id));
- downloadCsv("stamp-rally-survey.csv",["送信日時","参加者ID","満足度","自由記述","暗渠ワークショップ参加","景品希望"],
-  rows.map(x=>[fmt(x.submitted_at),x.participant_id,x.satisfaction,x.comment,workshopName(x.workshop_participation),x.prize_requested?"希望":"希望しない"]));
+ downloadCsv("stamp-rally-survey.csv",["送信日時","参加者ID","楽しかった度（1〜5）","普段行かない場所に足を運んだ","普段掲示板を見る","スタンプラリーをきっかけに他の掲示物も見た","きっかけ（ワークショップに参加していない方）","ご意見・ご感想","暗渠ワークショップ参加","景品希望"],
+  rows.map(x=>[fmt(x.submitted_at),x.participant_id,x.satisfaction,yesNoName(x.visited_new_place),yesNoName(x.checks_boards),yesNoName(x.saw_other_notices),x.motivation,x.comment,workshopName(x.workshop_participation),x.prize_requested?"希望":"希望しない"]));
  notify(`アンケートCSVを出力しました（${rows.length}件${svs.length-rows.length?`。除外した${svs.length-rows.length}件は含みません`:""}）。`);
 });
 
@@ -407,7 +412,7 @@ $("bulkReset").onclick=bulkResetClick(false);
 $("bulkFullReset").onclick=bulkResetClick(true);
 
 // ---- アンケートの回答の削除 ----
-// 回答（満足度・自由記述など）と、景品の発送先（個人情報）を、参加者ごとに削除する。参加者のスタンプ・読み取り履歴・除外は、残る。
+// 回答（楽しかった度・はい／いいえの質問・ご意見など）と、景品の発送先（個人情報）を、参加者ごとに削除する。参加者のスタンプ・読み取り履歴・除外は、残る。
 // サーバーの記録だけを消すので、回答済みの端末の「回答済み」の印は、残る（その端末では、アンケートに答え直せない）。
 const surveyDeleteDialog=$("surveyDeleteDialog");
 let surveyDeleteTargets=[];
@@ -416,7 +421,7 @@ function openSurveyDelete(ids){
  surveyDeleteTargets=ids;
  $("surveyDeleteBody").innerHTML=`<p>選択した <strong>${ids.length}件</strong> のアンケートの回答を削除します。</p><ul>
   <li>対象：${idSummary(ids)}</li>
-  <li>満足度・自由記述・ワークショップの回答と、景品の発送先（氏名・住所・電話番号・メールアドレス）${shipN}件を削除します（<strong>元に戻せません</strong>。必要なら、先にCSVを保存してください）。</li>
+  <li>アンケートの回答（楽しかった度・はい／いいえの質問・ご意見・ワークショップなど）と、景品の発送先（氏名・住所・電話番号・メールアドレス）${shipN}件を削除します（<strong>元に戻せません</strong>。必要なら、先にCSVを保存してください）。</li>
   <li>参加者のスタンプ・読み取り履歴・除外の設定は、そのまま残ります。</li>
   <li><strong>参加者は、もう一度、アンケートに答えられるようになります</strong>（スタンプは、そのまま。参加者が次にアンケート画面、または、スタンプラリーの画面を開いたときに、端末の「回答済み」の印が消えます）。</li>
   <li>スプレッドシートにも、次の同期で反映されます。</li></ul>`;
@@ -476,7 +481,7 @@ $("loginForm").onsubmit=async e=>{
  await enter();
 };
 const logout=async()=>{await db.auth.signOut();location.hash="";location.reload();};
-["logoutBtn","logoutBtnMenu","logoutBtnStamps","logoutBtnPublish"].forEach(id=>{$(id).onclick=logout;});
+["logoutBtn","logoutBtnMenu","logoutBtnStamps","logoutBtnPublish","logoutBtnSchedule"].forEach(id=>{$(id).onclick=logout;});
 $("refreshBtn").onclick=()=>loadDashboard();
 $("autoRefresh").onchange=()=>{renderStatus();if($("autoRefresh").checked&&Date.now()-lastLoaded>REFRESH_MS)loadDashboard(true);};
 $("showExcluded").onchange=()=>{renderParticipants();renderSurveys();renderShipping();scanLimit=SCAN_PAGE;reloadScans();};
@@ -593,29 +598,32 @@ function startDateLabel(value){
 // js/rally-data.js に、確認用の「（仮）」の場所が残っていないか（残ったまま公開すると、参加者の画面に出てしまう）
 const tentativePlaces=()=>(Array.isArray(window.RALLY_PLACES)?window.RALLY_PLACES:[]).filter(p=>p&&/[（(]仮[）)]/.test(String(p.name||""))).map(p=>String(p.name));
 
-let infoSaved=null,previewUrl="",infoHasOngoing=false;   // infoSaved：保存済みの設定 {places:boolean,mymap:"保存する形のURL（なければ空）",date:"YYYY-MM-DD（なければ空）",ongoing:boolean,at:"保存した日時"}。infoHasOngoing：サーバー（SQL）が「開催中！」の設定に対応しているか
+const DEFAULT_START="2026-12-09",DEFAULT_END="2026-12-31";   // 開催開始日・開催終了日の初期値（sql/schema.sql の rally_open_at・rally_close_at と同じ）
+let infoSaved=null,previewUrl="",infoHasEnd=false;   // infoSaved：保存済みの設定 {places:boolean,mymap:"保存する形のURL（なければ空）",date:"開催開始日 YYYY-MM-DD（なければ空）",end:"開催終了日 YYYY-MM-DD",at:"保存した日時"}。infoHasEnd：サーバー（SQL）が開催終了日に対応しているか
 function setPublishStatus(text,isError=false){const el=$("publishStatus");el.textContent=text;el.classList.toggle("error",isError);}
 function readInfo(){
- return {places:document.querySelector('input[name="placesPublic"]:checked')?.value==="1",mymap:parseMymapInput($("mymapInput").value),date:$("startDateInput").value,ongoing:$("ongoingInput").checked};
+ return {places:document.querySelector('input[name="placesPublic"]:checked')?.value==="1",mymap:parseMymapInput($("mymapInput").value),date:$("startDateInput").value,end:$("endDateInput").value};
 }
 const infoDirty=()=>{
  if(!infoSaved)return false;
  const f=readInfo();
- return f.places!==infoSaved.places||f.date!==infoSaved.date||f.ongoing!==infoSaved.ongoing||(f.mymap.empty?"":f.mymap.url||"\u0000")!==infoSaved.mymap;
+ return f.places!==infoSaved.places||f.date!==infoSaved.date||f.end!==infoSaved.end||(f.mymap.empty?"":f.mymap.url||"\u0000")!==infoSaved.mymap;
 };
+// 開催終了日が、開催開始日（空のときは初期値）より前になっていないか
+const periodBad=f=>!!f.end&&f.end<(f.date||DEFAULT_START);
 // サーバーから受け取った設定を、画面に入れる（保存済みの内容として）
 function applyInfo(data){
- infoHasOngoing=!!data&&Object.prototype.hasOwnProperty.call(data,"rally_ongoing");   // 古いSQLは、この項目を返さない（その間は、「開催中！」のチェックを使えなくする）
- infoSaved={places:data?.places_public===true,mymap:MYMAP_EMBED_OK.test(data?.mymap_embed_url||"")?data.mymap_embed_url:"",date:startDateLabel(data?.start_date)?data.start_date:"",ongoing:data?.rally_ongoing===true,at:data?.info_updated_at||""};
+ infoHasEnd=!!data&&Object.prototype.hasOwnProperty.call(data,"end_date");   // 古いSQLは、この項目を返さない（その間は、開催終了日を変えられなくする）
+ infoSaved={places:data?.places_public===true,mymap:MYMAP_EMBED_OK.test(data?.mymap_embed_url||"")?data.mymap_embed_url:"",date:startDateLabel(data?.start_date)?data.start_date:"",end:startDateLabel(data?.end_date)?data.end_date:DEFAULT_END,at:data?.info_updated_at||""};
  document.querySelector(`input[name="placesPublic"][value="${infoSaved.places?1:0}"]`).checked=true;
  $("mymapInput").value=infoSaved.mymap?mymapViewUrl(infoSaved.mymap):"";
  $("startDateInput").value=infoSaved.date;
- $("ongoingInput").checked=infoSaved.ongoing;
- $("ongoingInput").disabled=!infoHasOngoing;
- $("ongoingNote").hidden=infoHasOngoing;
- if(!infoHasOngoing){   // サーバーが、「開催中！」の設定（rally_ongoing）を返していない：どのSupabaseに接続しているかを示す（別のプロジェクトにSQLを実行していないかの確認用）
+ $("endDateInput").value=infoSaved.end;
+ $("endDateInput").disabled=!infoHasEnd;
+ $("endDateNote").hidden=infoHasEnd;
+ if(!infoHasEnd){   // サーバーが、開催終了日（end_date）を返していない：どのSupabaseに接続しているかを示す（別のプロジェクトにSQLを実行していないかの確認用）
   let host="";try{host=new URL(window.SUPABASE_URL).hostname.replace(/\.supabase\.co$/,"");}catch(e){/* 表示できなくても、使い方には影響しない */}
-  $("ongoingNote").textContent=`サーバーから、「開催中！」の設定（rally_ongoing）が返ってきません。先に、sql/schema.sql の全体を、SupabaseのSQL Editorで実行してください（実行するまで、チェックできません）。${host?`この管理画面が接続しているSupabaseのプロジェクト：${host}。このプロジェクトのSQL Editorで、実行してください。`:""}`;
+  $("endDateNote").textContent=`サーバーから、開催終了日（end_date）が返ってきません。先に、sql/schema.sql の全体を、SupabaseのSQL Editorで実行してください（実行するまで、開催終了日は変えられません）。${host?`この管理画面が接続しているSupabaseのプロジェクト：${host}。このプロジェクトのSQL Editorで、実行してください。`:""}`;
  }
  $("publishForm").disabled=false;
  renderInfo();
@@ -625,7 +633,8 @@ function renderInfo(){
  // いま参加者の画面に出ている内容（保存済み）
  if(infoSaved){
   $("publishCurrent").hidden=false;
-  $("publishCurrent").textContent=`いまの参加者の画面：掲示板の地図は、${infoSaved.places?"公開中です":"公開していません"}。マイマップは、${infoSaved.mymap?"入力済みです"+(infoSaved.places?"（表示されます）":"（地図を公開すると表示されます）"):"入力されていません（表示されません）"}。バナーの下は、${infoSaved.ongoing?"「開催中！」と表示されます（開催開始日は、表示されません）":infoSaved.date?`開催開始日（${startDateLabel(infoSaved.date)}）が表示されます`:"何も表示されません（開催開始日は、入力されていません）"}。`;
+  $("publishCurrent").textContent=`いまの参加者の画面：掲示板の地図は、${infoSaved.places?"公開中です":"公開していません"}。マイマップは、${infoSaved.mymap?"入力済みです"+(infoSaved.places?"（表示されます）":"（地図を公開すると表示されます）"):"入力されていません（表示されません）"}。`
+   +`スタンプを獲得できる期間は、${startDateLabel(infoSaved.date||DEFAULT_START)} 0:00 〜 ${startDateLabel(infoSaved.end)} 23:59:59 です${infoSaved.date?"":"（開催開始日は、初期値です）"}。バナーの下は、期間に合わせて、自動で変わります。`;
  }
  // マイマップ：読み取れたか・プレビュー
  const state=$("mymapState");
@@ -636,15 +645,18 @@ function renderInfo(){
  const url=f.mymap.url||"";
  $("mymapPreviewBox").hidden=!url;
  if(url!==previewUrl){previewUrl=url;if(url)$("mymapPreview").src=url;else $("mymapPreview").removeAttribute("src");}
- // 開催開始日
- const label=startDateLabel(f.date);
- $("startDatePreview").textContent=f.ongoing?`スタンプラリー画面のバナーの下に、「開催中！」と表示されます。${label?`開催開始日（${label}）は、表示されません。`:"（開催開始日は、入力されていません）"}`:label?`スタンプラリー画面のバナーの下に、「開催開始日 ${label}」と表示されます。`:"入力されていません。開催開始日は表示されません。";
+ // 開催開始日・開催終了日
+ const label=startDateLabel(f.date),endLabel=startDateLabel(f.end),bad=periodBad(f);
+ $("startDatePreview").textContent=label?`スタンプを獲得できるのは、${label} の 0:00 からです。バナーの下にも、開催前の間、「開催開始日 ${label}」と表示されます。`:"入力されていません。開催開始日は表示されません（スタンプを獲得できるのは、初期値の 2026年12月9日（水）0:00 からです）。";
  $("startDateClear").disabled=!f.date;
+ const endPreview=$("endDatePreview");
+ endPreview.classList.toggle("error",bad||!endLabel);
+ endPreview.textContent=!endLabel?"開催終了日を入力してください。":bad?`開催終了日（${endLabel}）が、開催開始日（${startDateLabel(f.date||DEFAULT_START)}）より前になっています。`:`スタンプを獲得できるのは、${endLabel} の 23:59:59 までです。そのあとは、「開催終了しました」の画面になります。`;
  // 「（仮）」の場所が残ったまま公開しようとしているとき
  const warn=$("placesTentative");
  warn.hidden=!(f.places&&tentative.length);
  if(!warn.hidden)warn.textContent=`js/rally-data.js の場所に、確認用の「${tentative.join("」「")}」が残っています。このまま公開すると、参加者の画面に表示されます。先に、実際の場所に書き換えて、公開（push）してください。`;
- $("publishSave").disabled=!dirty||!!f.mymap.error;
+ $("publishSave").disabled=!dirty||!!f.mymap.error||!endLabel||bad;
  $("publishReset").disabled=!dirty;
 }
 async function loadPublishSettings(){
@@ -657,24 +669,206 @@ async function loadPublishSettings(){
 ["placesPublic"].forEach(name=>document.querySelectorAll(`input[name="${name}"]`).forEach(el=>el.addEventListener("change",renderInfo)));
 $("mymapInput").addEventListener("input",renderInfo);
 $("startDateInput").addEventListener("input",renderInfo);$("startDateInput").addEventListener("change",renderInfo);
-$("ongoingInput").addEventListener("change",renderInfo);
+$("endDateInput").addEventListener("input",renderInfo);$("endDateInput").addEventListener("change",renderInfo);
 $("startDateClear").onclick=()=>{$("startDateInput").value="";renderInfo();$("startDateInput").focus();};
-$("publishReset").onclick=()=>{if(!infoSaved)return;applyInfo({places_public:infoSaved.places,mymap_embed_url:infoSaved.mymap,start_date:infoSaved.date,...(infoHasOngoing?{rally_ongoing:infoSaved.ongoing}:{}),info_updated_at:infoSaved.at});setPublishStatus("保存した内容に戻しました。");};
+$("publishReset").onclick=()=>{if(!infoSaved)return;applyInfo({places_public:infoSaved.places,mymap_embed_url:infoSaved.mymap,start_date:infoSaved.date,...(infoHasEnd?{end_date:infoSaved.end}:{}),info_updated_at:infoSaved.at});setPublishStatus("保存した内容に戻しました。");};
+
+// 開催開始日を、記録の自動削除が、いますぐ動く日付にしたとき（サーバーが 'purge would run' を返したとき）の確認。detail：サーバーが返した、削除される件数（JSON）。戻り値：削除してよいか
+const purgeDialog=$("purgeDialog");
+function askPurge(detail){
+ let d={};try{d=JSON.parse(detail||"{}");}catch(e){/* 件数が読めなくても、確認はできる */}
+ const n=key=>d[key]===undefined?"?":d[key];
+ $("purgeBody").innerHTML=`<p><strong>${d.open_at?esc(jstFull(d.open_at)):"開催開始"}より前</strong>の記録が、<strong>いますぐ、すべて削除</strong>されます（削除の直前に、削除する記録を、そのまま、データベースの中に保存します）。</p><ul>
+  <li>読み取り履歴：${n("scan_events")}件</li><li>取得したスタンプ：${n("stamp_claims")}件</li><li>アンケートの回答：${n("survey_responses")}件</li><li>景品の発送先（個人情報）：${n("prize_shipping")}件</li><li>除外した参加者：${n("excluded_participants")}人</li></ul><ul>
+  <li>削除された参加者の端末は、次に開いたとき、はじめての状態（新しい参加者）に戻ります。</li>
+  <li>念のため、先に、「開催の状態」の画面で、いまの記録を、CSVで保存しておいてください。</li>
+  <li>記録の自動削除は、1回だけです。いま実行すると、本来の開催開始の1秒前には、もう実行されません。</li></ul>`;
+ $("purgeSure").checked=false;$("purgeOk").disabled=true;purgeDialog.returnValue="";
+ if(typeof purgeDialog.showModal!=="function")return Promise.resolve(confirm("開催開始より前の記録が、いますぐ、すべて削除されます（保存してから削除します）。よろしいですか？"));
+ purgeDialog.showModal();
+ return new Promise(resolve=>purgeDialog.addEventListener("close",()=>resolve(purgeDialog.returnValue==="ok"),{once:true}));
+}
+$("purgeSure").onchange=()=>{$("purgeOk").disabled=!$("purgeSure").checked;};
+
 $("publishSave").onclick=async()=>{
  const f=readInfo();
  if(f.mymap.error)return setPublishStatus(f.mymap.error,true);
+ if(periodBad(f)||!startDateLabel(f.end))return setPublishStatus("開催終了日を、開催開始日以降の日付にしてください。",true);
  if(f.places&&tentativePlaces().length&&!confirm(`js/rally-data.js の場所に、確認用の「${tentativePlaces().join("」「")}」が残っています。\nこのまま、掲示板の地図を公開しますか？`))return;
  $("publishSave").disabled=true;setPublishStatus("保存しています…");
  const args={p_places_public:f.places,p_mymap_embed_url:f.mymap.url||null,p_start_date:f.date||null};
- if(infoHasOngoing)args.p_rally_ongoing=f.ongoing;   // 古いSQLには、この引数がない（送ると、関数が見つからない）。そのときは、これまでの3つだけを送る
- const {data,error}=await db.rpc("admin_set_rally_info",args);
+ if(infoHasEnd)args.p_end_date=f.end;   // 古いSQLには、この引数がない（送ると、関数が見つからない）。そのときは、これまでの3つだけを送る
+ let {data,error}=await db.rpc("admin_set_rally_info",args);
+ if(error&&/purge would run/.test(String(error.message))){
+  // 開催開始日が、いますぐ自動削除が動く日付になっている：確認のうえで、保存する
+  if(!await askPurge(error.details)){renderInfo();return setPublishStatus("保存をやめました（記録は、そのままです）。");}
+  setPublishStatus("保存と削除をしています…");
+  ({data,error}=await db.rpc("admin_set_rally_info",{...args,p_confirm_purge:true}));
+ }
  if(error){
   console.error(error);renderInfo();
-  const bad=/invalid mymap url/.test(String(error.message))?"マイマップのリンクの形が正しくありません。":/invalid start date/.test(String(error.message))?"開催開始日は、2000年〜2100年の日付を入力してください。":dbHint(error);
+  const m=String(error.message);
+  const bad=/invalid mymap url/.test(m)?"マイマップのリンクの形が正しくありません。":/invalid start date/.test(m)?"開催開始日は、2000年〜2100年の日付を入力してください。":/invalid end date/.test(m)?"開催終了日は、2000年〜2100年の日付を入力してください。":/invalid period/.test(m)?"開催終了日が、開催開始日より前になっています。":dbHint(error);
   return setPublishStatus(`保存できませんでした：${bad}`,true);
  }
  applyInfo(data);
  setPublishStatus(`保存しました（${fmt(infoSaved.at)}）。参加者の画面には、次に開いたとき（再読み込みしたとき）から、反映されます。`);
+};
+
+// ---- 開催の状態：時刻どおりの状態・30分だけの手動の切り替え・記録の自動削除・保存した記録 ----
+// スタンプを獲得できるのは、開催の期間（開催開始日の 0:00 〜 開催終了日の 23:59:59）の間だけ。期間の外では、スタンプのQRコードを読み取ると、「開催まで待ってね」「開催終了しました」の画面が出る。
+// 手動の切り替えは、30分だけ有効（サーバーが期限を持っていて、過ぎると、自動で、時刻どおりに戻る）。
+// 開催開始の1秒前に、それまでの記録が、rally_archive に保存されてから、削除される（サーバーが行う。管理画面を開いていなくても動く）。
+const PHASE_NAMES={before:"開催前",open:"開催中",closed:"終了"};
+// 日本時間で表示する（この端末の時間帯に関係なく）
+const jstFull=v=>v?new Date(v).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",year:"numeric",month:"numeric",day:"numeric",weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"})+"（日本時間）":"";
+const SOURCES=[["scan_events","読み取り履歴","件"],["stamp_claims","取得したスタンプ","件"],["survey_responses","アンケートの回答","件"],["prize_shipping","景品の発送先（個人情報）","件"],["excluded_participants","除外した参加者","人"]];
+const badgeOf=phase=>`<span class="phase-badge is-${esc(phase)}">${esc(PHASE_NAMES[phase]||phase)}</span>`;
+let sched=null,schedOffset=0,schedLoadedAt=0,schedBusy=false,schedReloading=false;
+function setScheduleStatus(text,isError=false){const el=$("scheduleStatus");el.textContent=text;el.classList.toggle("error",isError);}
+function notifySchedule(text,isError=false){const el=$("scheduleNotice");el.textContent=text;el.hidden=false;el.classList.toggle("error",isError);}
+const serverNow=()=>Date.now()+schedOffset;   // サーバーの現在時刻（この端末の時計が、ずれていても、期限の表示が、正しくなるように）
+const leftText=ms=>{const t=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(t/60)}分${String(t%60).padStart(2,"0")}秒`;};
+const untilText=ms=>{const t=Math.max(0,Math.floor(ms/1000)),d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60);return d?`${d}日${h}時間`:h?`${h}時間${m}分`:`${m}分`;};
+
+async function loadSchedule(silent=false){
+ if(!silent)setScheduleStatus("読み込み中…");
+ const {data,error}=await db.rpc("admin_rally_schedule");
+ if(error){console.error(error);$("scheduleBody").hidden=true;return setScheduleStatus(`読み込めませんでした：${dbHint(error)}`,true);}
+ sched=data;schedOffset=new Date(data.now).getTime()-Date.now();schedLoadedAt=Date.now();
+ renderSchedule();
+ setScheduleStatus(`最終更新：${new Date().toLocaleString("ja-JP")}`);
+}
+function renderSchedule(){
+ if(!sched)return;
+ const o=sched.override,time=sched.time_phase;
+ $("scheduleBody").hidden=false;
+ // いまの状態
+ $("phaseNow").innerHTML=`スタンプの受け付け：${badgeOf(sched.scan_phase)}　`+(o?`<strong>（手動で切り替え中）</strong>`:`時刻どおりです（手動の切り替えは、していません）。`)
+  +`<br>参加者の画面のバナー（開催中！など）は、時刻どおりの状態（${badgeOf(time)}）で、表示されます。`;
+ $("overrideInfo").hidden=!o;
+ if(o){$("overrideLeft").textContent=leftText(new Date(o.until).getTime()-serverNow());$("overrideBack").innerHTML=badgeOf(time);}
+ $("scheduleTimes").innerHTML=[["開催開始（この時刻から、スタンプを獲得できる）",sched.open_at],["開催終了（この時刻の前の 23:59:59 まで）",sched.close_at],["記録の自動削除（開催開始の1秒前）",sched.purge_at]]
+  .map(([k,v])=>`<tr><th scope="row">${esc(k)}</th><td>${esc(jstFull(v))}</td></tr>`).join("");
+ for(const [id,phase] of [["phaseBefore","before"],["phaseOpen","open"],["phaseClosed","closed"]])$(id).setAttribute("aria-pressed",String(!!o&&o.phase===phase));
+ $("phaseAuto").disabled=schedBusy||!o;
+ for(const id of ["phaseBefore","phaseOpen","phaseClosed"])$(id).disabled=schedBusy;
+ // 記録の自動削除
+ const purged=!!sched.purged_at,res=sched.purge_result||{},pend=sched.pending||{};
+ const box=$("purgeStatus");
+ box.classList.remove("error");
+ if(purged)box.textContent=`記録の自動削除は、${jstFull(sched.purged_at)} に実行されました（削除する前に、すべて保存してあります）。`;
+ else if(sched.purge_error){box.classList.add("error");box.textContent=`記録の自動削除が、失敗しました（${jstFull(sched.purge_failed_at)}）：${sched.purge_error}　参加者の画面は、止まっていません。記録は、何も変わっていません。10分あけて、自動でやり直します。続くときは、この内容を、制作の担当者に伝えてください。`;}
+ else box.textContent=`記録の自動削除は、まだ実行していません。${jstFull(sched.purge_at)} の、あと ${untilText(new Date(sched.purge_at).getTime()-serverNow())} で、自動で実行されます。`;
+ $("purgeCounts").innerHTML=SOURCES.map(([key,name,unit])=>`<tr><td>${esc(name)}</td><td>${purged?"—":`${pend[key]??0}${unit}`}</td><td>${purged?`${res[key]??0}${unit}`:"—"}</td></tr>`).join("");
+ // 保存した記録
+ $("archiveBody").innerHTML=(sched.archives||[]).map(a=>`<tr><td>${esc(jstFull(a.archived_at))}</td><td>${SOURCES.map(([key,name,unit])=>`${esc(name)} ${(a.counts||{})[key]??0}${unit}`).join("<br>")}</td>
+  <td><span class="row-actions"><button class="mini" data-archive-csv="${esc(a.batch)}">CSVで保存（ZIP）</button><button class="mini danger" data-archive-delete="${esc(a.batch)}">削除…</button></span></td></tr>`).join("")
+  ||`<tr><td colspan="3" class="muted">保存した記録は、ありません（自動削除が、まだ実行されていないか、すでに削除したあとです）。</td></tr>`;
+}
+// 手動の切り替えの残り時間を、1秒ごとに更新する。期限が来たら、読み込み直す（自動で、時刻どおりの状態に戻ったことを、表示する）。30秒ごとにも、読み込み直す
+setInterval(()=>{
+ if($("scheduleSettings").hidden||document.hidden||!sched)return;
+ const left=$("overrideLeft");
+ if(sched.override){
+  const ms=new Date(sched.override.until).getTime()-serverNow();
+  left.textContent=leftText(ms);
+  if(ms<=0&&!schedReloading){schedReloading=true;loadSchedule(true).finally(()=>{schedReloading=false;});return;}
+ }
+ if(Date.now()-schedLoadedAt>REFRESH_MS&&!schedReloading&&!schedBusy){schedReloading=true;loadSchedule(true).finally(()=>{schedReloading=false;});}
+},1000);
+
+async function setPhase(phase){
+ if(schedBusy)return;
+ const target=phase==="auto"?null:phase;
+ // 開催中に、スタンプを受け付けない状態にするときは、確認する
+ if(target&&target!=="open"&&sched&&sched.time_phase==="open"&&!confirm(`いまは、開催期間の途中です。30分のあいだ、スタンプを受け付けなくなります（参加者が、QRコードを読み取っても、「${target==="before"?"開催まで待ってね":"開催終了しました"}」などの画面が出て、スタンプをもらえません）。\nよろしいですか？`))return;
+ schedBusy=true;renderSchedule();
+ const {data,error}=await db.rpc("admin_set_phase_override",{p_phase:target});
+ schedBusy=false;
+ if(error){console.error(error);renderSchedule();return notifySchedule(`切り替えられませんでした：${dbHint(error)}`,true);}
+ sched=data;schedOffset=new Date(data.now).getTime()-Date.now();schedLoadedAt=Date.now();
+ renderSchedule();
+ notifySchedule(target?`スタンプの受け付けを、30分だけ「${PHASE_NAMES[target]}」にしました。30分たつと、自動で、時刻どおりの状態に戻ります。`:"時刻どおりの状態に戻しました。");
+}
+$("phaseBefore").onclick=()=>setPhase("before");
+$("phaseOpen").onclick=()=>setPhase("open");
+$("phaseClosed").onclick=()=>setPhase("closed");
+$("phaseAuto").onclick=()=>setPhase("auto");
+
+// ---- 記録のバックアップ（CSV を、ZIP にまとめて保存する）----
+// 保存するのは、データベースの列を、そのまま（列の名前も、データベースのまま）。個人情報（景品の発送先）を含むので、取り扱いに注意する。
+const BACKUP_COLUMNS={
+ scan_events:["id","participant_id","stamp_code","scanned_at","user_agent","is_first_claim"],
+ stamp_claims:["id","participant_id","stamp_code","sequence","first_scanned_at"],
+ survey_responses:["id","participant_id","submitted_at","satisfaction","visited_new_place","checks_boards","saw_other_notices","motivation","comment","prize_requested","workshop_participation","memorable_spot"],
+ prize_shipping:["participant_id","created_at","recipient_name","postal_code","address","phone","email","consent","privacy_version"],
+ excluded_participants:["participant_id","reason","created_at"]
+};
+const BACKUP_README=title=>`すきまキッズラボ スタンプラリー：記録のバックアップ（${title}）\r\n\r\n`
+ +`・scan_events.csv … QRコードの読み取り履歴（1回の読み取り＝1行）\r\n・stamp_claims.csv … 取得したスタンプ（参加者ごとの、初回の取得）\r\n・survey_responses.csv … アンケートの回答（satisfaction＝今回のスタンプラリーは楽しかったか（1〜5）、visited_new_place・checks_boards・saw_other_notices＝はい（true）／いいえ（false）、motivation＝きっかけ、comment＝ご意見・ご感想）\r\n`
+ +`・prize_shipping.csv … 景品の発送先（氏名・住所などの個人情報を含みます）\r\n・excluded_participants.csv … 集計から除外していた参加者\r\n\r\n`
+ +`・日時は、データベースのまま（世界協定時刻（UTC）で、末尾が +00:00 の形です。日本時間は、9時間後です）。\r\n・表計算ソフトで数式として実行されないよう、先頭が = + - @ の文字には、先頭に ' を付けています。\r\n・個人情報を含みます。取り扱いに注意し、不要になったら、削除してください。\r\n`;
+const csvText=(columns,rows)=>"﻿"+[columns,...rows.map(r=>columns.map(c=>{const v=r[c];return v===null||v===undefined?"":typeof v==="object"?JSON.stringify(v):v;}))].map(r=>r.map(csvCell).join(",")).join("\r\n");
+
+// 圧縮しない ZIP を作る（複数のCSVを、1つのファイルにまとめるため。外部のライブラリは使わない）
+const CRC_TABLE=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(bytes){let c=0xFFFFFFFF;for(let i=0;i<bytes.length;i++)c=CRC_TABLE[(c^bytes[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function makeZip(files){   // files：[{name, text}]
+ const enc=new TextEncoder(),parts=[],central=[];let offset=0;
+ const d=new Date(),dosTime=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1),dosDate=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();
+ for(const f of files){
+  const name=enc.encode(f.name),data=enc.encode(f.text),crc=crc32(data);
+  const local=new DataView(new ArrayBuffer(30));
+  local.setUint32(0,0x04034b50,true);local.setUint16(4,20,true);local.setUint16(6,0x0800,true);local.setUint16(8,0,true);local.setUint16(10,dosTime,true);local.setUint16(12,dosDate,true);
+  local.setUint32(14,crc,true);local.setUint32(18,data.length,true);local.setUint32(22,data.length,true);local.setUint16(26,name.length,true);local.setUint16(28,0,true);
+  parts.push(new Uint8Array(local.buffer),name,data);
+  const cen=new DataView(new ArrayBuffer(46));
+  cen.setUint32(0,0x02014b50,true);cen.setUint16(4,20,true);cen.setUint16(6,20,true);cen.setUint16(8,0x0800,true);cen.setUint16(10,0,true);cen.setUint16(12,dosTime,true);cen.setUint16(14,dosDate,true);
+  cen.setUint32(16,crc,true);cen.setUint32(20,data.length,true);cen.setUint32(24,data.length,true);cen.setUint16(28,name.length,true);cen.setUint16(30,0,true);cen.setUint16(32,0,true);cen.setUint16(34,0,true);cen.setUint16(36,0,true);cen.setUint32(38,0,true);cen.setUint32(42,offset,true);
+  central.push(new Uint8Array(cen.buffer),name);
+  offset+=30+name.length+data.length;
+ }
+ const size=central.reduce((n,p)=>n+p.length,0),end=new DataView(new ArrayBuffer(22));
+ end.setUint32(0,0x06054b50,true);end.setUint16(4,0,true);end.setUint16(6,0,true);end.setUint16(8,files.length,true);end.setUint16(10,files.length,true);end.setUint32(12,size,true);end.setUint32(16,offset,true);end.setUint16(20,0,true);
+ return new Blob([...parts,...central,new Uint8Array(end.buffer)],{type:"application/zip"});
+}
+function downloadBlob(filename,blob){
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href);
+}
+const stampName=()=>{const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;};
+const zipOf=(title,byTable)=>makeZip([...SOURCES.map(([key])=>({name:`${key}.csv`,text:csvText(BACKUP_COLUMNS[key],byTable[key]||[])})),{name:"README.txt",text:BACKUP_README(title)}]);
+const sortById=rows=>rows;   // 取り出すときに、並べてある
+
+// いまの記録を、CSV（ZIP）で保存する（除外した参加者の記録も、すべて含める）
+$("backupNow").onclick=()=>exportCsv($("backupNow"),async()=>{
+ const get=(table,orders)=>fetchAll(()=>orders.reduce((q,o)=>q.order(o),db.from(table).select("*")));
+ const [scans,claims,surveysAll,ships,excluded]=await Promise.all([get("scan_events",["id"]),get("stamp_claims",["id"]),get("survey_responses",["id"]),get("prize_shipping",["participant_id"]),get("excluded_participants",["participant_id"])]);
+ downloadBlob(`stamp-rally-backup-${stampName()}.zip`,zipOf("いまの記録",{scan_events:scans,stamp_claims:claims,survey_responses:surveysAll,prize_shipping:ships,excluded_participants:excluded}));
+ notify(`いまの記録をCSV（ZIP）で保存しました（読み取り${scans.length}件・スタンプ${claims.length}件・アンケート${surveysAll.length}件・発送先${ships.length}件・除外${excluded.length}人）。個人情報を含むので、取り扱いに注意してください。`);
+});
+// 自動削除のときに保存した記録を、CSV（ZIP）で保存する
+async function downloadArchive(batch,button){
+ await exportCsv(button,async()=>{
+  const rows=await fetchAll(()=>db.from("rally_archive").select("source,row_data").eq("batch",batch).order("id"));
+  const byTable={};for(const r of rows)(byTable[r.source]=byTable[r.source]||[]).push(r.row_data);
+  const at=(sched?.archives||[]).find(a=>a.batch===batch)?.archived_at;
+  downloadBlob(`stamp-rally-archive-${stampName()}.zip`,zipOf(`自動削除のときに保存した記録（${at?jstFull(at):batch}）`,byTable));
+  notify(`保存した記録をCSV（ZIP）で保存しました（${rows.length}行）。個人情報を含むので、取り扱いに注意してください。`);
+ });
+}
+$("archiveBody").onclick=async e=>{
+ const c=e.target.closest("button[data-archive-csv]");
+ if(c)return downloadArchive(c.dataset.archiveCsv,c);
+ const d=e.target.closest("button[data-archive-delete]");
+ if(!d)return;
+ const a=(sched?.archives||[]).find(x=>x.batch===d.dataset.archiveDelete);
+ if(!confirm(`自動削除のときに保存した記録${a?`（${jstFull(a.archived_at)}）`:""}を、削除します。\n景品の発送先などの個人情報も含まれます。元に戻せません。\n\n先に「CSVで保存（ZIP）」で、手元に保存しましたか？ 削除してよいですか？`))return;
+ d.disabled=true;
+ const {data,error}=await db.rpc("admin_delete_archive",{p_batch:d.dataset.archiveDelete});
+ if(error){d.disabled=false;console.error(error);return notifySchedule(`削除できませんでした：${dbHint(error)}`,true);}
+ notifySchedule(`保存した記録${data}行を削除しました。`);
+ await loadSchedule(true);
 };
 
 // 保存していない変更があるまま、画面を閉じたり、メニューに戻ったりしないように確認する（スタンプ設定・公開の設定）

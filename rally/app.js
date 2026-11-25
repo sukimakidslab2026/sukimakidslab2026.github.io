@@ -16,10 +16,14 @@ const hasOwn=(obj,key)=>Object.prototype.hasOwnProperty.call(obj,key);
 // ブラウザが保存を許可していない場合（プライベートブラウズや、制限のあるアプリ内ブラウザなど）でも、
 // 画面が止まらないようにします。その場合は、このページを開いている間だけ、メモリに保存します。
 const participantKey = "stamp_rally_participant_id";
-const timesKey = "stamp_rally_stamp_times";
-const pendingKey = "stamp_rally_pending";
-const stampsKey = "stamp_rally_stamps";
-const surveyKey = "stamp_rally_survey_submitted";
+// デバッグモード：チーム専用のデバッグ用QRコード（掲示板 No.61〜70）を読み取ると、この端末は、「デバッグを終わる」を押すまで、デバッグモードになる。
+// このあいだ、スタンプ・アンケートは、サーバーには送らず、この端末の中だけで扱う（記録は、何も残らない）。本物の記録と混ざらないよう、別の保存先（…_debug_…）を使う。
+const debugKey = "stamp_rally_debug";
+const debugOn = (()=>{ try{ return localStorage.getItem(debugKey)==="1"; }catch(e){ return false; } })();
+const timesKey = debugOn ? "stamp_rally_debug_stamp_times" : "stamp_rally_stamp_times";
+const pendingKey = debugOn ? "stamp_rally_debug_pending" : "stamp_rally_pending";
+const stampsKey = debugOn ? "stamp_rally_debug_stamps" : "stamp_rally_stamps";
+const surveyKey = debugOn ? "stamp_rally_debug_survey_submitted" : "stamp_rally_survey_submitted";
 const fishOrderKey = "stamp_rally_fish_order";   // 最後に読み込んだ、お魚が増えていく順番（通信できなくても、同じ順番で表示するため）
 const resetKey = "stamp_rally_reset_count";      // 管理者によるスタンプのリセットを、この端末が最後に確かめた回数
 const rulesKey = "stamp_rally_hide_rules";       // ルール説明の「次回からは表示しない」にチェックを入れたか（"1" のとき、ページを開いても、ルール説明を自動では出さない）
@@ -302,12 +306,20 @@ function startDateLabel(value){
   if(date.getFullYear()!==y||date.getMonth()!==mo-1||date.getDate()!==d) return null;   // 2月31日のような、ない日付は出さない
   return `${y}年${mo}月${d}日（${WEEKDAYS[date.getDay()]}）`;
 }
-// 「開催中！」（rally_ongoing が true のときだけ）：開催開始日の代わりに出す。それ以外（設定がないとき・読み込めないときも）は、開催開始日だけを出す
+// 開催の状態（rally_config の phase）：'before'（開催前）／'open'（開催中）／'closed'（終了）。期間は、管理画面の「公開の設定」の、開催開始日・開催終了日で決まる。
+// 期間の設定がない古いSQLのときは、rally_ongoing だけで判断する（true なら開催中。そうでなければ、開催前）。設定が読めなかったとき（config が null）は、どれも出さない
+function phaseOf(config){
+  if(!config) return null;
+  if(config.phase==="before"||config.phase==="open"||config.phase==="closed") return config.phase;
+  return config.rally_ongoing===true?"open":"before";
+}
+// バナーの下：開催前は「開催開始日」（入力があるときだけ）・開催中は「開催中！」・開催終了のあとは「開催は終了しました」
 function applyStartDate(config){
-  const ongoing=!!config&&config.rally_ongoing===true;
+  const phase=phaseOf(config);
   const label=startDateLabel(config&&config.start_date), box=$("startDate");
-  $("ongoing").hidden=!ongoing;
-  if(ongoing||!label){ box.hidden=true; return; }
+  $("ongoing").hidden=phase!=="open";
+  $("ended").hidden=phase!=="closed";
+  if(phase!=="before"||!label){ box.hidden=true; return; }
   const time=$("startDateValue");
   time.textContent=label; time.setAttribute("datetime",config.start_date);
   box.hidden=false;
@@ -333,7 +345,8 @@ const SYNC_TEXT={
   saving:"サーバーに記録しています…",
   saved:"サーバーに記録しました",
   failed:"サーバーに記録できませんでした",
-  demo:"デモモード：この端末にのみ保存しています"
+  demo:"デモモード：この端末にのみ保存しています",
+  debug:"デバッグ中：この端末にのみ保存しています（サーバーには記録しません）"
 };
 
 // state: {tone:"new"|"again"|"complete"|"info"|"error", seal:"check"|null, kicker, title, body, sync, surveyReady}
@@ -383,7 +396,7 @@ function drawResult(settled){
 
 // ---- ポップアップ：スタンプを獲得した瞬間の演出（後光つき）と、ルール説明 ----
 // どちらも <dialog> です。<dialog> に未対応の古いブラウザでは、ポップアップは出さず、ほかの表示だけで進みます。
-const getDialog=$("getDialog"), rulesDialog=$("rulesDialog"), saveDialog=$("saveDialog");
+const getDialog=$("getDialog"), rulesDialog=$("rulesDialog"), saveDialog=$("saveDialog"), phaseDialog=$("phaseDialog");
 const supportsDialog=dlg=>!!dlg&&typeof dlg.showModal==="function";
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 // ハンバーガーのメニュー（js/site-nav.js）が開いている間は、自動で出すポップアップを待たせる（メニューを閉じたら、出す）。
@@ -391,7 +404,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const menuClosed=()=>window.SiteNav&&window.SiteNav.isOpen()?window.SiteNav.whenClosed():Promise.resolve();
 // 自動で出すポップアップ（獲得の演出・ルール説明）と、「完成画像」は、メニューだけでなく、ほかのポップアップ（景品について・ルール説明など）が開いている間も、閉じるまで待つ
 // （ポップアップが、2つ重なって開かないように）。待っている間に、また何かが開いたときのため、閉じたあと、もう一度、確かめる。
-const otherDialogs=()=>[getDialog,rulesDialog,saveDialog,window.PrizeInfo&&window.PrizeInfo.element()].filter(d=>d&&d.open);
+const otherDialogs=()=>[getDialog,rulesDialog,saveDialog,phaseDialog,window.PrizeInfo&&window.PrizeInfo.element()].filter(d=>d&&d.open);
 async function waitForQuiet(){
   for(;;){
     await menuClosed();
@@ -405,7 +418,7 @@ function openDialog(dlg){
   catch(error){ console.error(error); return false; }
 }
 // 閉じたら（Escキー・×・OKのどれでも）、ページのスクロールを元に戻す
-[getDialog,rulesDialog,saveDialog].forEach(dlg=>dlg.addEventListener("close",()=>document.documentElement.classList.remove("modal-open")));
+[getDialog,rulesDialog,saveDialog,phaseDialog].forEach(dlg=>dlg.addEventListener("close",()=>document.documentElement.classList.remove("modal-open")));
 
 // 獲得の演出が終わるまで待つための記録。演出を出したら、その Promise（閉じたら true になる）に入れ替える
 let celebration=Promise.resolve(false);
@@ -462,6 +475,60 @@ function replayFx(){
   replay($("progressBanner"),"is-new"); replay($("count"),"bump"); replay($("remain"),"bump");
   [q("#bannerBar .seg.is-new"),q("#riverFish img.is-new"),q("#stamps .stamp.is-new"),q("#riverBadge.is-new")].forEach(el=>{ if(el) replay(el,"is-new"); });
 }
+
+// ---- 開催の期間の外（開催前・開催終了のあと）のお知らせ ----
+// スタンプのQRコードを、開催の期間の外で読み取ったとき（サーバー（record_scan）が 'not_open'・'closed' を返したとき）に出すポップアップ。
+// スタンプは、もらえない（サーバーには、何も記録されない）。ページは、そのまま見られる。管理画面の「開催の状態」から、確認用の表示（?preview=before ・ ?preview=ended）も開ける。
+// 日時は、端末の時間帯に関係なく、日本時間で出す。
+const JST_PARTS=typeof Intl!=="undefined"&&Intl.DateTimeFormat?new Intl.DateTimeFormat("ja-JP",{timeZone:"Asia/Tokyo",year:"numeric",month:"numeric",day:"numeric",hour:"numeric",minute:"2-digit",hourCycle:"h23"}):null;
+function jstParts(value){
+  const d=new Date(value);
+  if(!value||Number.isNaN(d.getTime())||!JST_PARTS) return null;
+  const p={}; JST_PARTS.formatToParts(d).forEach(x=>{ p[x.type]=x.value; });
+  return {y:+p.year,mo:+p.month,d:+p.day,h:+p.hour%24,mi:+p.minute};   // 午前0時を「24時」と出す環境があるので、24 で割った余りにする
+}
+const jstDate=p=>`${p.y}年${p.mo}月${p.d}日（${WEEKDAYS[new Date(Date.UTC(p.y,p.mo-1,p.d)).getUTCDay()]}）`;
+const jstTime=p=>`${p.h}:${pad2(p.mi)}`;
+// 設定が読み込めなかったとき（確認用の表示など）に使う、初期の期間（sql/schema.sql の rally_open_at・rally_close_at の初期値と同じ）
+const DEFAULT_OPEN="2026-12-09T00:00:00+09:00", DEFAULT_CLOSE="2027-01-01T00:00:00+09:00";
+// kind："before"（開催前）／"closed"（終了）。forced：管理画面の手動の切り替え（30分だけ）によるもので、時刻どおりの開催前・終了ではない
+// lead（太い見出しの文）・notes（説明の文。1つが1行分）は、文節ごとに分けた配列（画面では、文節の区切りでだけ折り返す。「ありがとうございま／した」のような改行を防ぐ）
+function phaseCopy(kind,{forced=false,opensAt=null,closesAt=null}={}){
+  if(forced) return {kicker:"PLEASE WAIT",title:"ただいま、お休み中です",lead:["いまは、","スタンプを受け付けていません。"],notes:[["しばらくしてから、","もういちど、","掲示板のQRコードを読み取ってね。"]]};
+  if(kind==="before"){
+    const opens=jstParts(opensAt);
+    return {kicker:"COMING SOON",title:"開催まで待ってね",
+      lead:opens?["スタンプラリーは、",`${jstDate(opens)}${jstTime(opens)}から`,"はじまるよ。"]:["スタンプラリーは、","まだ、はじまっていないよ。"],
+      notes:[["それまでは、","スタンプをゲットできません。","はじまったら、","もういちど、","掲示板のQRコードを読み取ってね！"],["このページでは、","ルールや、","お魚図鑑を見られます。"]]};
+  }
+  // 開催終了日の 23:59:59 まで開催なので、終了の日は、終了の日時の1秒前
+  const ends=closesAt?jstParts(new Date(new Date(closesAt).getTime()-1000)):null;
+  return {kicker:"THANK YOU",title:"開催終了しました",lead:["たくさんのご参加、","ありがとうございました！"],
+    notes:[ends?["スタンプラリーは、",`${jstDate(ends)}で`,"終了しました。"]:["スタンプラリーは、","終了しました。"],["これまでに集めたお魚は、","このページで見られます。"]]};
+}
+// 閉じたら（×・とじる・外側のタップ・Esc のどれでも）解決する Promise を返す。出せなかったときも、すぐに解決する。
+// 戻り値は、いつも false（お魚の演出ではないので、閉じたあとの「ページの中の動き」の見せ直しは、いらない）
+async function showPhase(kind,opts={}){
+  const c=phaseCopy(kind,opts), chunks=parts=>phrases(...parts.map(esc));
+  if(!supportsDialog(phaseDialog)){   // <dialog> に未対応の古いブラウザ：結果の欄に出す
+    showResult({tone:"info",seal:null,kicker:c.kicker,title:esc(c.title),body:esc([c.lead.join(""),...c.notes.map(n=>n.join(""))].join(" "))});
+    return false;
+  }
+  $("phaseKicker").textContent=c.kicker; $("phaseTitle").textContent=c.title;
+  $("phaseLead").innerHTML=chunks(c.lead);
+  $("phaseNote").innerHTML=c.notes.map(chunks).join("<br>");
+  $("phasePreview").hidden=!opts.preview;
+  await waitForQuiet();   // メニュー・ほかのポップアップが開いている間は、閉じるまで待つ
+  if(phaseDialog.open||!openDialog(phaseDialog)) return false;
+  phaseDialog.querySelector(".rules-body").scrollTop=0;
+  await new Promise(resolve=>phaseDialog.addEventListener("close",resolve,{once:true}));
+  return false;
+}
+$("phaseOk").onclick=$("phaseX").onclick=()=>{ if(phaseDialog.open) phaseDialog.close(); };
+phaseDialog.addEventListener("click",event=>{ if(event.target===phaseDialog) phaseDialog.close(); });
+// 管理画面の「開催の状態」からの確認用の表示（?preview=before ・ ?preview=ended）：設定の日時を使って、同じ画面を出す。スタンプは、もらえない
+const previewKinds={before:"before",ended:"closed"};
+const phaseDates=()=>({opensAt:lastConfig&&lastConfig.open_at||DEFAULT_OPEN,closesAt:lastConfig&&lastConfig.close_at||DEFAULT_CLOSE});
 
 // ルール説明。「次回からは表示しない」は、端末に保存する（参加者IDと同じしくみ）。保存できない端末では、チェック欄を出さない
 const rulesHidden=()=>store.get(rulesKey)==="1";
@@ -594,6 +661,8 @@ function isSupabaseConfigured(){
   const url=window.SUPABASE_URL, key=window.SUPABASE_ANON_KEY;
   return url && !url.startsWith("YOUR_") && key && !key.startsWith("YOUR_");
 }
+// スタンプ・リセット・アンケートについて、サーバーと通信するか（デバッグモードの間は、しない。設定（rally_config）を読み込むだけ）
+const serverOn=()=>isSupabaseConfigured()&&!debugOn;
 
 // 通信が止まったままにならないよう、一定時間で打ち切る（その場合は、端末に保存して、あとで再送する）
 const RPC_TIMEOUT_MS=10000;
@@ -709,7 +778,7 @@ async function applyServerReset(serverCount,quiet,keepStamp=""){
 //  ・通常のリセット：スタンプの記録だけを消す（「次回からは表示しない」の設定などは、残る）
 // あわせて、管理者がアンケートの回答を削除していたら（サーバーに回答がないのに、端末に「回答済み」の印がある）、印を消して、答え直せるようにする。
 async function syncReset(quiet=false,keepStamp=""){
-  if(!isSupabaseConfigured()) return false;
+  if(!serverOn()) return false;
   try{
     const state=await fetchResetState();
     if(Number.isFinite(state.count)&&state.count>localResetCount()){
@@ -759,11 +828,13 @@ async function recordStamp(code){
   // 次に現れるお魚の画像を、サーバーの返事を待っている間に、先に読み込んでおく（お魚が現れるときに、画像が遅れて出ないように）
   const early=(!again&&before.length<RIVER_TOTAL)?configReady.then(()=>Fish.preload([fishOrder[before.length]],2500)):Promise.resolve();
 
-  if(!isSupabaseConfigured()){
-    // デモモード：サーバーがないので、形式が合えばスタンプとして受け付ける
+  if(!serverOn()){
+    // デモモード（サーバーがない）・デバッグモード（チーム用。サーバーには送らない）：形式が合えば、スタンプとして受け付けて、この端末の中だけに保存する
     const current=await saveLocalStamp(code);
     await early;
-    applyScan(code,again,before,current,{sync:"demo"});
+    const patch={sync:debugOn?"debug":"demo"};
+    if(debugOn&&current.length>=PRIZE_REQUIRED){ patch.surveyReady=true; showSurveyLink(); }   // アンケートの画面も、動作確認できるように（送信しても、記録されない）
+    applyScan(code,again,before,current,patch);
     return {completed:false,failed:false};
   }
 
@@ -786,6 +857,12 @@ async function recordStamp(code){
     if(await applyServerReset(result.reset_count,true,code)) return {completed:false,failed:false};
     return recordStamp(code);
   }
+  if(result.status==="not_open"||result.status==="closed"){
+    // 開催の期間の外（開催前・開催終了のあと）：何も記録されていない（スタンプは、もらえない）。お知らせを出す。ページは、そのまま見られる
+    resultEl.hidden=true; resultState=null;   // 「QRコードを確認しています…」を消す
+    celebration=showPhase(result.status==="not_open"?"before":"closed",{forced:result.forced===true,opensAt:result.opens_at,closesAt:result.closes_at});
+    return {completed:false,failed:false};
+  }
   if(result.status==="invalid_stamp"){
     showResult(invalidMessage());
     return {completed:false,failed:false};
@@ -798,18 +875,22 @@ async function recordStamp(code){
   return {completed:result.completed,failed:false};
 }
 
-// 未送信のスタンプを再送する。戻り値：{completed: 条件達成を確認, dropped: 登録されていないQRとして取り除いた数, reset: リセットされていて、端末の記録を消した}
+// 未送信のスタンプを再送する。戻り値：{completed: 条件達成を確認, dropped: 登録されていないQRなどとして取り除いた数, reset: リセットされていて、端末の記録を消した,
+//   gated: 開催の期間の外（開催前・終了）だったときの、サーバーの返事（そのスタンプは、もらえていないので、端末の記録から取り除く）}
 async function resendPending(){
-  let completed=false, dropped=0;
+  let completed=false, dropped=0, gated=null;
   for(const code of getPending()){
     const result=await recordServerScan(code,true);
-    if(result.status==="reset"){ await applyServerReset(result.reset_count,false); return {completed:false,dropped,reset:true}; }
+    if(result.status==="reset"){ await applyServerReset(result.reset_count,false); return {completed:false,dropped,reset:true,gated};}
     setPending(getPending().filter(c=>c!==code));
+    if(result.status==="not_open"||result.status==="closed"){ removeLocalStamp(code); dropped++; gated=result; continue; }
     if(result.status==="invalid_stamp"){ removeLocalStamp(code); dropped++; continue; }
     completed=completed||result.completed===true;
   }
-  return {completed,dropped,reset:false};
+  return {completed,dropped,reset:false,gated};
 }
+// 再送したスタンプが、開催の期間の外で、もらえなかったとき：お知らせを出す
+const showGated=gated=>{ if(gated) celebration=showPhase(gated.status==="not_open"?"before":"closed",{forced:gated.forced===true,opensAt:gated.opens_at,closesAt:gated.closes_at}); };
 
 async function retryPending(){
   updateResult({sync:"saving"});
@@ -817,6 +898,7 @@ async function retryPending(){
     const resent=await resendPending();
     if(resent.reset) return;   // 端末の記録を消して、知らせを表示した
     if(resent.dropped) render(await getLocalStamps());
+    showGated(resent.gated);
     const completed=resent.completed || await isServerCompleted();
     if(completed) showSurveyLink();
     updateResult({sync:"saved",surveyReady:completed});
@@ -828,14 +910,15 @@ async function retryPending(){
 
 // 再読み込み時など、QRを読まずに開いたときに未送信分の再送とアンケートへの導線を復元します。
 async function restoreCompletion(){
-  if(!isSupabaseConfigured()) return;
+  if(!serverOn()) return;
   const hadPending=getPending().length>0;
   const quiet=!resultEl.hidden; // 直前の読み取り結果を表示中なら上書きしない
   try{
     const resent=await resendPending();
     if(resent.reset) return;
     if(resent.dropped) render(await getLocalStamps());
-    if(hadPending && !quiet){
+    showGated(resent.gated);
+    if(hadPending && !quiet && !resent.gated){
       showResult({tone:"info",seal:"check",kicker:"未送信のスタンプ",title:phrases("前回送信できなかった","スタンプを","記録しました"),sync:"saved",surveyReady:resent.completed});
     }
     if(resent.completed) return showSurveyLink();
@@ -861,11 +944,13 @@ async function restoreCompletion(){
 // 地図は、読み込めなかったときは、出しません（公開してよいと分かるまで、隠しておく）。
 let configReady=Promise.resolve();
 let lastConfigAt=0;
+let lastConfig=null;   // 最後に読み込めた設定（開催前・終了のお知らせに出す日付に使う）
 async function loadConfig(){
   if(!isSupabaseConfigured()) return;
   lastConfigAt=Date.now();
   try{
     const config=await callRpc("rally_config",{});
+    lastConfig=config&&typeof config==="object"?config:null;
     try{ applyPublicInfo(config); } catch(error){ console.error(error); }   // 地図・開催開始日の表示で、万一エラーが起きても、お魚の順番の更新は続ける
     const order=Fish.normalizeOrder(config&&config.fish_order);
     if(!order) return;
@@ -876,14 +961,105 @@ async function loadConfig(){
   }
 }
 
+// ---- デバッグ用のQRコード（掲示板 No.61〜70。チーム専用）----
+// 読み取ると、サーバーには何も記録せず、この端末の中だけで、スタンプの進み具合などを確かめられる（デバッグモード。「デバッグを終わる」を押すまで続く）。
+//   No.61：スタンプを1個ふやす（お魚が現れる演出つき。6個まで）／No.62〜68：スタンプを 0・1・2・3・4・5・6 個にする（3個＝景品の条件・6個＝コンプリート）
+//   No.69：「開催まで待ってね」の画面を出す／No.70：「開催終了しました」の画面を出す
+// デバッグ用かどうかは、読み取った合言葉から、js/debug-boards.js と同じ方法（PBKDF2-HMAC-SHA256）で値を計算して、そこにあるかで調べる
+// （掲示板のコードは、公開しない決まりなので、合言葉そのものは持たず、計算した値だけを持っている）。サーバーには、問い合わせない。
+const DEBUG_ADD=61, DEBUG_ZERO=62, DEBUG_BEFORE=69, DEBUG_ENDED=70;
+const DEBUG_STAMPS=Array.from({length:RIVER_TOTAL},(_,i)=>`debugstamp${i+1}`);   // デバッグ用の、にせのスタンプ（形式は、掲示板の合言葉と同じ）
+const debugActionKey="debug_action";   // デバッグモードに入るために開き直したあとに行う動作（掲示板の番号）。sessionStorage に置く（タブを閉じれば消える）
+async function debugBoardNo(code){
+  const cfg=window.RALLY_DEBUG_BOARDS;
+  if(!cfg||!cfg.hashes||!window.crypto||!crypto.subtle||typeof TextEncoder!=="function") return 0;
+  try{
+    const enc=new TextEncoder();
+    const key=await crypto.subtle.importKey("raw",enc.encode(code),"PBKDF2",false,["deriveBits"]);
+    const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:enc.encode(cfg.salt),iterations:cfg.iterations},key,256);
+    const hex=[...new Uint8Array(bits)].map(b=>b.toString(16).padStart(2,"0")).join("");
+    return hasOwn(cfg.hashes,hex)?Number(cfg.hashes[hex]):0;
+  }catch(error){ console.error(error); return 0; }
+}
+// デバッグモードに入る。保存先を、本物の記録とは別のものに切り替えるため、モードを保存して、開き直す。戻り値：開き直しているか（保存できない端末では false）
+function enterDebug(no){
+  try{ localStorage.setItem(debugKey,"1"); sessionStorage.setItem(debugActionKey,String(no)); }
+  catch(error){
+    try{ localStorage.removeItem(debugKey); }catch(e){ /* 保存できない端末：もともと、印は付いていない */ }   // 片方だけ保存できたとき、デバッグモードの印だけが残らないように
+    return false;
+  }
+  location.replace(location.pathname);
+  return true;
+}
+function takeDebugAction(){
+  try{ const value=sessionStorage.getItem(debugActionKey); sessionStorage.removeItem(debugActionKey); return Number(value)||0; }
+  catch(error){ return 0; }
+}
+$("debugEnd").onclick=()=>{
+  // デバッグ用のスタンプ・モードの印を消す（本物の記録は、もともと別の保存先なので、そのまま）
+  try{ [stampsKey,timesKey,pendingKey,surveyKey,debugKey].forEach(key=>localStorage.removeItem(key)); }catch(error){ /* 消せないときは、開き直しても、デバッグモードのまま */ }
+  location.replace(location.pathname);
+};
+// スタンプを n 個にする（デバッグ用のにせのスタンプ。取った時刻は、1分ずつ、ずらす）
+function setDebugStamps(n){
+  const codes=DEBUG_STAMPS.slice(0,n), now=Date.now();
+  store.set(stampsKey,JSON.stringify(codes));
+  store.set(timesKey,JSON.stringify(Object.fromEntries(codes.map((c,i)=>[c,new Date(now-(n-1-i)*60000).toISOString()]))));
+  store.remove(pendingKey); store.remove(surveyKey);
+  return codes;
+}
+const debugBody=n=>n===0?"最初の状態です。":n<PRIZE_REQUIRED?`景品の条件（${PRIZE_REQUIRED}個）まで、あと${PRIZE_REQUIRED-n}個の状態です。`
+  :n<RIVER_TOTAL?(n===PRIZE_REQUIRED?"景品をゲットできる条件を達成した状態です。アンケートの画面も確かめられます（送信しても、記録されません）。":`景品の条件は、達成済みです。あと${RIVER_TOTAL-n}個で、川が完成します。`)
+  :"川が完成した（コンプリート）状態です。";
+async function runDebug(no){
+  const done={completed:false,failed:false};
+  if(no===DEBUG_BEFORE||no===DEBUG_ENDED){
+    await configReady;
+    celebration=showPhase(no===DEBUG_BEFORE?"before":"closed",{preview:true,...phaseDates()});
+    return done;
+  }
+  const before=await getLocalStamps();
+  if(no===DEBUG_ADD){
+    if(before.length>=RIVER_TOTAL){
+      showResult({tone:"info",seal:null,kicker:"DEBUG",title:phrases("スタンプは",`${RIVER_TOTAL}個そろっています`),body:`これ以上は、ふえません。No.${DEBUG_ZERO} を読み取ると、0個に戻せます。`,sync:"debug"});
+      return done;
+    }
+    await configReady; await Fish.preload([fishOrder[before.length]],2500);   // 次に現れるお魚の画像を、先に読み込んでおく
+    const code=DEBUG_STAMPS[before.length], current=await saveLocalStamp(code), patch={sync:"debug"};
+    if(current.length>=PRIZE_REQUIRED){ patch.surveyReady=true; showSurveyLink(); }
+    applyScan(code,false,before,current,patch);
+    return done;
+  }
+  const n=no-DEBUG_ZERO;   // 62〜68 → 0〜6
+  if(n>=0&&n<=RIVER_TOTAL){
+    const codes=setDebugStamps(n);
+    render(codes);
+    if(n>=PRIZE_REQUIRED) showSurveyLink(); else $("surveyLink").hidden=true;
+    showResult({tone:"info",seal:null,kicker:"DEBUG",title:phrases("スタンプを",`${n}個にしました`),body:debugBody(n),sync:"debug",surveyReady:n>=PRIZE_REQUIRED});
+  }
+  return done;
+}
+
 async function init(){
   $("requiredCount").textContent=PRIZE_REQUIRED;
   $("riverTotal").textContent=RIVER_TOTAL;
-  // 順番の読み込みは、画面の表示と並行して始め、最大2.5秒だけ待つ（スタンプの結果を出す前に、最新の順番にそろえるため）
-  configReady=Promise.race([loadConfig(),new Promise(resolve=>setTimeout(resolve,2500))]);
   const params=new URLSearchParams(location.search);
   // QRコードの作成ツールなどで、大文字や前後の空白が入っていても、同じスタンプとして扱う
   const code=(params.get("stamp")||"").trim().toLowerCase();
+  // チーム専用のデバッグ用QRコード（掲示板 No.61〜70）か。まだデバッグモードでなければ、モードに入る（保存先を切り替えるため、開き直す）。
+  // 本物の掲示板のQRコードを読み取るときは、この確認（合言葉の計算）が、ほんの少しだけ、かかる
+  const debugNo=code&&isStamp(code)?await debugBoardNo(code):0;
+  let skipCode=false;
+  if(debugNo&&!debugOn){
+    if(enterDebug(debugNo)) return;   // 開き直している最中
+    skipCode=true;                    // この端末は、設定を保存できない：デバッグモードは使えない。デバッグ用のQRコードは、スタンプにしない
+    showResult({tone:"info",seal:null,kicker:"DEBUG",title:phrases("この端末では、","デバッグモードを","使えません"),body:"ブラウザが、記録の保存を許可していません。"});
+  }
+  if(debugOn) $("debugBar").hidden=false;
+  const debugAction=debugOn&&!debugNo?takeDebugAction():0;   // 開き直したあとに行う、デバッグの動作
+  const previewKind=previewKinds[params.get("preview")||""]||"";   // 管理画面からの、開催前・終了のお知らせの確認用の表示
+  // 順番の読み込みは、画面の表示と並行して始め、最大2.5秒だけ待つ（スタンプの結果を出す前に、最新の順番にそろえるため）
+  configReady=Promise.race([loadConfig(),new Promise(resolve=>setTimeout(resolve,2500))]);
   // 管理者がスタンプをリセットしていないかの確認も、並行して始める（最大2.5秒だけ待つ。リセットされていたら、端末の記録を消す）
   const resetReady=Promise.race([syncReset(!!code,code),new Promise(resolve=>setTimeout(resolve,2500))]);
   const current=await getLocalStamps();
@@ -902,9 +1078,14 @@ async function init(){
     params.delete("stamp");
     const query=params.toString();
     history.replaceState(null,"",location.pathname+(query?`?${query}`:"")+location.hash);
-    result=await recordStamp(code);
+    if(!skipCode) result=debugNo?await runDebug(debugNo):await recordStamp(code);
     if(wiping) return;  // 読み取り中に、完全リセットだと分かった：開き直している最中
     if(storageBlocked) $("storageNote").hidden=false;
+  } else if(debugAction){
+    result=await runDebug(debugAction);   // デバッグモードに入るために開き直した：読み取ったデバッグ用QRコードの動作を行う
+  } else if(previewKind){
+    await configReady;
+    celebration=showPhase(previewKind,{preview:true,...phaseDates()});
   }
   // 獲得の演出の画面があれば、それが終わってから、ルール説明を出す（「次回からは表示しない」にした端末には、出さない）。
   // 画面の裏で、未送信分の再送などを、並行して進める。演出もルール説明も終わったら、ページの中の動きを見せる

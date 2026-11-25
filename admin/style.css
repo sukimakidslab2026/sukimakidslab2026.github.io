@@ -100,7 +100,6 @@ fieldset.pub-form{border:0;padding:0;margin:0;min-width:0}
 fieldset.pub-field>legend{padding:0 8px;font-weight:700}
 .pub-field .toggle{padding:6px 0;font-size:15px;gap:10px}
 .pub-field .toggle input{flex:none;width:20px;height:20px}
-.pub-date+.toggle{margin-top:8px;align-items:flex-start}.pub-date+.toggle input{margin-top:3px}   /* 「開催中！」のチェック：説明が2行以上になっても、チェック欄は、1行目にそろえる */
 #mymapInput{display:block;width:100%;max-width:720px;margin:8px 0 0}
 .pub-date{display:flex;flex-wrap:wrap;align-items:center}
 .pub-date input,.pub-date button{margin:5px 8px 5px 0}
@@ -110,4 +109,14 @@ fieldset.pub-field>legend{padding:0 8px;font-weight:700}
 .mymap-preview iframe{display:block;width:100%;height:100%;border:0}
 #publishStatus.error{color:var(--color-error)}
 #publishForm:disabled{opacity:.6}
+/* 開催の状態（開催前・開催中・終了の切り替え・記録の自動削除） */
+#scheduleStatus.error{color:var(--color-error)}
+.phase-now{margin:8px 0;line-height:2.1}
+.phase-badge{display:inline-block;padding:1px 12px;border:2px solid var(--color-primary);border-radius:var(--radius-pill);background:var(--color-white);color:var(--color-primary);font-size:14px;font-weight:700;line-height:1.7}
+.phase-badge.is-open{background:var(--color-primary);color:var(--color-on-primary)}
+.phase-badge.is-before{background:var(--tint-mustard-20)}
+.phase-badge.is-closed{background:var(--tint-primary-08);color:var(--color-text-muted);border-color:var(--color-text-muted)}
+button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--color-mustard)}
+.linkrow{display:flex;flex-wrap:wrap;gap:4px 8px;margin:8px 0}.linkrow a.linkbtn{margin:0}
+#scheduleTimes th{width:1%;font-weight:700}
 @media(max-width:800px){.fish-editor{grid-template-columns:minmax(0,1fr)}}

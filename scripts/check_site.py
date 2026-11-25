@@ -418,15 +418,41 @@ def check_policy():
     # 景品を希望するときは、同意にチェックを入れるまで「送信する」を押せない
     if "submitBtn.disabled=prizeRequested.checked && !consent.checked" not in js or "consent.onchange=syncSubmit" not in js or "submitBtn.disabled=false" in js:
         problems.append("survey/app.js: 景品を希望するとき、規約への同意にチェックを入れるまで「送信する」を押せない処理が、そろっていません")
-    # フッター：小文字
-    for rel in ("index.html", "rally/index.html"):
-        m = re.search(r'<footer class="en">([^<]*)</footer>', read(rel))
-        if not m or m.group(1) != m.group(1).lower():
-            problems.append(f"{rel}: フッターの文字が、小文字になっていません（{m.group(1) if m else 'なし'}）")
+    # 規約の第8項：問い合わせのときに知らせてもらうのは、「参加者ID」と「氏名」
+    sec8 = re.search(r"<h2>8\. .*?(?=<h2>9\. )", policy, flags=re.S)
+    if not sec8 or "「参加者ID」と「氏名」" not in sec8.group(0):
+        problems.append("survey/privacy.html: 第8項に、「参加者ID」と「氏名」をお知らせいただく、という文がありません")
+    # 規約の第2項：収集する情報が、アンケートの実際の質問と合っているか
+    sec2 = re.search(r"<h2>2\. .*?(?=<h2>3\. )", policy, flags=re.S)
+    for word in ("楽しかった", "普段行かない場所", "掲示板を見る", "以外の掲示物", "きっかけ", "ご意見・ご感想"):
+        if not sec2 or word not in sec2.group(0):
+            problems.append(f"survey/privacy.html: 第2項（収集する情報）に、アンケートの質問「{word}」が書かれていません")
+    # フッター：お問い合わせ・運営のロゴ・小文字のコピーライト。5ページで同じ内容
+    blocks = {}
+    for rel in ("index.html", "rally/index.html", "survey/index.html", "survey/privacy.html", "reset/index.html"):
+        m = re.search(r'<footer class="site-footer">.*?</footer>', read(rel), flags=re.S)
+        if not m:
+            problems.append(f"{rel}: 共通フッター（<footer class=\"site-footer\">）がありません")
+            continue
+        blocks[rel] = m.group(0).replace("../assets/", "assets/")
+        copy = re.search(r'<p class="copyright en">([^<]*)</p>', m.group(0))
+        if not copy or copy.group(1) != copy.group(1).lower():
+            problems.append(f"{rel}: フッターの文字が、小文字になっていません（{copy.group(1) if copy else 'なし'}）")
+        if "お問い合わせ" not in m.group(0) or 'href="mailto:info@ponddesignlab.com"' not in m.group(0) or INSTAGRAM_URL not in m.group(0):
+            problems.append(f"{rel}: フッターに、お問い合わせ（Instagram・メール info@ponddesignlab.com）がありません")
+        logo = re.search(r'<img src="((?:\.\./)?assets/pond-logo\.webp)"[^>]*>', m.group(0))
+        if not logo or not re.search(r'\bwidth="\d+"', logo.group(0)) or not re.search(r'\bheight="\d+"', logo.group(0)) or 'alt="Pond Design Laboratory' not in logo.group(0):
+            problems.append(f"{rel}: フッターのロゴ（assets/pond-logo.webp）の指定（width・height・alt）が、そろっていません")
+    if len(set(blocks.values())) > 1:
+        problems.append("共通フッターの内容が、ページによって違います：" + "・".join(sorted(blocks)))
+    if not os.path.isfile(os.path.join(ROOT, "assets", "pond-logo.webp")):
+        problems.append("assets/pond-logo.webp がありません")
+    if re.search(r"^\s*footer\s*\{", read("style.css") + read("rally/style.css"), flags=re.M):
+        problems.append("style.css・rally/style.css に、旧い footer{…} の指定が、残っています（フッターのスタイルは brand.css の .site-footer だけにします）")
     if problems:
         bad("；".join(problems))
     else:
-        ok(f"規約は {len(nums)} 項・版 {version.group(1)}、同意にチェックするまで「送信する」を押せず、フッターは小文字です")
+        ok(f"規約は {len(nums)} 項・版 {version.group(1)}（第8項は「参加者ID」と「氏名」・第2項はアンケートの質問と一致）、同意にチェックするまで「送信する」を押せず、共通フッター（お問い合わせ・ロゴ・小文字のコピーライト）は5ページで同じです")
     todo = len(re.findall(r'<mark class="todo">', policy)) + len(re.findall(r'<mark class="todo">', survey))
     if todo:
         warn(f"プライバシー規約に【要確認】が {todo} か所残っています。記入したら、「下書き」の注意書き（class=\"draft-banner\"）も消してください")
@@ -448,11 +474,14 @@ def check_email():
         problems.append("survey/app.js: メールアドレスの検査・p_email の送信・invalid_email のメッセージが、そろっていません")
     fn = re.search(r"create or replace function public\.submit_survey\((.*?)\)\s*returns text", sql, flags=re.S)
     args = [a for a in re.split(r",\s*\n", fn.group(1)) if a.strip()] if fn else []
-    if not fn or "p_email text default null" not in fn.group(1) or len(args) != 13:
-        problems.append(f"sql/schema.sql: submit_survey の引数が13個（最後が p_email text default null）になっていません（{len(args)} 個）")
+    # 引数は17個：13個目が p_email（そのうしろに、アンケートの新しい質問の4つ。check_schedule が確認する）
+    if not fn or "p_email text default null" not in fn.group(1) or len(args) != 17 or not args[12].strip().startswith("p_email text default null"):
+        problems.append(f"sql/schema.sql: submit_survey の引数が17個（13個目が p_email text default null）になっていません（{len(args)} 個）")
     grant = re.search(r"grant execute on function public\.submit_survey\(([^)]*)\)", sql)
-    if not grant or len([a for a in grant.group(1).split(",") if a.strip()]) != 13:
-        problems.append("sql/schema.sql: submit_survey の権限（grant）が、引数13個の版に付いていません")
+    if not grant or len([a for a in grant.group(1).split(",") if a.strip()]) != 17:
+        problems.append("sql/schema.sql: submit_survey の権限（grant）が、引数17個の版に付いていません")
+    if "drop function if exists public.submit_survey(text, integer, text, text, boolean, text, text, text, text, boolean, text, text, text);" not in sql:
+        problems.append("sql/schema.sql: 13引数の旧い submit_survey を削除する行がありません（残ると、呼び出しが曖昧になります）")
     if "invalid_email" not in sql or "add column if not exists email text" not in sql or "  email text\n" not in sql:
         problems.append("sql/schema.sql: email の列（新規作成と、旧版への追加）・invalid_email の検査が、そろっていません")
     if "drop function if exists public.submit_survey(text, integer, text, text, boolean, text, text, text, text, boolean, text, text);" not in sql:
@@ -464,7 +493,7 @@ def check_email():
     if problems:
         bad("；".join(problems))
     else:
-        ok("メールアドレス：入力欄（電話番号の次・必須）→ submit_survey（13引数・検査・権限）→ prize_shipping.email → 管理画面の表・CSV・規約が、そろっています")
+        ok("メールアドレス：入力欄（電話番号の次・必須）→ submit_survey（17引数・検査・権限）→ prize_shipping.email → 管理画面の表・CSV・規約が、そろっています")
 
 
 def check_bulk():
@@ -752,21 +781,21 @@ def check_wording():
 
 
 def check_publish_settings():
-    """公開の設定：掲示板の地図を出すか（初期は非公開）・マイマップのURL・開催開始日。SQL・参加者の画面・管理画面が、そろっているか"""
+    """公開の設定：掲示板の地図を出すか（初期は非公開）・マイマップのURL・開催開始日・開催終了日。SQL・参加者の画面・管理画面が、そろっているか"""
     sql, rally_js, rally_html = read("sql/schema.sql"), read("rally/app.js"), read("rally/index.html")
     admin_js, admin_html, data_js, readme = read("admin/app.js"), read("admin/index.html"), read("js/rally-data.js"), read("README.md")
     problems = []
 
     # --- SQL ---
-    for col in ("places_public boolean not null default false", "mymap_embed_url text", "start_date date", "rally_ongoing boolean not null default false"):
+    for col in ("places_public boolean not null default false", "mymap_embed_url text", "start_date date", "end_date date", "rally_ongoing boolean not null default false"):
         if f"add column if not exists {col}" not in sql:
             problems.append(f"sql/schema.sql: rally_settings に、列「{col}」がありません（地図は、初期は非公開 = false）")
     config = re.search(r"function public\.rally_config\(\).*?\n\$\$;", sql, flags=re.S)
     cfg = config.group(0) if config else ""
-    for needle in ("'places_public'", "'start_date'", "'rally_ongoing', coalesce(s.rally_ongoing, false)", "case when coalesce(s.places_public, false) then s.mymap_embed_url end"):
+    for needle in ("'places_public'", "'start_date'", "'phase', public.rally_time_phase()", "'open_at', public.rally_open_at()", "'close_at', public.rally_close_at()", "'rally_ongoing', public.rally_time_phase() = 'open'", "case when coalesce(s.places_public, false) then s.mymap_embed_url end"):
         if needle not in cfg:
             problems.append(f"sql/schema.sql: rally_config に「{needle}」がありません（マイマップのURLは、地図を公開している間だけ返します）")
-    for fn, sig in (("admin_rally_info", "()"), ("admin_set_rally_info", "(boolean, text, date, boolean)")):
+    for fn, sig in (("admin_rally_info", "()"), ("admin_set_rally_info", "(boolean, text, date, boolean, date, boolean)")):
         body = re.search(rf"function public\.{fn}\(.*?\n\$\$;", sql, flags=re.S)
         if not body or "public.is_admin()" not in body.group(0):
             problems.append(f"sql/schema.sql: {fn} に、管理者の確認（is_admin）がありません")
@@ -775,11 +804,16 @@ def check_publish_settings():
     setter = re.search(r"function public\.admin_set_rally_info\(.*?\n\$\$;", sql, flags=re.S)
     if not setter or "rally_valid_mymap_url" not in setter.group(0) or "invalid start date" not in setter.group(0):
         problems.append("sql/schema.sql: admin_set_rally_info が、マイマップのURLの形・開催開始日の範囲を、検査していません")
-    # 引数が4つになった（開催中！）。旧い3引数の関数を残すと、同じ名前の関数が2つになり、呼び出しが曖昧になる
-    if "drop function if exists public.admin_set_rally_info(boolean, text, date);" not in sql:
-        problems.append("sql/schema.sql: 旧い3引数の admin_set_rally_info を削除していません（残ると、呼び出しが曖昧になります）")
-    if not setter or "p_rally_ongoing boolean default null" not in setter.group(0) or "coalesce(p_rally_ongoing, rally_ongoing)" not in setter.group(0):
-        problems.append("sql/schema.sql: admin_set_rally_info の p_rally_ongoing（省略したら、いまの設定のまま）がありません")
+    # 引数が6つになった（開催終了日・自動削除の確認）。引数が少ない旧い関数を残すと、同じ名前の関数が複数になり、呼び出しが曖昧になる
+    for old_sig in ("(boolean, text, date)", "(boolean, text, date, boolean)", "(boolean, text, date, boolean, date)"):
+        if f"drop function if exists public.admin_set_rally_info{old_sig};" not in sql:
+            problems.append(f"sql/schema.sql: 旧い admin_set_rally_info{old_sig} を削除していません（残ると、呼び出しが曖昧になります）")
+    if not setter or "p_end_date date default null" not in setter.group(0) or "coalesce(p_end_date, end_date)" not in setter.group(0) or "invalid period" not in setter.group(0) or "invalid end date" not in setter.group(0):
+        problems.append("sql/schema.sql: admin_set_rally_info の p_end_date（省略したら、いまの設定のまま・範囲と、開始日との前後の検査）がありません")
+    if not setter or "p_confirm_purge boolean default false" not in setter.group(0) or "purge would run" not in setter.group(0):
+        problems.append("sql/schema.sql: admin_set_rally_info に、自動削除が、いますぐ動く日付にするときの確認（p_confirm_purge・purge would run）がありません")
+    if not setter or "p_rally_ongoing boolean default null" not in setter.group(0):
+        problems.append("sql/schema.sql: admin_set_rally_info の p_rally_ongoing（廃止。古い管理画面の呼び出しを受け付けるために、引数だけ残す）がありません")
 
     # --- マイマップのURLの形：SQL・参加者の画面・管理画面で、同じか ---
     pattern = re.search(r"p_url ~ '([^']+)'", sql)
@@ -803,27 +837,242 @@ def check_publish_settings():
         problems.append("rally/app.js: 公開の設定に関係なく、地図を作る処理（buildPlaces()・RALLY_MAP_*）が、残っています")
     if "startDateLabel" not in rally_js or "applyStartDate" not in rally_js:
         problems.append("rally/app.js: 開催開始日の表示（applyStartDate）がありません")
-    # 「開催中！」：最初は隠れていて、rally_ongoing が true のときだけ出る（開催開始日の代わり）
+    # 「開催中！」「開催は終了しました」：最初は隠れていて、開催の状態（rally_config の phase）が 'open'・'closed' のときだけ出る（開催開始日の代わり）
     if not re.search(r'<p id="ongoing"[^>]*\bhidden\b[^>]*>.*?開催中！</p>', rally_html, flags=re.S):
         problems.append("rally/index.html: 「開催中！」（#ongoing）が、最初は隠した状態でありません")
-    if "config.rally_ongoing===true" not in rally_js:
-        problems.append("rally/app.js: 「開催中！」は、rally_config の rally_ongoing が true のときだけ表示する処理がありません")
+    if not re.search(r'<p id="ended"[^>]*\bhidden\b[^>]*>開催は終了しました</p>', rally_html):
+        problems.append("rally/index.html: 「開催は終了しました」（#ended）が、最初は隠した状態でありません")
+    if 'config.phase==="open"' not in rally_js or 'config.phase==="closed"' not in rally_js or "function phaseOf(" not in rally_js or '$("ongoing").hidden=phase!=="open"' not in rally_js or '$("ended").hidden=phase!=="closed"' not in rally_js:
+        problems.append("rally/app.js: 「開催中！」「開催は終了しました」は、rally_config の phase（open・closed）のときだけ表示する処理（phaseOf・applyStartDate）がありません")
     if re.search(r"^\s*window\.RALLY_MAP_(VIEW|EMBED)_URL\s*=", data_js, flags=re.M):
         problems.append("js/rally-data.js: マイマップのURLの欄（RALLY_MAP_*）が、残っています（管理画面の「公開の設定」で入力します）")
     if any("RALLY_MAP_" in line and "廃止" not in line for line in readme.splitlines()):
         problems.append("README.md: 廃止した設定（RALLY_MAP_*）が、「廃止した」と書かずに、残っています")
 
     # --- 管理画面 ---
-    for needle in ('href="#publish"', 'id="publishSettings"', 'id="mymapInput"', 'id="startDateInput"', 'id="ongoingInput"', 'name="placesPublic"', 'id="publishSave"', 'id="logoutBtnPublish"', "../js/rally-data.js"):
+    for needle in ('href="#publish"', 'id="publishSettings"', 'id="mymapInput"', 'id="startDateInput"', 'id="endDateInput"', 'name="placesPublic"', 'id="publishSave"', 'id="logoutBtnPublish"', "../js/rally-data.js"):
         if needle not in admin_html:
             problems.append(f"admin/index.html に「{needle}」がありません")
-    for needle in ('admin_rally_info', 'admin_set_rally_info', 'parseMymapInput', 'publish:"publishSettings"', '"logoutBtnPublish"', "infoDirty", "p_rally_ongoing", "infoHasOngoing"):
+    if 'id="ongoingInput"' in admin_html or "infoHasOngoing" in admin_js:
+        problems.append("admin: 「開催中！」の手動のチェックが、残っています（開催の期間に連動して、自動で表示する決まりです）")
+    for needle in ('admin_rally_info', 'admin_set_rally_info', 'parseMymapInput', 'publish:"publishSettings"', '"logoutBtnPublish"', "infoDirty", "p_end_date", "infoHasEnd", "p_confirm_purge", "purge would run"):
         if needle not in admin_js:
             problems.append(f"admin/app.js に「{needle}」がありません")
     if problems:
         bad("；".join(problems[:8]))
     else:
-        ok("公開の設定：地図（初期は非公開・公開のときだけ表示）・マイマップ・開催開始日・開催中！が、SQL（列・関数・権限・URLの形）・スタンプラリー画面・管理画面で、そろっています。マイマップのURLの形も、3か所で同じです")
+        ok("公開の設定：地図（初期は非公開・公開のときだけ表示）・マイマップ・開催開始日・開催終了日・開催中！／開催は終了しました（期間に連動）が、SQL（列・関数・権限・URLの形）・スタンプラリー画面・管理画面で、そろっています。マイマップのURLの形も、3か所で同じです")
+
+
+def sql_func(sql, name):
+    """sql/schema.sql から、関数 public.<name>(…) の定義（create の行から、次の「$$;」まで）を取り出す。なければ空の文字列"""
+    m = re.search(rf"create (?:or replace )?function public\.{name}\(.*?\n\$\$;", sql, flags=re.S)
+    return m.group(0) if m else ""
+
+
+def check_schedule():
+    """開催の期間（開催前・開催中・終了）・30分だけの手動の切り替え・記録の自動削除（保存してから削除）：SQL・スタンプラリー画面・管理画面が、そろっているか"""
+    sql, rally_js, rally_html = read("sql/schema.sql"), read("rally/app.js"), read("rally/index.html")
+    admin_js, admin_html = read("admin/app.js"), read("admin/index.html")
+    problems = []
+
+    # --- SQL：関数・初期の期間・30分 ---
+    for fn in ("rally_open_at", "rally_close_at", "rally_purge_at", "rally_time_phase", "rally_scan_phase", "rally_tick", "rally_purge_now", "rally_is_debug_board",
+               "admin_rally_schedule", "admin_set_phase_override", "admin_delete_archive"):
+        if not sql_func(sql, fn):
+            problems.append(f"sql/schema.sql: 関数 {fn} がありません")
+    if "date '2026-12-09'" not in sql_func(sql, "rally_open_at") or "date '2026-12-31'" not in sql_func(sql, "rally_close_at"):
+        problems.append("sql/schema.sql: 開催期間の初期値（開催開始 2026-12-09・開催終了 2026-12-31）が、rally_open_at・rally_close_at にありません")
+    if "+ 1)::timestamp at time zone 'Asia/Tokyo'" not in sql_func(sql, "rally_close_at") or "at time zone 'Asia/Tokyo'" not in sql_func(sql, "rally_open_at"):
+        problems.append("sql/schema.sql: 開催終了は、開催終了日の翌日の 0:00（＝23:59:59 まで）・日本時間で計算する決まりです")
+    if "interval '1 second'" not in sql_func(sql, "rally_purge_at"):
+        problems.append("sql/schema.sql: 記録の自動削除は、開催開始の1秒前（23:59:59）にする決まりです")
+    ovr = sql_func(sql, "admin_set_phase_override")
+    if "interval '30 minutes'" not in ovr or "public.is_admin()" not in ovr or "phase_override_until" not in ovr:
+        problems.append("sql/schema.sql: admin_set_phase_override は、管理者だけが、30分（interval '30 minutes'）の期限つきで切り替える決まりです")
+    if "s.phase_override_until > now()" not in sql_func(sql, "rally_scan_phase"):
+        problems.append("sql/schema.sql: rally_scan_phase は、手動の切り替えの期限（phase_override_until > now()）を過ぎたら、時刻どおりに戻す決まりです")
+    for fn in ("rally_open_at(), public.rally_close_at(), public.rally_purge_at(), public.rally_time_phase(),\n  public.rally_scan_phase(), public.rally_purge_now(), public.rally_tick()",):
+        if f"revoke all on function public.{fn} from public, anon, authenticated;" not in sql:
+            problems.append("sql/schema.sql: 内部用の関数（rally_open_at・rally_tick など）が、匿名・ログイン済みから、実行できてしまいます（revoke がありません）")
+    for fn in ("admin_rally_schedule()", "admin_set_phase_override(text)", "admin_delete_archive(uuid)"):
+        if f"revoke all on function public.{fn} from public, anon;" not in sql or f"grant execute on function public.{fn} to authenticated;" not in sql:
+            problems.append(f"sql/schema.sql: {fn} の権限（匿名は実行不可・ログイン済みだけ）の指定がありません")
+    for fn in ("admin_rally_schedule", "admin_delete_archive"):
+        if "public.is_admin()" not in sql_func(sql, fn):
+            problems.append(f"sql/schema.sql: {fn} に、管理者の確認（is_admin）がありません")
+    # --- SQL：スタンプの受け付け・自動削除を動かす入り口 ---
+    scan = sql_func(sql, "record_scan")
+    if "public.rally_tick()" not in scan or "public.rally_scan_phase()" not in scan or "'not_open'" not in scan or "'closed'" not in scan or "rally_is_debug_board" not in scan:
+        problems.append("sql/schema.sql: record_scan が、開催の期間（rally_scan_phase・not_open・closed）・自動削除の確認（rally_tick）・デバッグ用の掲示板の除外を、そろえて行っていません")
+    elif scan.index("rally_scan_phase()") > scan.index("from public.stamp_boards b where b.code"):
+        problems.append("sql/schema.sql: record_scan は、QRコードが正しいかを確かめる前に、開催の期間を確かめる決まりです（期間の外では、いつでも同じ説明を出す）")
+    for fn in ("rally_config", "rally_reset_state", "admin_stats", "admin_rally_schedule", "sheets_version", "sheets_export"):
+        if "perform public.rally_tick();" not in sql_func(sql, fn):
+            problems.append(f"sql/schema.sql: {fn} が、自動削除の時刻の確認（perform public.rally_tick();）をしていません")
+    tick = sql_func(sql, "rally_tick")
+    if "exception when others then" not in tick or "purge_error" not in tick or "interval '10 minutes'" not in tick:
+        problems.append("sql/schema.sql: rally_tick は、自動削除が失敗しても呼び出し元を止めない（exception when others）・理由を残す（purge_error）・10分あけてやり直す決まりです")
+    purge = sql_func(sql, "rally_purge_now")
+    ins, dele = purge.find("insert into public.rally_archive"), purge.find("delete from public.scan_events")
+    if ins < 0 or dele < 0 or ins > dele:
+        problems.append("sql/schema.sql: rally_purge_now は、削除する前に、rally_archive に保存する決まりです（保存→削除の順）")
+    for table in ("scan_events", "stamp_claims", "survey_responses", "prize_shipping", "excluded_participants"):
+        if f"'{table}'" not in purge:
+            problems.append(f"sql/schema.sql: rally_purge_now が、{table} を、保存していません")
+    for needle in ("for update", "purged_at is not null", "participant_resets", "last_full_reset_count", "v_before"):
+        if needle not in purge:
+            problems.append(f"sql/schema.sql: rally_purge_now に「{needle}」がありません（二重実行の防止・端末が記録を消す印・開催開始より前だけを削除）")
+    for needle in ("alter table public.rally_archive enable row level security;", 'create policy "rally_archive_admin_select" on public.rally_archive'):
+        if needle not in sql:
+            problems.append(f"sql/schema.sql: 保存した記録（rally_archive）が、管理者だけが読める設定（{needle}）になっていません")
+    if re.search(r"grant\s+[^;]*rally_archive[^;]*to\s+[^;]*\banon\b", sql):
+        problems.append("sql/schema.sql: rally_archive が、匿名に公開されています")
+
+    # --- 開催の期間の初期値：SQL・スタンプラリー画面・管理画面で同じ ---
+    if 'const DEFAULT_OPEN="2026-12-09T00:00:00+09:00", DEFAULT_CLOSE="2027-01-01T00:00:00+09:00";' not in rally_js:
+        problems.append("rally/app.js: 開催期間の初期値（DEFAULT_OPEN・DEFAULT_CLOSE）が、SQLの初期値（2026-12-09 0:00・2027-01-01 0:00）と違います")
+    if 'const DEFAULT_START="2026-12-09",DEFAULT_END="2026-12-31";' not in admin_js:
+        problems.append("admin/app.js: 開催期間の初期値（DEFAULT_START・DEFAULT_END）が、SQLの初期値と違います")
+
+    # --- スタンプラリー画面：期間の外のお知らせ ---
+    for needle in ('result.status==="not_open"||result.status==="closed"', "showPhase(", "function phaseCopy(", 'previewKinds={before:"before",ended:"closed"}', "opens_at", "closes_at", "forced"):
+        if needle not in rally_js:
+            problems.append(f"rally/app.js に「{needle}」がありません（開催前・終了のお知らせ）")
+    if 'status==="not_open"||result.status==="closed"){ removeLocalStamp(code)' not in rally_js:
+        problems.append("rally/app.js: 未送信のスタンプを再送して、開催の期間の外だったときに、端末のスタンプを取り除く処理（resendPending）がありません")
+    for needle in ('id="phaseDialog"', 'id="phaseTitle"', 'id="phaseLead"', 'id="phaseNote"', 'id="phasePreview"', 'id="phaseOk"', 'id="phaseX"', "開催まで待ってね"):
+        if needle not in rally_html:
+            problems.append(f"rally/index.html に「{needle}」がありません")
+    copy = re.search(r"function phaseCopy\(.*?\n\}", rally_js, flags=re.S)
+    for word in ("開催まで待ってね", "開催終了しました", "ありがとう", "COMING SOON", "THANK YOU"):
+        if not copy or word not in copy.group(0):
+            problems.append(f"rally/app.js の phaseCopy に「{word}」がありません")
+    if "phaseDialog" not in re.search(r"const otherDialogs=.*", rally_js).group(0):
+        problems.append("rally/app.js: otherDialogs に phaseDialog がありません（お知らせと、ほかのポップアップが、重なって開いてしまいます）")
+
+    # --- 管理画面：開催の状態の画面 ---
+    for needle in ('href="#schedule"', 'id="scheduleSettings"', 'id="phaseBefore"', 'id="phaseOpen"', 'id="phaseClosed"', 'id="phaseAuto"', 'id="overrideLeft"', 'id="backupNow"', 'id="archiveBody"', 'id="logoutBtnSchedule"',
+                   'href="../rally/?preview=before"', 'href="../rally/?preview=ended"', 'id="purgeDialog"', "30分"):
+        if needle not in admin_html:
+            problems.append(f"admin/index.html に「{needle}」がありません")
+    for needle in ('schedule:"scheduleSettings"', "admin_rally_schedule", "admin_set_phase_override", "admin_delete_archive", "makeZip", "crc32", "BACKUP_COLUMNS", "rally_archive", "serverNow"):
+        if needle not in admin_js:
+            problems.append(f"admin/app.js に「{needle}」がありません")
+    if problems:
+        bad("；".join(problems[:8]))
+    else:
+        ok("開催の期間：SQL（期間・30分の手動の切り替え・保存してから削除・失敗しても止まらない・権限）と、スタンプラリー画面（開催前・終了のお知らせ・プレビュー）・管理画面（切り替え・自動削除の状況・CSV保存）が、そろっています")
+
+
+def check_debug_boards():
+    """デバッグ用の掲示板（No.61〜70）：サーバーに登録せず、端末の中だけで扱う。コードそのものは公開しない（計算した値だけ）"""
+    sql, rally_js, rally_html = read("sql/schema.sql"), read("rally/app.js"), read("rally/index.html")
+    mk, dbg = read("scripts/make_boards.py"), read("js/debug-boards.js")
+    problems = []
+    first = re.search(r"DEBUG_FIRST, DEBUG_LAST = (\d+), (\d+)", mk)
+    lo, hi = (int(first.group(1)), int(first.group(2))) if first else (0, 0)
+    sql_range = re.search(r"select p_board_no between (\d+) and (\d+);", sql_func(sql, "rally_is_debug_board"))
+    if not first or not sql_range or (lo, hi) != (int(sql_range.group(1)), int(sql_range.group(2))) or (lo, hi) != (61, 70):
+        problems.append(f"デバッグ用の掲示板の範囲が、scripts/make_boards.py と sql/schema.sql で一致していません（61〜70 の決まりです）")
+    entries = re.findall(r'"([0-9a-f]+)":\s*(\d+)', dbg)
+    if len(entries) != 10 or [int(n) for _, n in entries] != list(range(61, 71)) or any(len(h) != 64 for h, _ in entries) or len({h for h, _ in entries}) != 10:
+        problems.append("js/debug-boards.js: デバッグ用の掲示板 No.61〜70 の10個の値（64桁の16進数・重複なし）が、そろっていません")
+    salt, it = re.search(r'salt:"([^"]+)"', dbg), re.search(r"iterations:(\d+)", dbg)
+    if not salt or not it or f'DEBUG_SALT = "{salt.group(1)}"' not in mk or f"DEBUG_ITERATIONS = {it.group(1)}" not in mk:
+        problems.append("js/debug-boards.js の salt・iterations が、scripts/make_boards.py と違います")
+    if "PBKDF2" not in rally_js or "cfg.salt" not in rally_js or "cfg.iterations" not in rally_js or "RALLY_DEBUG_BOARDS" not in rally_js:
+        problems.append("rally/app.js: デバッグ用のQRコードの見分け方（debugBoardNo：PBKDF2・salt・iterations）がありません")
+    if "../js/debug-boards.js" not in rally_html or rally_html.index("debug-boards.js") > rally_html.index('src="app.js'):
+        problems.append("rally/index.html: js/debug-boards.js を、app.js より前に読み込んでいません")
+    # 本物のコードは、どのファイルにも入れない。デバッグ用のQRコードは、サーバーに問い合わせず、端末の中だけで扱う
+    for needle in ('const debugKey = "stamp_rally_debug"', 'stamp_rally_debug_stamps', "const serverOn=()=>isSupabaseConfigured()&&!debugOn", "if(!serverOn()){", "function enterDebug(", "async function runDebug(", 'id="debugBar"', 'id="debugEnd"'):
+        if needle not in rally_js and needle not in rally_html:
+            problems.append(f"rally/app.js・index.html に「{needle}」がありません（デバッグモード）")
+    for fn in ("syncReset", "restoreCompletion"):
+        m = re.search(rf"async function {fn}\(.*?\n\{{?\n?\s*if\(!serverOn\(\)\) return", rally_js, flags=re.S)
+        if not m:
+            problems.append(f"rally/app.js: {fn} が、デバッグモードのとき（serverOn が false）、サーバーと通信しない作りになっていません")
+    run = re.search(r"async function runDebug\(.*?\n\}\n", rally_js, flags=re.S)
+    if not run or "callRpc" in run.group(0) or "recordServerScan" in run.group(0) or "fetch(" in run.group(0):
+        problems.append("rally/app.js: runDebug（デバッグ用QRコードの動作）が、サーバーと通信しています（デバッグ用は、何も記録しない決まりです）")
+    if 'safeGet("stamp_rally_debug")==="1"' not in read("survey/app.js") or "previewMode=true" not in read("survey/app.js"):
+        problems.append("survey/app.js: デバッグモードのとき、アンケートは、送信しても記録しない画面（プレビューと同じ）になっていません")
+    # 画像の作成・登録SQL：デバッグ用は、登録しない
+    if "def is_debug(" not in mk or "not is_debug(n)" not in mk or "write_debug_js" not in mk:
+        problems.append("scripts/make_boards.py: 登録のSQLから、デバッグ用の掲示板を外す処理（is_debug）・js/debug-boards.js の書き出しがありません")
+    # 手元に qr/boards/boards.csv があるときは、js/debug-boards.js が、そのコードから作った値と一致するか・登録のSQLにデバッグ用が入っていないか
+    csv_path = os.path.join(ROOT, "qr", "boards", "boards.csv")
+    if os.path.isfile(csv_path) and salt and it and len(entries) == 10:
+        import csv as _csv, hashlib as _hl
+        with open(csv_path, encoding="utf-8", newline="") as f:
+            codes = {int(r["board_no"]): r["code"].strip() for r in _csv.DictReader(f)}
+        want = {n: _hl.pbkdf2_hmac("sha256", codes[n].encode(), salt.group(1).encode(), int(it.group(1)), 32).hex() for n in range(61, 71) if n in codes}
+        got = {int(n): h for h, n in entries}
+        if want != got:
+            problems.append("js/debug-boards.js が、qr/boards/boards.csv の No.61〜70 のコードから作った値と、違います（python3 scripts/make_boards.py --seed-only で作り直してください）")
+        seed_path = os.path.join(ROOT, "qr", "boards", "boards_seed.sql")
+        if os.path.isfile(seed_path):
+            seed = open(seed_path, encoding="utf-8").read()
+            leaked = [n for n in range(61, 71) if n in codes and f"'{codes[n]}'" in seed]
+            if leaked:
+                problems.append(f"qr/boards/boards_seed.sql に、デバッグ用の掲示板 {leaked} が、入っています（登録しない決まりです。python3 scripts/make_boards.py --seed-only で作り直してください）")
+    if problems:
+        bad("；".join(problems[:8]))
+    else:
+        ok("デバッグ用の掲示板 No.61〜70：SQLでは登録せず・record_scan も受け付けず、画面は端末の中だけで扱います（サーバーとは通信しない・本物の記録と別の保存先）。QRコードの合言葉そのものは公開せず、計算した値（10個）だけを持っています")
+
+
+def check_survey_questions():
+    """アンケートの新しい質問（楽しかったか・はい／いいえの3問・きっかけ・ご意見）と、ルール①のポスターの見本の画像"""
+    raw_html, js, sql = read("survey/index.html"), read("survey/app.js"), read("sql/schema.sql")
+    html = re.sub(r"</?span[^>]*>", "", raw_html)   # 文節ごとの <span class="ph"> を除いた、文言（質問は、文節ごとに分けてある）
+    admin_html, admin_js, gas, rally_html = read("admin/index.html"), read("admin/app.js"), read("gas/sheets-sync.gs"), read("rally/index.html")
+    problems = []
+    if "今回のスタンプラリーは楽しかったですか？" not in html or "満足度" in html or "自由記述" in html.replace("自由記述の質問", ""):
+        problems.append("survey/index.html: 「今回のスタンプラリーは楽しかったですか？」への変更（「満足度」「自由記述」の表記は残さない）が、そろっていません")
+    for name, q in (("visitedNewPlace", "普段行かない場所に足を運びましたか？"), ("checksBoards", "普段、掲示板を見ることはありますか？"), ("sawOtherNotices", "このスタンプラリーをきっかけに、すきまキッズラボ以外の掲示物も見ましたか？")):
+        if q not in html or f'name="{name}" value="yes" required' not in html or f'name="{name}" value="no"' not in html:
+            problems.append(f"survey/index.html: 「{q}」（はい／いいえ・必須）がありません")
+    if 'id="motivationBlock"' not in html or "すきまキッズラボに参加していない方へ" not in html or "スタンプラリーをしようと思ったきっかけを教えてください" not in html or 'id="motivation"' not in html:
+        problems.append("survey/index.html: 「すきまキッズラボに参加していない方へ」のきっかけの質問がありません")
+    if "その他、ご意見・ご感想があればご記入ください" not in html:
+        problems.append("survey/index.html: 「その他、ご意見・ご感想があればご記入ください」がありません")
+    if 'not_attended' not in js or "syncMotivation" not in js or "motivationBlock.hidden" not in js:
+        problems.append("survey/app.js: きっかけの質問を、ワークショップに「参加していない」と答えたときだけ出す処理（syncMotivation）がありません")
+    for needle in ("p_visited_new_place", "p_checks_boards", "p_saw_other_notices", "p_motivation", "isMissingFunction", "invalid_motivation"):
+        if needle not in js:
+            problems.append(f"survey/app.js に「{needle}」がありません")
+    fn = re.search(r"create or replace function public\.submit_survey\((.*?)\)\s*returns text", sql, flags=re.S)
+    for needle in ("p_visited_new_place boolean default null", "p_checks_boards boolean default null", "p_saw_other_notices boolean default null", "p_motivation text default null"):
+        if not fn or needle not in fn.group(1):
+            problems.append(f"sql/schema.sql: submit_survey に「{needle}」がありません（省略できる引数にして、旧い画面からの回答も受け付ける）")
+    for col in ("visited_new_place boolean", "checks_boards boolean", "saw_other_notices boolean", "motivation text"):
+        if f"add column if not exists {col}" not in sql:
+            problems.append(f"sql/schema.sql: survey_responses に、列「{col}」がありません")
+    if "invalid_motivation" not in sql or "'survey_yesno'" not in sql or "'visited_new_place', case r.visited_new_place" not in sql or "楽しかった度（1〜5）" not in sql:
+        problems.append("sql/schema.sql: きっかけの検査（invalid_motivation）・はい／いいえの集計（survey_yesno）・スプレッドシート用のデータ・日本語ビューに、新しい質問が、そろっていません")
+    for needle in ("yesNoBody", "visited_new_place", "checks_boards", "saw_other_notices", "motivation", "楽しかった度"):
+        if needle not in admin_js and needle not in admin_html:
+            problems.append(f"admin に「{needle}」がありません（新しい質問の表示・CSV）")
+    if "満足度" in admin_html or "満足度" in admin_js:
+        problems.append("admin: 「満足度」の表記が残っています（「楽しかった度」にそろえる）")
+    for needle in ("'visited_new_place'", "'checks_boards'", "'saw_other_notices'", "'motivation'", "survey_yesno", "楽しかった度"):
+        if needle not in gas:
+            problems.append(f"gas/sheets-sync.gs に「{needle}」がありません（スプレッドシートの列・集計）")
+    if "満足度" in gas:
+        problems.append("gas/sheets-sync.gs: 「満足度」の表記が残っています")
+    # ルール①：ポスターの見本の画像
+    step = re.search(r'<ol class="rules-steps".*?<li>(.*?)</li>', rally_html, flags=re.S)
+    img = re.search(r'<img src="\.\./assets/rules-poster-sample\.webp"[^>]*>', step.group(1)) if step else None
+    if not img or not re.search(r'\bwidth="\d+"', img.group(0)) or not re.search(r'\bheight="\d+"', img.group(0)) or 'alt="掲示板に貼り出されるポスターのイメージ' not in img.group(0) or "掲示板のQRコードを読み取る" not in step.group(1):
+        problems.append("rally/index.html: ルール①（掲示板のQRコードを読み取る）に、ポスターの見本の画像（width・height・alt つき）がありません")
+    if not os.path.isfile(os.path.join(ROOT, "assets", "rules-poster-sample.webp")):
+        problems.append("assets/rules-poster-sample.webp がありません")
+    if problems:
+        bad("；".join(problems[:8]))
+    else:
+        ok("アンケート：楽しかったか（1〜5）・はい／いいえの3問・きっかけ（参加していない方だけ）・ご意見が、画面→SQL（引数・列・集計・ビュー）→管理画面→スプレッドシートまで、そろっています。ルール①には、ポスターの見本の画像があります")
 
 
 def check_plain_wrapping():
@@ -1132,7 +1381,7 @@ def main():
     print("28. 文言の統一")
     check_wording()
 
-    print("29. 公開の設定（掲示板の地図を出すか・マイマップ・開催開始日・開催中！）")
+    print("29. 公開の設定（掲示板の地図を出すか・マイマップ・開催開始日・開催終了日）")
     check_publish_settings()
 
     print("30. 日本語の折り返しは、ブラウザの標準に任せる（文節の区切りを入れる仕組み・text-wrap・keep-all は使わない）")
@@ -1140,6 +1389,15 @@ def main():
 
     print("31. トップページ・アンケートの、バナー・見出しの中央揃え")
     check_centered_heads()
+
+    print("32. 開催の期間（開催前・開催中・終了）・30分の手動の切り替え・記録の自動削除")
+    check_schedule()
+
+    print("33. デバッグ用のQRコード（掲示板 No.61〜70）")
+    check_debug_boards()
+
+    print("34. アンケートの新しい質問・ルール①のポスターの見本")
+    check_survey_questions()
 
     print()
     print(f"結果：{len(failures)} 件の問題、{len(warnings)} 件の注意")

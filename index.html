@@ -16,8 +16,8 @@
   <!-- 日本語：筑紫A丸ゴシックのWebフォントを契約した場合は、ここに読み込みタグを追加します（README参照）
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
-  <link rel="stylesheet" href="brand.css?v=d2d90fff">
-  <link rel="stylesheet" href="style.css?v=a49f00c5">
+  <link rel="stylesheet" href="brand.css?v=c680fdae">
+  <link rel="stylesheet" href="style.css?v=e7c75bd2">
   <!-- 念のための転送：スタンプラリーのQRコードのURLが、このページ（トップ）の形（/?stamp=…）で開かれたときは、スタンプラリーのページに移す -->
   <script>
     (function () {
@@ -25,7 +25,7 @@
     })();
   </script>
   <!-- スクロールしたときに、段落や画像が、順番にふわっと現れる動き（data-reveal を付けた要素が対象）。ちらつかないよう、head で読み込みます -->
-  <script src="js/reveal.js?v=8db939a3"></script>
+  <script src="js/reveal.js?v=a96fee5c"></script>
 </head>
 <body>
 <noscript><p style="margin:16px;font-size:14px">このページのメニューを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
@@ -92,7 +92,18 @@
 </div>
 </main>
 
-<footer class="en">sukima kids lab.</footer>
+<!-- 共通フッター：お問い合わせと、運営のロゴ。他のページと同じ内容です（scripts/check_site.py が確認します） -->
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <section class="contact" aria-labelledby="contactTitle">
+      <p class="contact-kicker en" aria-hidden="true">CONTACT</p>
+      <h2 id="contactTitle" class="contact-title">お問い合わせ</h2>
+      <p class="contact-text"><span class="ph">公式Instagram（<a href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer">@sukima.kids.lab</a>）の</span><span class="ph">DM、または</span> <span class="ph"><a href="mailto:info@ponddesignlab.com">info@ponddesignlab.com</a> まで</span></p>
+    </section>
+    <p class="partner-logo"><img src="assets/pond-logo.webp" width="640" height="134" alt="Pond Design Laboratory × INTERIOR DESIGN STUDIO" loading="lazy" decoding="async"></p>
+    <p class="copyright en">sukima kids lab.</p>
+  </div>
+</footer>
 <script src="js/site-nav.js?v=cc0a8009"></script>
 </body>
 </html>

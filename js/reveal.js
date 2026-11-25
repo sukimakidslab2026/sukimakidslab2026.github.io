@@ -32,13 +32,13 @@
       el.classList.add("is-in");
       io.unobserve(el);
     }
-    // 画面より上にある要素（速いスクロールで飛ばされたものや、再読み込みで、途中から表示したときの上の部分）は、すぐに現す。
+    // 画面の上の端より上に、上の端がある要素（速いスクロールで飛ばされたものや、再読み込みで、途中から表示したときの上の部分）は、すぐに現す。
     // IntersectionObserver は、「見えた／見えなくなった」の切り替わりしか知らせないため、一度も見えずに通りすぎた要素は、ここで拾う
-    // （あとで上に戻ったとき、空白にならないように）
+    // （あとで上に戻ったとき、空白にならないように。画面の上の端に、背の高い要素の下の一部だけが、見えているときに、その一部が、透明のまま残らないように）
     function sweep() {
       pending = pending.filter(function (el) {
         if (el.classList.contains("is-in")) return false;
-        if (el.getBoundingClientRect().bottom < 0) { show(el); return false; }
+        if (el.getBoundingClientRect().top < 0) { show(el); return false; }
         return true;
       });
       if (!pending.length) window.removeEventListener("scroll", onScroll);
