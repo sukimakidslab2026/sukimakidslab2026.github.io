@@ -22,7 +22,7 @@
   <div class="menu-sns"><a class="menu-instagram" href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer" aria-label="すきまキッズラボのInstagram（外部サイトが開きます）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/></svg></a></div>
 </nav>
 <main class="container">
-<header class="page-head"><img class="hero-banner sm" src="../assets/banner.webp" width="1000" height="181" alt="すきまキッズラボ"><h1 class="page-title">スタンプラリー<br>アンケート</h1><p id="lead">コンプリート状況を確認しています…</p><p id="previewBanner" class="preview-banner" role="status" hidden>管理者プレビュー：コンプリートしていなくても、この画面を確認できます。<strong>送信しても、記録は保存されません。</strong></p></header>
+<header class="page-head"><img class="hero-banner sm" src="../assets/banner.webp" width="1000" height="181" alt="すきまキッズラボ"><h1 class="page-title">スタンプラリー<br>アンケート</h1><p id="lead">コンプリート状況を確認しています…</p><p id="previewBanner" class="preview-banner" role="status" hidden>管理者プレビュー：コンプリートしていなくてもこの画面を確認できます。<strong>送信しても記録は保存されません。</strong></p></header>
 <form id="surveyForm" hidden>
 <section class="block">
 <label>参加者ID<input id="participantId" readonly></label>
@@ -30,7 +30,7 @@
 <label class="option"><input type="radio" name="workshop" value="attended" required><span>参加した</span></label>
 <label class="option"><input type="radio" name="workshop" value="not_attended"><span>参加していない</span></label>
 <label class="option"><input type="radio" name="workshop" value="unsure"><span>わからない／覚えていない</span></label>
-<p class="note">ワークショップに参加していない方も、このままご回答いただけます。</p>
+<p class="note">ワークショップに参加していない方もこのままご回答いただけます。</p>
 </fieldset>
 <label><span class="ph">今回のスタンプラリーは</span><span class="ph">楽しかったですか？</span><span class="ph">（1〜5）</span><select id="satisfaction" required><option value="">選択してください</option><option value="5">5（とても楽しかった）</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1（あまり楽しくなかった）</option></select></label>
 <!-- スタンプラリーについての「はい／いいえ」の質問（3つ）。答えは、サーバーに「はい＝true・いいえ＝false」で保存されます（submit_survey） -->
@@ -38,33 +38,33 @@
 <label class="option"><input type="radio" name="visitedNewPlace" value="yes" required><span>はい</span></label>
 <label class="option"><input type="radio" name="visitedNewPlace" value="no"><span>いいえ</span></label>
 </fieldset>
-<fieldset class="choice"><legend>普段、掲示板を見ることはありますか？</legend>
+<fieldset class="choice"><legend>普段掲示板を見ることはありますか？</legend>
 <label class="option"><input type="radio" name="checksBoards" value="yes" required><span>はい</span></label>
 <label class="option"><input type="radio" name="checksBoards" value="no"><span>いいえ</span></label>
 </fieldset>
-<fieldset class="choice"><legend><span class="ph">このスタンプラリーをきっかけに、</span><span class="ph">すきまキッズラボ以外の</span><span class="ph">掲示物も見ましたか？</span></legend>
+<fieldset class="choice"><legend><span class="ph">このスタンプラリーをきっかけに</span><span class="ph">すきまキッズラボ以外の</span><span class="ph">掲示物も見ましたか？</span></legend>
 <label class="option"><input type="radio" name="sawOtherNotices" value="yes" required><span>はい</span></label>
 <label class="option"><input type="radio" name="sawOtherNotices" value="no"><span>いいえ</span></label>
 </fieldset>
 <!-- ワークショップに「参加していない」と答えた方にだけ出る質問（survey/app.js の syncMotivation）。答えは、任意 -->
 <div id="motivationBlock" class="followup" hidden>
 <p class="followup-title">すきまキッズラボに参加していない方へ</p>
-<label><span class="ph">スタンプラリーをしようと思った</span><span class="ph">きっかけを</span><span class="ph">教えてください</span><textarea id="motivation" rows="4" maxlength="2000"></textarea><span class="hint">氏名や住所など、個人を特定できる情報は書かないでください。</span></label>
+<label><span class="ph">スタンプラリーをしようと思った</span><span class="ph">きっかけを</span><span class="ph">教えてください</span><textarea id="motivation" rows="4" maxlength="2000"></textarea><span class="hint">氏名や住所など個人を特定できる情報は書かないでください。</span></label>
 </div>
-<label><span class="ph">その他、</span><span class="ph">ご意見・ご感想が</span><span class="ph">あればご記入ください</span><textarea id="comment" rows="5" maxlength="2000"></textarea><span class="hint">氏名や住所など、個人を特定できる情報は書かないでください。</span></label>
+<label><span class="ph">その他</span><span class="ph">ご意見・ご感想が</span><span class="ph">あればご記入ください</span><textarea id="comment" rows="5" maxlength="2000"></textarea><span class="hint">氏名や住所など個人を特定できる情報は書かないでください。</span></label>
 </section>
 <section class="block">
 <label class="check prize"><input id="prizeRequested" type="checkbox"> 景品を希望する</label>
 <!-- 「？ 景品について」：景品（オリジナルマステ）の説明のポップアップ。中身は js/prize-info.js（スタンプラリー画面と共通） -->
 <p class="prize-help"><button type="button" class="prize-open" data-prize-open aria-haspopup="dialog"><span class="prize-open-mark en" aria-hidden="true">?</span>景品について</button></p>
-<p class="note">希望する場合は、発送先の入力と、個人情報の取り扱いへの同意が必要です。希望しない場合、氏名・住所などの個人情報はお預かりしません。</p>
+<p class="note">希望する場合は発送先の入力と個人情報の取り扱いへの同意が必要です。希望しない場合は氏名・住所などの個人情報はお預かりしません。</p>
 <fieldset id="shipping" hidden disabled><legend>景品発送情報</legend>
 <label>氏名<input id="name" required maxlength="100" autocomplete="name"></label>
 <label>郵便番号<input id="postal" required inputmode="numeric" autocomplete="postal-code" placeholder="例：101-0032"></label>
 <label>住所<input id="address" required maxlength="300" autocomplete="street-address"></label>
 <label>電話番号<input id="phone" type="tel" required autocomplete="tel" placeholder="例：090-1234-5678"></label>
 <label>メールアドレス<input id="email" required maxlength="254" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="例：example@mail.com"><span class="hint">景品の発送に関する連絡に使います。</span></label>
-<label class="check consent"><input id="consent" type="checkbox" required> <span><button type="button" class="inline-link" data-open-privacy>プライバシー規約</button>を確認し、個人情報の取り扱いに同意します</span></label>
+<label class="check consent"><input id="consent" type="checkbox" required> <span><button type="button" class="inline-link" data-open-privacy>プライバシー規約</button>を確認して個人情報の取り扱いに同意します</span></label>
 </fieldset>
 </section>
 <button type="submit" id="submitBtn">送信する</button></form><p id="message" role="status"></p>
@@ -75,7 +75,7 @@
     <section class="contact" aria-labelledby="contactTitle">
       <p class="contact-kicker en" aria-hidden="true">CONTACT</p>
       <h2 id="contactTitle" class="contact-title">お問い合わせ</h2>
-      <p class="contact-text"><span class="ph">公式Instagram（<a href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer">@sukima.kids.lab</a>）の</span><span class="ph">DM、または</span> <span class="ph"><a href="mailto:info@ponddesignlab.com">info@ponddesignlab.com</a> まで</span></p>
+      <p class="contact-text"><span class="ph">公式Instagram（<a href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer">@sukima.kids.lab</a>）の</span><span class="ph">DMまたは</span> <span class="ph"><a href="mailto:info@ponddesignlab.com">info@ponddesignlab.com</a> まで</span></p>
     </section>
     <p class="partner-logo"><img src="../assets/pond-logo.webp" width="640" height="134" alt="Pond Design Laboratory × INTERIOR DESIGN STUDIO" loading="lazy" decoding="async"></p>
     <p class="copyright en">sukima kids lab.</p>
@@ -86,4 +86,4 @@
 <div id="privacyContent" class="dialog-body policy" tabindex="-1" autofocus><p>読み込み中…</p></div>
 <div class="dialog-foot"><button type="button" data-close-privacy>閉じてアンケートに戻る</button></div>
 </dialog>
-<script src="../js/prize-info.js?v=fce68e91"></script><script src="app.js?v=4d8bd902"></script><script src="../js/site-nav.js?v=cc0a8009"></script></body></html>
+<script src="../js/prize-info.js?v=af6ef26e"></script><script src="app.js?v=47402e05"></script><script src="../js/site-nav.js?v=cc0a8009"></script></body></html>

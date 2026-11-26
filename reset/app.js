@@ -16,7 +16,7 @@ const LABELS = [
   { key: "stamp_rally_participant_id", name: "参加者ID", detail: v => v },
   { key: "stamp_rally_stamps", name: "取得したスタンプ", detail: v => `${listLength(v)}個` },
   { key: "stamp_rally_stamp_times", name: "スタンプを取った時刻" },
-  { key: "stamp_rally_pending", name: "サーバーに、まだ送っていないスタンプ", detail: v => `${listLength(v)}個`, warn: v => listLength(v) > 0 ? "サーバーに送れていないスタンプが残っています。消すと、このスタンプは、記録されません。" : "" },
+  { key: "stamp_rally_pending", name: "サーバーにまだ送っていないスタンプ", detail: v => `${listLength(v)}個`, warn: v => listLength(v) > 0 ? "サーバーに送れていないスタンプが残っています。消すとこのスタンプは記録されません。" : "" },
   { key: "stamp_rally_survey_submitted", name: "アンケートに回答した印" },
   { key: "stamp_rally_reset_count", name: "管理者のリセットの確認回数", detail: v => v },
   { key: "stamp_rally_fish_order", name: "お魚が増えていく順番（前回の保存）" },
@@ -24,7 +24,7 @@ const LABELS = [
   { key: "stamp_rally_debug", name: "デバッグモード（チーム用）", detail: v => v === "1" ? "オン" : "" },
   { key: "stamp_rally_debug_stamps", name: "デバッグ用のスタンプ（サーバーには記録されない）", detail: v => `${listLength(v)}個` },
   { key: "stamp_rally_debug_stamp_times", name: "デバッグ用のスタンプを取った時刻" },
-  { key: "stamp_rally_debug_pending", name: "デバッグ用：サーバーに、まだ送っていないスタンプ", detail: v => `${listLength(v)}個` },
+  { key: "stamp_rally_debug_pending", name: "デバッグ用：サーバーにまだ送っていないスタンプ", detail: v => `${listLength(v)}個` },
   { key: "stamp_rally_debug_survey_submitted", name: "デバッグ用：アンケートに回答した印" },
 ];
 const ADMIN_LOGIN = /^sb-.+-auth-token/;   // 管理者のログイン情報（Supabase Auth が保存するもの）
@@ -63,7 +63,7 @@ function describe(entries) {
     } else if (ADMIN_LOGIN.test(key)) admin++;
     else others++;
   }
-  if (admin) items.push({ name: "管理者のログイン情報", detail: "消すと、ログアウトされます" });
+  if (admin) items.push({ name: "管理者のログイン情報", detail: "消すとログアウトされます" });
   if (others) items.push({ name: "その他の履歴", detail: `${others}件` });
   return { items, warnings };
 }
@@ -134,15 +134,15 @@ $("clearBtn").onclick = async () => {
   let sessionLeft = 0;
   try { sessionLeft = sessionStorage.length; } catch (e) { /* なし */ }
   if (after.entries.length || sessionLeft) {
-    $("clearMsg").textContent = "一部の履歴を消せませんでした。ブラウザの設定（サイトのデータの削除）から、このサイトのデータを消してください。";
+    $("clearMsg").textContent = "一部の履歴を消せませんでした。ブラウザの設定（サイトのデータの削除）からこのサイトのデータを消してください。";
     $("clearBtn").disabled = !$("confirmBox").checked;
     render();
     return;
   }
   $("resetMain").hidden = true;
   $("doneText").textContent = before
-    ? `この端末の履歴（${before}件）を、すべて消しました。次にスタンプラリーを開くと、はじめて開いたときの状態（新しい参加者）から始まります。`
-    : "この端末の履歴を確認しました。消す履歴は、ありませんでした。";
+    ? `この端末の履歴（${before}件）をすべて消しました。次にスタンプラリーを開くと、はじめて開いたときの状態（新しい参加者）から始まります。`
+    : "この端末の履歴を確認しました。消す履歴はありませんでした。";
   $("doneBlock").hidden = false;
   window.scrollTo(0, 0);
 };

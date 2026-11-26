@@ -27,26 +27,26 @@
   何を消すか・どう確認するかは、app.js に書いてあります。
 -->
 <header class="page-head"><h1 class="page-title">この端末の<br>履歴をすべて消す</h1>
-<p class="lead">この端末（このブラウザ）に保存されている、すきまキッズラボのサイトの履歴を、すべて消して、<strong>はじめて開いたときの状態</strong>に戻します。動作確認や、端末を貸し借りするときに使います。</p></header>
-<noscript><p class="warn">このページを使うには、JavaScriptを有効にしてください。</p></noscript>
+<p class="lead">この端末（このブラウザ）に保存されているすきまキッズラボのサイトの履歴をすべて消して、<strong>はじめて開いたときの状態</strong>に戻します。動作確認や端末を貸し借りするときに使います。</p></header>
+<noscript><p class="warn">このページを使うにはJavaScriptを有効にしてください。</p></noscript>
 
 <div id="resetMain" hidden>
 <section class="block" aria-labelledby="storedTitle">
-<h2 id="storedTitle">いま、この端末に保存されている履歴</h2>
+<h2 id="storedTitle">いまこの端末に保存されている履歴</h2>
 <ul id="storedList" class="stored"></ul>
-<p id="storedEmpty" class="note" hidden>保存されている履歴は、ありません。</p>
-<p id="storedBlocked" class="warn" role="alert" hidden>このブラウザは、サイトの履歴を保存しない設定になっているため、保存されている履歴を確認できません（プライベートブラウズなど）。</p>
+<p id="storedEmpty" class="note" hidden>保存されている履歴はありません。</p>
+<p id="storedBlocked" class="warn" role="alert" hidden>このブラウザはサイトの履歴を保存しない設定になっているため、保存されている履歴を確認できません（プライベートブラウズなど）。</p>
 </section>
 
 <section class="block" id="confirmBlock" aria-labelledby="confirmTitle">
-<h2 id="confirmTitle">消す前に、確認してください</h2>
+<h2 id="confirmTitle">消す前に確認してください</h2>
 <ul class="cautions">
-<li>この端末の<strong>参加者IDも消えます。</strong>消したあとは、新しい参加者になるため、いまのスタンプの続きから、集めることはできません。</li>
-<li>景品をゲットできる条件を達成していて、<strong>まだアンケートに答えていないときは、先にアンケートに答えて</strong>ください。</li>
-<li>「ルール説明を次回からは表示しない」などの設定も、すべて消えます（次に開いたとき、ルール説明が、また出ます）。</li>
-<li>管理者のログイン情報が保存されている端末では、<strong>ログアウト</strong>されます。</li>
-<li>消えるのは、<strong>この端末の、このブラウザだけ</strong>です。サーバーに送信済みのスタンプの記録やアンケートの回答は、消えません（管理者が、管理画面から削除できます）。ほかの端末・ほかのブラウザには、影響しません。</li>
-<li>このサイトをほかのタブで開いているときは、閉じてから消してください（開いたままの「スタンプラリー」の画面は、消した時点で、自動で開き直されます）。</li>
+<li>この端末の<strong>参加者IDも消えます。</strong>消したあとは新しい参加者になるため、いまのスタンプの続きから集めることはできません。</li>
+<li>景品をゲットできる条件を達成していて、<strong>まだアンケートに答えていないときは先にアンケートに答えて</strong>ください。</li>
+<li>「ルール説明を次回からは表示しない」などの設定もすべて消えます（次に開いたときルール説明がまた出ます）。</li>
+<li>管理者のログイン情報が保存されている端末では<strong>ログアウト</strong>されます。</li>
+<li>消えるのは<strong>この端末のこのブラウザだけ</strong>です。サーバーに送信済みのスタンプの記録やアンケートの回答は消えません（管理者が管理画面から削除できます）。ほかの端末・ほかのブラウザには影響しません。</li>
+<li>このサイトをほかのタブで開いているときは閉じてから消してください（開いたままの「スタンプラリー」の画面は消した時点で自動で開き直されます）。</li>
 </ul>
 <label class="check"><input id="confirmBox" type="checkbox"> <span>上の内容を確認しました</span></label>
 <button id="clearBtn" type="button" disabled>履歴をすべて消す</button>
@@ -68,11 +68,11 @@
     <section class="contact" aria-labelledby="contactTitle">
       <p class="contact-kicker en" aria-hidden="true">CONTACT</p>
       <h2 id="contactTitle" class="contact-title">お問い合わせ</h2>
-      <p class="contact-text"><span class="ph">公式Instagram（<a href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer">@sukima.kids.lab</a>）の</span><span class="ph">DM、または</span> <span class="ph"><a href="mailto:info@ponddesignlab.com">info@ponddesignlab.com</a> まで</span></p>
+      <p class="contact-text"><span class="ph">公式Instagram（<a href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer">@sukima.kids.lab</a>）の</span><span class="ph">DMまたは</span> <span class="ph"><a href="mailto:info@ponddesignlab.com">info@ponddesignlab.com</a> まで</span></p>
     </section>
     <p class="partner-logo"><img src="../assets/pond-logo.webp" width="640" height="134" alt="Pond Design Laboratory × INTERIOR DESIGN STUDIO" loading="lazy" decoding="async"></p>
     <p class="copyright en">sukima kids lab.</p>
   </div>
 </footer>
-<script src="app.js?v=d3d116eb"></script><script src="../js/site-nav.js?v=cc0a8009"></script>
+<script src="app.js?v=8ee886b8"></script><script src="../js/site-nav.js?v=cc0a8009"></script>
 </body></html>

@@ -50,13 +50,13 @@
             '<figcaption><span class="ph">イベント当日に描かれたお魚が</span><span class="ph">マスキングテープとなって</span><span class="ph">プレゼントされます！</span></figcaption>' +
           '</figure>' +
           '<h3 class="prize-lead">' + esc(PRIZE.name) + 'をゲット！</h3>' +
-          '<p class="prize-text">スタンプを<strong>' + PRIZE.required + '個</strong>集めて、アンケートから申し込むと、<strong>' + esc(PRIZE.name) + '</strong>（マスキングテープ）をゲットできます。</p>' +
+          '<p class="prize-text">スタンプを<strong>' + PRIZE.required + '個</strong>集めてアンケートから申し込むと、<strong>' + esc(PRIZE.name) + '</strong>（マスキングテープ）をゲットできます。</p>' +
           '<figure class="prize-photo">' + image("tape") + '</figure>' +
           '<h3 class="prize-lead">お申し込みの方法</h3>' +
           '<ol class="prize-steps" role="list">' +
             '<li><strong>スタンプを' + PRIZE.required + '個集める</strong><span>掲示板のQRコードを読み取ります。</span></li>' +
             '<li><strong>アンケートに答える</strong><span>スタンプラリー画面の「アンケートに回答する」から開きます。</span></li>' +
-            '<li><strong>「景品を希望する」にチェックする</strong><span>発送先（お名前・ご住所・電話番号・メールアドレス）を入力して、送信します。</span></li>' +
+            '<li><strong>「景品を希望する」にチェックする</strong><span>発送先（お名前・ご住所・電話番号・メールアドレス）を入力して送信します。</span></li>' +
           '</ol>' +
         '</div>' +
         '<div class="prize-foot"><button type="button" class="prize-ok" data-prize-close>とじる</button></div>' +

@@ -1031,13 +1031,13 @@ def check_survey_questions():
     problems = []
     if "今回のスタンプラリーは楽しかったですか？" not in html or "満足度" in html or "自由記述" in html.replace("自由記述の質問", ""):
         problems.append("survey/index.html: 「今回のスタンプラリーは楽しかったですか？」への変更（「満足度」「自由記述」の表記は残さない）が、そろっていません")
-    for name, q in (("visitedNewPlace", "普段行かない場所に足を運びましたか？"), ("checksBoards", "普段、掲示板を見ることはありますか？"), ("sawOtherNotices", "このスタンプラリーをきっかけに、すきまキッズラボ以外の掲示物も見ましたか？")):
+    for name, q in (("visitedNewPlace", "普段行かない場所に足を運びましたか？"), ("checksBoards", "普段掲示板を見ることはありますか？"), ("sawOtherNotices", "このスタンプラリーをきっかけにすきまキッズラボ以外の掲示物も見ましたか？")):
         if q not in html or f'name="{name}" value="yes" required' not in html or f'name="{name}" value="no"' not in html:
             problems.append(f"survey/index.html: 「{q}」（はい／いいえ・必須）がありません")
     if 'id="motivationBlock"' not in html or "すきまキッズラボに参加していない方へ" not in html or "スタンプラリーをしようと思ったきっかけを教えてください" not in html or 'id="motivation"' not in html:
         problems.append("survey/index.html: 「すきまキッズラボに参加していない方へ」のきっかけの質問がありません")
-    if "その他、ご意見・ご感想があればご記入ください" not in html:
-        problems.append("survey/index.html: 「その他、ご意見・ご感想があればご記入ください」がありません")
+    if "その他ご意見・ご感想があればご記入ください" not in html:
+        problems.append("survey/index.html: 「その他ご意見・ご感想があればご記入ください」がありません")
     if 'not_attended' not in js or "syncMotivation" not in js or "motivationBlock.hidden" not in js:
         problems.append("survey/app.js: きっかけの質問を、ワークショップに「参加していない」と答えたときだけ出す処理（syncMotivation）がありません")
     for needle in ("p_visited_new_place", "p_checks_boards", "p_saw_other_notices", "p_motivation", "isMissingFunction", "invalid_motivation"):
@@ -1069,10 +1069,23 @@ def check_survey_questions():
         problems.append("rally/index.html: ルール①（掲示板のQRコードを読み取る）に、ポスターの見本の画像（width・height・alt つき）がありません")
     if not os.path.isfile(os.path.join(ROOT, "assets", "rules-poster-sample.webp")):
         problems.append("assets/rules-poster-sample.webp がありません")
+    # 画像そのものが吹き出しの枠線を持つので、角は丸めない（丸めると、枠線の角が見切れる）
+    sample_css = re.search(r"\.rules-sample img\{([^}]*)\}", read("rally/style.css"))
+    if not sample_css or "border-radius" in sample_css.group(1) or "overflow" in sample_css.group(1) or "object-fit" in sample_css.group(1):
+        problems.append("rally/style.css: ルール①の見本の画像（.rules-sample img）に、角の丸め・はみ出しの切り取り（border-radius・overflow・object-fit）があります（画像の枠線が見切れます）")
+    # 読点（、）は、最小限にする：開催前・終了のお知らせ（phaseCopy）・ルール説明（4つの手順）・メッセージの文は、読点を付けない
+    app_js = read("rally/app.js")
+    pc = re.search(r"function phaseCopy\(.*?\n\}\n", app_js, flags=re.S)
+    if not pc or "、" in re.sub(r"//[^\n]*", "", pc.group(0)):
+        problems.append("rally/app.js: 開催前・終了のお知らせ（phaseCopy）の文に、読点（、）があります（読点は付けない：「それまではスタンプをゲットできません。」）")
+    steps_html = re.search(r'<ol class="rules-steps".*?</ol>', rally_html, flags=re.S)
+    steps_text = re.sub(r'alt="[^"]*"', "", steps_html.group(0)) if steps_html else "、"
+    if "、" in re.sub(r"<[^>]*>", "", steps_text):
+        problems.append("rally/index.html: ルール説明の4つの手順に、読点（、）があります（読点は付けない）")
     if problems:
         bad("；".join(problems[:8]))
     else:
-        ok("アンケート：楽しかったか（1〜5）・はい／いいえの3問・きっかけ（参加していない方だけ）・ご意見が、画面→SQL（引数・列・集計・ビュー）→管理画面→スプレッドシートまで、そろっています。ルール①には、ポスターの見本の画像があります")
+        ok("アンケート：楽しかったか（1〜5）・はい／いいえの3問・きっかけ（参加していない方だけ）・ご意見が、画面→SQL（引数・列・集計・ビュー）→管理画面→スプレッドシートまで、そろっています。ルール①には、ポスターの見本の画像があります（角は丸めない）。開催前・終了のお知らせとルールの手順に、読点はありません")
 
 
 def check_plain_wrapping():

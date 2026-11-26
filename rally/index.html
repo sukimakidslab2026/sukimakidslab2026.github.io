@@ -16,11 +16,11 @@
   <link rel="stylesheet" href="https://use.typekit.net/（キットID）.css">
   -->
   <link rel="stylesheet" href="../brand.css?v=c680fdae">
-  <link rel="stylesheet" href="style.css?v=78d542a0">
+  <link rel="stylesheet" href="style.css?v=c7cb732b">
   <link rel="stylesheet" href="../prize.css?v=d2a04383">
 </head>
 <body>
-<noscript><p style="margin:16px;font-size:14px">このページを使うには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
+<noscript><p style="margin:16px;font-size:14px">このページを使うにはブラウザのJavaScriptを有効にしてください。</p></noscript>
 <!-- アイコン（線画）。バナー・スタンプ枠・場所の案内で共通に使います。線の太さ・端の形はすべて同じです。 -->
 <svg class="icon-defs" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
   <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
@@ -47,11 +47,11 @@
 <!-- デバッグモード（チーム専用のQRコード No.61〜70 を読み取ったあと）の間だけ出る帯。rally/app.js が表示します。
      このあいだ、スタンプ・アンケートは、この端末の中だけで扱われ、サーバーには何も記録されません。 -->
 <div id="debugBar" class="debug-bar" role="status" hidden>
-  <p class="debug-bar-text"><strong>デバッグ中（チーム用）</strong><span class="ph">この端末のスタンプは、動作確認用です。</span><span class="ph">サーバーには記録されません。</span></p>
+  <p class="debug-bar-text"><strong>デバッグ中（チーム用）</strong><span class="ph">この端末のスタンプは動作確認用です。</span><span class="ph">サーバーには記録されません。</span></p>
   <details class="debug-bar-help"><summary>デバッグ用QRコードの使い方</summary>
     <ul>
       <li>No.61：スタンプを1個ふやす（6個まで）</li>
-      <li>No.62〜68：スタンプを 0・1・2・3・4・5・6 個にする（3個＝景品の条件、6個＝コンプリート）</li>
+      <li>No.62〜68：スタンプを 0・1・2・3・4・5・6 個にする（3個＝景品の条件／6個＝コンプリート）</li>
       <li>No.69：「開催まで待ってね」の画面を出す</li>
       <li>No.70：「開催終了しました」の画面を出す</li>
     </ul>
@@ -68,8 +68,8 @@
   <p id="ongoing" class="ongoing" hidden><span class="ongoing-dot" aria-hidden="true"></span>開催中！</p>
   <!-- 「開催は終了しました」：開催終了日の 23:59:59 を過ぎたあとに出ます（開催中！と同じ場所） -->
   <p id="ended" class="ongoing is-ended" hidden>開催は終了しました</p>
-  <p class="lead"><span class="ph">掲示板のQRコードを読み取って、</span><span class="ph">お魚のスタンプを集めよう！</span><br>
-    <span class="ph"><span id="requiredCount">3</span>個で景品をゲットでき、</span><span class="ph"><span id="riverTotal">6</span>個そろうと、画面上で川が完成します。</span></p>
+  <p class="lead"><span class="ph">掲示板のQRコードを読み取って</span><span class="ph">お魚のスタンプを集めよう！</span><br>
+    <span class="ph"><span id="requiredCount">3</span>個で景品をゲットでき、</span><span class="ph"><span id="riverTotal">6</span>個そろうと画面上で川が完成します。</span></p>
   <p class="hero-actions"><button type="button" class="rules-open" id="rulesOpen" aria-haspopup="dialog"><span class="rules-open-mark en" aria-hidden="true">?</span>ルールを見る</button></p>
 </div>
 
@@ -83,7 +83,7 @@
       </p>
       <p class="banner-remain">
         <span class="remain-wrap">
-          <span class="banner-label">景品まで、あと</span>
+          <span class="banner-label">景品まであと</span>
           <span class="banner-figure"><span id="remain" class="num">3</span><span class="unit">個</span></span>
         </span>
         <span class="done-wrap" hidden>
@@ -96,14 +96,14 @@
       <div id="bannerBar" class="banner-bar" role="progressbar" aria-label="スタンプ獲得の進み具合" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0"></div>
       <p class="gauge-marks" aria-hidden="true"><span id="markPrize" class="mark mark-prize">3個で景品</span><span id="markGoal" class="mark mark-goal">6個で川が完成</span></p>
     </div>
-    <p id="bannerMessage" class="banner-message">スタンプを集めて、景品をゲットしよう！</p>
+    <p id="bannerMessage" class="banner-message">スタンプを集めて景品をゲットしよう！</p>
     <p id="bannerNote" class="banner-note" hidden></p>
     <!-- 「？ 景品について」：景品（オリジナルマステ）の説明のポップアップ。中身は js/prize-info.js（アンケート画面と共通） -->
     <p class="banner-actions"><button type="button" class="prize-open" data-prize-open aria-haspopup="dialog"><span class="prize-open-mark en" aria-hidden="true">?</span>景品について</button></p>
   </section>
 
   <!-- ブラウザが記録の保存を許可していないときの案内（rally/app.js が表示します） -->
-  <p id="storageNote" class="storage-note" role="status" hidden><strong>このブラウザでは、記録を保存できません。</strong><br>プライベートブラウズや、制限のあるアプリ内ブラウザでは、取得したスタンプが次のQRコードの読み取りに引き継がれません。SafariやChromeなどの通常のブラウザで、開き直してください。</p>
+  <p id="storageNote" class="storage-note" role="status" hidden><strong>このブラウザでは記録を保存できません。</strong><br>プライベートブラウズや制限のあるアプリ内ブラウザでは、取得したスタンプが次のQRコードの読み取りに引き継がれません。SafariやChromeなどの通常のブラウザで開き直してください。</p>
 
   <!-- QRを読み取った結果（獲得・獲得済み・登録されていないQR・通信エラー・条件達成） -->
   <section id="scanResult" class="scan-result" role="status" aria-live="polite" hidden></section>
@@ -126,7 +126,7 @@
         <p class="river-badge-text"><span class="river-badge-label en">COMPLETE!</span><span id="riverBadgeDate" class="river-badge-date"></span></p>
       </div>
     </div>
-    <p id="riverMessage" class="river-message">スタンプを集めると、お魚が泳ぎはじめるよ。</p>
+    <p id="riverMessage" class="river-message">スタンプを集めるとお魚が泳ぎはじめるよ。</p>
     <p id="riverActions" class="river-actions" hidden><button type="button" class="btn" id="saveRiver" aria-haspopup="dialog">完成画像を保存</button></p>
   </section>
 
@@ -134,7 +134,7 @@
   <section class="card">
     <div class="card-head"><h2>お魚図鑑</h2><span id="bookCount" class="count num"></span></div>
     <div id="stamps" class="stamps"></div>
-    <p class="small">掲示板のQRコードを読み取るたびに、図鑑のお魚が1匹ずつ増えます。同じ掲示板のQRコードは、何度読み取っても1個です。</p>
+    <p class="small">掲示板のQRコードを読み取るたびに図鑑のお魚が1匹ずつ増えます。同じ掲示板のQRコードは何度読み取っても1個です。</p>
   </section>
 
   <!-- 掲示板のある場所（js/rally-data.js に登録した場所と、管理画面で入力したマイマップを表示します）。
@@ -162,7 +162,7 @@
     <section class="contact" aria-labelledby="contactTitle">
       <p class="contact-kicker en" aria-hidden="true">CONTACT</p>
       <h2 id="contactTitle" class="contact-title">お問い合わせ</h2>
-      <p class="contact-text"><span class="ph">公式Instagram（<a href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer">@sukima.kids.lab</a>）の</span><span class="ph">DM、または</span> <span class="ph"><a href="mailto:info@ponddesignlab.com">info@ponddesignlab.com</a> まで</span></p>
+      <p class="contact-text"><span class="ph">公式Instagram（<a href="https://www.instagram.com/sukima.kids.lab/" target="_blank" rel="noopener noreferrer">@sukima.kids.lab</a>）の</span><span class="ph">DMまたは</span> <span class="ph"><a href="mailto:info@ponddesignlab.com">info@ponddesignlab.com</a> まで</span></p>
     </section>
     <p class="partner-logo"><img src="../assets/pond-logo.webp" width="640" height="134" alt="Pond Design Laboratory × INTERIOR DESIGN STUDIO" loading="lazy" decoding="async"></p>
     <p class="copyright en">sukima kids lab.</p>
@@ -211,17 +211,17 @@
         <li><strong>掲示板のQRコードを読み取る</strong><span>スマートフォンで読み取ります。</span>
           <!-- 掲示板に貼り出されるポスターの見本：ポスターの中央にあるQRコードを読み取る -->
           <figure class="rules-sample"><img src="../assets/rules-poster-sample.webp" width="765" height="285" alt="掲示板に貼り出されるポスターのイメージ。ポスターの中央にあるQRコードを読み取って、スタンプをゲットします。まちなかの掲示板、約60か所に貼り出されます。" loading="lazy" decoding="async"></figure></li>
-        <li><strong>お魚のスタンプがもらえる</strong><span>同じ掲示板は、何度読み取っても1つです。</span></li>
-        <li><strong>3つ集めると、景品をゲットできる</strong><span><span class="ph">アンケートで、申し込みを受け付けます。</span><span class="ph">数に限りがあります。</span></span></li>
-        <li><strong>6つそろうと、川が完成する</strong><span>6種類のお魚が、画面の川にそろいます。</span></li>
+        <li><strong>お魚のスタンプがもらえる</strong><span>同じ掲示板は何度読み取っても1つです。</span></li>
+        <li><strong>3つ集めると景品をゲットできる</strong><span><span class="ph">アンケートで申し込みを受け付けます。</span><span class="ph">数に限りがあります。</span></span></li>
+        <li><strong>6つそろうと川が完成する</strong><span>6種類のお魚が画面の川にそろいます。</span></li>
       </ol>
       <!-- ▲▲ ルール説明（ここまで） ▲▲ -->
       <div class="rules-safe">
         <svg class="icon" width="24" height="24" aria-hidden="true"><use href="#icon-check"></use></svg>
         <div>
-          <strong>ページを移動しても、安心してね</strong>
-          <p>ほかのページを開いても、ブラウザを閉じても、スタンプの記録は、この端末に残ります。</p>
-          <p class="rules-safe-note">※ 履歴やデータを消したり、別のブラウザ・別の端末で開いたりすると、引き継げません。</p>
+          <strong>ページを移動しても安心してね</strong>
+          <p>ほかのページを開いてもブラウザを閉じてもスタンプの記録はこの端末に残ります。</p>
+          <p class="rules-safe-note">※ 履歴やデータを消したり別のブラウザ・別の端末で開いたりすると引き継げません。</p>
         </div>
       </div>
     </div>
@@ -247,7 +247,7 @@
     <div class="rules-body phase-body" tabindex="0" role="region" aria-labelledby="phaseTitle">
       <p id="phaseLead" class="phase-lead"></p>
       <p id="phaseNote" class="phase-note"></p>
-      <p id="phasePreview" class="phase-preview" hidden>プレビュー（確認用の表示です。スタンプは、もらえません）</p>
+      <p id="phasePreview" class="phase-preview" hidden>プレビュー（確認用の表示です。スタンプはもらえません）</p>
     </div>
     <div class="rules-foot phase-foot">
       <button type="button" class="btn" id="phaseOk">とじる</button>
@@ -269,8 +269,8 @@
     <div class="rules-body save-body" tabindex="0" role="region" aria-labelledby="saveTitle">
       <p id="saveBusy" class="save-busy" role="status">画像を作っています…</p>
       <img id="saveImage" class="save-image" alt="" hidden>
-      <p id="saveError" class="save-error" role="alert" hidden>画像を作れませんでした。通信状態を確かめて、もう一度お試しください。</p>
-      <p class="save-hint">「保存する」を押すか、画像を長押しして、保存してください。</p>
+      <p id="saveError" class="save-error" role="alert" hidden>画像を作れませんでした。通信状態を確かめてもう一度お試しください。</p>
+      <p class="save-hint">「保存する」を押すか画像を長押しして保存してください。</p>
     </div>
     <div class="rules-foot save-foot">
       <button type="button" class="btn" id="saveDo" disabled>保存する</button>
@@ -284,8 +284,8 @@
 <script src="../js/debug-boards.js?v=83411ce9"></script>
 <script src="../js/fish-data.js?v=acd0a4fc"></script>
 <script src="../js/fish.js?v=aabe1ce9"></script>
-<script src="app.js?v=0ed2ca62"></script>
-<script src="../js/prize-info.js?v=fce68e91"></script>
+<script src="app.js?v=30135aff"></script>
+<script src="../js/prize-info.js?v=af6ef26e"></script>
 <script src="../js/site-nav.js?v=cc0a8009"></script>
 </body>
 </html>

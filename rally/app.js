@@ -98,10 +98,10 @@ function render(stamps,fx={}){
 function bannerContent(got){
   const toPrize=Math.max(PRIZE_REQUIRED-got,0), toRiver=Math.max(RIVER_TOTAL-got,0);
   if(got>=RIVER_TOTAL) return {state:"complete",doneLabel:"COMPLETE",message:["川が完成しました！","ありがとう！"]};
-  if(got>=PRIZE_REQUIRED) return {state:"achieved",doneLabel:"ACHIEVED",message:["景品をゲットできる","条件を達成したよ！",`あと${toRiver}個で、`,"川が完成するよ！"]};
-  if(got===0) return {state:"empty",message:["スタンプを集めて、","景品をゲットしよう！"]};
-  if(toPrize===1) return {state:"almost",message:["あと1個！","景品まで、","あと少し！"]};
-  return {state:"progress",message:[`あと${toPrize}個で、`,"景品をゲットできるよ！"]};
+  if(got>=PRIZE_REQUIRED) return {state:"achieved",doneLabel:"ACHIEVED",message:["景品をゲットできる","条件を達成したよ！",`あと${toRiver}個で`,"川が完成するよ！"]};
+  if(got===0) return {state:"empty",message:["スタンプを集めて","景品をゲットしよう！"]};
+  if(toPrize===1) return {state:"almost",message:["あと1個！","景品まで","あと少し！"]};
+  return {state:"progress",message:[`あと${toPrize}個で`,"景品をゲットできるよ！"]};
 }
 function renderBanner(stamps,fx){
   const total=RIVER_TOTAL, got=Math.min(stamps.length,total), toPrize=Math.max(PRIZE_REQUIRED-got,0), achieved=got>=PRIZE_REQUIRED;
@@ -148,7 +148,7 @@ function renderRiver(stamps,fx){
   river.setAttribute("aria-label",got?`川の絵。${got}種類のお魚が泳いでいます（${keys.map(k=>FISH[k].name).join("、")}）。`+(complete?`コンプリートしました。${at?`コンプリート日時は、${dateLabel(at)}です。`:""}`:""):"川の絵。まだお魚はいません。");
   $("riverCount").textContent=`${got} / ${RIVER_TOTAL}`;
   // コンプリートの日時は、「2026年11月20日 12:40）」を、1かたまりにする（「12:40）」だけが、次の行に離れないように）
-  $("riverMessage").innerHTML=complete?phrases("川が完成しました！",...(at?["（コンプリート日時：",`${dateLabel(at)}）`]:[])):got?`あと ${RIVER_TOTAL-got} 個で、川が完成します。`:"スタンプを集めると、お魚が泳ぎはじめるよ。";
+  $("riverMessage").innerHTML=complete?phrases("川が完成しました！",...(at?["（コンプリート日時：",`${dateLabel(at)}）`]:[])):got?`あと ${RIVER_TOTAL-got} 個で川が完成します。`:"スタンプを集めるとお魚が泳ぎはじめるよ。";
   // コンプリート（お魚が全部そろった）ときだけ、川の左上に、バナーと日時を出し、「完成画像を保存」を出す
   $("riverBadge").hidden=!complete; $("riverActions").hidden=!complete;
   $("riverBadgeDate").textContent=at?dateLabel(at):"";
@@ -256,7 +256,7 @@ function buildPlaces(mymapUrl){
   embedBox.innerHTML=hasEmbed?mapFrame(embedUrl,"すべての掲示板の地図（Googleマイマップ）"):"";
   embedBox.hidden=!hasEmbed;
 
-  $("placeList").innerHTML=(anyInfo?"":`<li class="place-lead small">掲示板の場所は、準備ができしだい、ここに表示されます。</li>`)+info.map(({name,desc,target},i)=>{
+  $("placeList").innerHTML=(anyInfo?"":`<li class="place-lead small">掲示板の場所は準備ができしだいここに表示されます。</li>`)+info.map(({name,desc,target},i)=>{
     const label=esc(name), urls=target&&mapUrls(target);
     let body="";
     if(desc) body+=`<p class="place-desc">${esc(desc)}</p>`;
@@ -368,10 +368,10 @@ function drawResult(settled){
   if(s.sync==="failed"){
     error = pending
       ? `<div class="sr-error"><strong>通信できませんでした</strong>
-          <p>スタンプはこの端末に保存されています。電波の良い場所で「再送する」を押してください。押さなくても、次にこのページを開いたときに自動で再送します。${s.tone==="complete"?"<br>アンケートは、記録が完了すると表示されます。":""}</p>
+          <p>スタンプはこの端末に保存されています。電波の良い場所で「再送する」を押してください。押さなくても次にこのページを開いたときに自動で再送します。${s.tone==="complete"?"<br>アンケートは記録が完了すると表示されます。":""}</p>
           <button type="button" class="sr-retry">再送する</button></div>`
       : `<div class="sr-error"><strong>読み取りの記録を送信できませんでした</strong>
-          <p>スタンプは獲得済みなので、このままで問題ありません。</p></div>`;
+          <p>スタンプは獲得済みなのでこのままで問題ありません。</p></div>`;
   }
   resultEl.dataset.tone=s.tone;
   resultEl.classList.toggle("settled",settled);
@@ -494,17 +494,17 @@ const DEFAULT_OPEN="2026-12-09T00:00:00+09:00", DEFAULT_CLOSE="2027-01-01T00:00:
 // kind："before"（開催前）／"closed"（終了）。forced：管理画面の手動の切り替え（30分だけ）によるもので、時刻どおりの開催前・終了ではない
 // lead（太い見出しの文）・notes（説明の文。1つが1行分）は、文節ごとに分けた配列（画面では、文節の区切りでだけ折り返す。「ありがとうございま／した」のような改行を防ぐ）
 function phaseCopy(kind,{forced=false,opensAt=null,closesAt=null}={}){
-  if(forced) return {kicker:"PLEASE WAIT",title:"ただいま、お休み中です",lead:["いまは、","スタンプを受け付けていません。"],notes:[["しばらくしてから、","もういちど、","掲示板のQRコードを読み取ってね。"]]};
+  if(forced) return {kicker:"PLEASE WAIT",title:"ただいまお休み中です",lead:["いまは","スタンプを受け付けていません。"],notes:[["しばらくしてから","もういちど","掲示板のQRコードを読み取ってね。"]]};
   if(kind==="before"){
     const opens=jstParts(opensAt);
     return {kicker:"COMING SOON",title:"開催まで待ってね",
-      lead:opens?["スタンプラリーは、",`${jstDate(opens)}${jstTime(opens)}から`,"はじまるよ。"]:["スタンプラリーは、","まだ、はじまっていないよ。"],
-      notes:[["それまでは、","スタンプをゲットできません。","はじまったら、","もういちど、","掲示板のQRコードを読み取ってね！"],["このページでは、","ルールや、","お魚図鑑を見られます。"]]};
+      lead:opens?["スタンプラリーは",`${jstDate(opens)}${jstTime(opens)}から`,"はじまるよ。"]:["スタンプラリーは","まだはじまっていないよ。"],
+      notes:[["それまでは","スタンプをゲットできません。","はじまったら","もういちど","掲示板のQRコードを読み取ってね！"],["このページでは","ルールや","お魚図鑑を見られます。"]]};
   }
   // 開催終了日の 23:59:59 まで開催なので、終了の日は、終了の日時の1秒前
   const ends=closesAt?jstParts(new Date(new Date(closesAt).getTime()-1000)):null;
-  return {kicker:"THANK YOU",title:"開催終了しました",lead:["たくさんのご参加、","ありがとうございました！"],
-    notes:[ends?["スタンプラリーは、",`${jstDate(ends)}で`,"終了しました。"]:["スタンプラリーは、","終了しました。"],["これまでに集めたお魚は、","このページで見られます。"]]};
+  return {kicker:"THANK YOU",title:"開催終了しました",lead:["たくさんのご参加","ありがとうございました！"],
+    notes:[ends?["スタンプラリーは",`${jstDate(ends)}で`,"終了しました。"]:["スタンプラリーは","終了しました。"],["これまでに集めたお魚は","このページで見られます。"]]};
 }
 // 閉じたら（×・とじる・外側のタップ・Esc のどれでも）解決する Promise を返す。出せなかったときも、すぐに解決する。
 // 戻り値は、いつも false（お魚の演出ではないので、閉じたあとの「ページの中の動き」の見せ直しは、いらない）
@@ -608,17 +608,17 @@ function scanMessage({code,again,current}){
       body:`${at?`${formatTime(at)} に獲得したスタンプです。`:""}スタンプの数は変わりません（${n}個）。`};
   }
   if(n>total){   // 川が完成したあとに取ったスタンプ（記録はされるが、お魚は増えない）
-    return {tone:"new",seal:"check",kicker:`NEW STAMP · ${pad2(n)}`,title:phrases("スタンプを","記録しました"),body:`川は、すでに完成しています（合計${n}個）。`};
+    return {tone:"new",seal:"check",kicker:`NEW STAMP · ${pad2(n)}`,title:phrases("スタンプを","記録しました"),body:`川はすでに完成しています（合計${n}個）。`};
   }
   const key=fishOrder[n-1], name=FISH[key].name, kicker=`NEW STAMP · ${pad2(n)}`;
-  if(n===total) return {tone:"complete",fish:key,kicker:`COMPLETE · ${n} / ${total}`,title:phrases("川が","完成しました！"),body:`「${name}」が加わって、${total}種類のお魚がそろいました。`};
+  if(n===total) return {tone:"complete",fish:key,kicker:`COMPLETE · ${n} / ${total}`,title:phrases("川が","完成しました！"),body:`「${name}」が加わって${total}種類のお魚がそろいました。`};
   if(n===PRIZE_REQUIRED) return {tone:"complete",fish:key,kicker:`ACHIEVED · ${n} / ${total}`,title:phrases("景品をゲットできる","条件を達成しました！"),
-    body:`「${name}」が仲間になりました。アンケートで、オリジナルマステプレゼントの申し込みを受け付けています。あと ${total-n} 個で、川が完成します。`};
-  if(n>PRIZE_REQUIRED) return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`景品をゲットできる条件は、達成済みです。あと ${total-n} 個で、川が完成します。`};
-  return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`あと ${PRIZE_REQUIRED-n} 個で、景品をゲットできます。`};
+    body:`「${name}」が仲間になりました。アンケートでオリジナルマステプレゼントの申し込みを受け付けています。あと ${total-n} 個で川が完成します。`};
+  if(n>PRIZE_REQUIRED) return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`景品をゲットできる条件は達成済みです。あと ${total-n} 個で川が完成します。`};
+  return {tone:"new",fish:key,kicker,title:phrases(`「${name}」を`,"獲得しました"),body:`あと ${PRIZE_REQUIRED-n} 個で景品をゲットできます。`};
 }
 const invalidMessage=()=>({tone:"info",seal:null,kicker:"QRコード",title:phrases("このQRコードは","登録されていません"),
-  body:"掲示板に貼ってある、スタンプラリーのQRコードを読み取ってください。"});
+  body:"掲示板に貼ってあるスタンプラリーのQRコードを読み取ってください。"});
 
 // ---- 端末内の保存 ----
 async function getLocalStamps(){
@@ -759,7 +759,7 @@ function applyReset(serverCount,quiet=false){
   $("surveyLink").hidden=true;
   render([]);
   if(had&&!quiet) showResult({tone:"info",seal:null,kicker:"RESET",title:phrases("スタンプを","最初に戻しました"),
-    body:"管理者が、この端末のスタンプの記録をリセットしました。掲示板のQRコードを読み取って、もういちど集めよう！"});
+    body:"管理者がこの端末のスタンプの記録をリセットしました。掲示板のQRコードを読み取ってもういちど集めよう！"});
   return had;
 }
 
@@ -1008,8 +1008,8 @@ function setDebugStamps(n){
   store.remove(pendingKey); store.remove(surveyKey);
   return codes;
 }
-const debugBody=n=>n===0?"最初の状態です。":n<PRIZE_REQUIRED?`景品の条件（${PRIZE_REQUIRED}個）まで、あと${PRIZE_REQUIRED-n}個の状態です。`
-  :n<RIVER_TOTAL?(n===PRIZE_REQUIRED?"景品をゲットできる条件を達成した状態です。アンケートの画面も確かめられます（送信しても、記録されません）。":`景品の条件は、達成済みです。あと${RIVER_TOTAL-n}個で、川が完成します。`)
+const debugBody=n=>n===0?"最初の状態です。":n<PRIZE_REQUIRED?`景品の条件（${PRIZE_REQUIRED}個）まであと${PRIZE_REQUIRED-n}個の状態です。`
+  :n<RIVER_TOTAL?(n===PRIZE_REQUIRED?"景品をゲットできる条件を達成した状態です。アンケートの画面も確かめられます（送信しても記録されません）。":`景品の条件は達成済みです。あと${RIVER_TOTAL-n}個で川が完成します。`)
   :"川が完成した（コンプリート）状態です。";
 async function runDebug(no){
   const done={completed:false,failed:false};
@@ -1021,7 +1021,7 @@ async function runDebug(no){
   const before=await getLocalStamps();
   if(no===DEBUG_ADD){
     if(before.length>=RIVER_TOTAL){
-      showResult({tone:"info",seal:null,kicker:"DEBUG",title:phrases("スタンプは",`${RIVER_TOTAL}個そろっています`),body:`これ以上は、ふえません。No.${DEBUG_ZERO} を読み取ると、0個に戻せます。`,sync:"debug"});
+      showResult({tone:"info",seal:null,kicker:"DEBUG",title:phrases("スタンプは",`${RIVER_TOTAL}個そろっています`),body:`これ以上はふえません。No.${DEBUG_ZERO} を読み取ると0個に戻せます。`,sync:"debug"});
       return done;
     }
     await configReady; await Fish.preload([fishOrder[before.length]],2500);   // 次に現れるお魚の画像を、先に読み込んでおく
@@ -1053,7 +1053,7 @@ async function init(){
   if(debugNo&&!debugOn){
     if(enterDebug(debugNo)) return;   // 開き直している最中
     skipCode=true;                    // この端末は、設定を保存できない：デバッグモードは使えない。デバッグ用のQRコードは、スタンプにしない
-    showResult({tone:"info",seal:null,kicker:"DEBUG",title:phrases("この端末では、","デバッグモードを","使えません"),body:"ブラウザが、記録の保存を許可していません。"});
+    showResult({tone:"info",seal:null,kicker:"DEBUG",title:phrases("この端末では","デバッグモードを","使えません"),body:"ブラウザが記録の保存を許可していません。"});
   }
   if(debugOn) $("debugBar").hidden=false;
   const debugAction=debugOn&&!debugNo?takeDebugAction():0;   // 開き直したあとに行う、デバッグの動作
@@ -1071,7 +1071,7 @@ async function init(){
   let fullResetNotice=false;
   try{ fullResetNotice=sessionStorage.getItem(fullResetNoticeKey)==="1"; sessionStorage.removeItem(fullResetNoticeKey); } catch(e){ /* なし */ }
   if(fullResetNotice&&!code) showResult({tone:"info",seal:null,kicker:"RESET",title:phrases("最初の状態に","戻しました"),
-    body:"管理者が、この端末の記録をすべてリセットしました。新しい参加者として、はじめからやり直せます。掲示板のQRコードを読み取って、集めよう！"});
+    body:"管理者がこの端末の記録をすべてリセットしました。新しい参加者としてはじめからやり直せます。掲示板のQRコードを読み取って集めよう！"});
   let result={completed:false,failed:false};
   if(code){
     // 再読み込みで同じ読み取りが二重に記録されないよう、URLからstampを外します。

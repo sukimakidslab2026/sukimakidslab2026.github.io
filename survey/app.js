@@ -51,7 +51,7 @@ const RESULT_MESSAGES={
 	invalid_postal:"郵便番号を7桁の数字で入力してください。",
 	invalid_address:"住所を300文字以内で入力してください。",
 	invalid_phone:"電話番号を10〜11桁の数字で入力してください。",
-	invalid_email:"メールアドレスを、半角の英数字で、正しい形式（例：example@mail.com）で入力してください。",
+	invalid_email:"メールアドレスを半角の英数字で正しい形式（例：example@mail.com）で入力してください。",
 	invalid_consent:"プライバシー規約への同意が必要です。",
 	invalid_workshop:"ワークショップへの参加について選択してください。"
 };
@@ -166,7 +166,7 @@ async function start(){
 		participantId.value=participant||"（デバッグ）";
 		lead.textContent="デバッグ中のアンケート画面です。";
 		const banner=document.getElementById("previewBanner");
-		banner.innerHTML="<strong>デバッグ中（チーム用）：</strong>この画面は、動作確認用です。<strong>送信しても、記録は保存されません。</strong>デバッグを終わるときは、スタンプラリーの画面の「デバッグを終わる」を押してください。";
+		banner.innerHTML="<strong>デバッグ中（チーム用）：</strong>この画面は動作確認用です。<strong>送信しても記録は保存されません。</strong>デバッグを終わるときはスタンプラリーの画面の「デバッグを終わる」を押してください。";
 		banner.hidden=false;
 		surveyForm.hidden=false;
 		loadPrivacy();
@@ -181,13 +181,13 @@ async function start(){
 		loadPrivacy();
 		return;
 	}
-	const previewHint=wantsPreview?" 管理者プレビューを使うには、先に管理画面（admin/）でログインしてください。":"";
+	const previewHint=wantsPreview?" 管理者プレビューを使うには先に管理画面（admin/）でログインしてください。":"";
 	if(!participant) return block(RESULT_MESSAGES.invalid_participant+previewHint);
 	if(safeGet(submittedKey)===participant && await surveyStillSubmitted()) return block(RESULT_MESSAGES.already_submitted);
 	const completion=await db.rpc("is_completed",{p_participant_id:participant});
 	if(completion.error){
 		console.error(completion.error);
-		return block("コンプリート状況を確認できませんでした。通信環境をご確認のうえ、再読み込みしてください。");
+		return block("コンプリート状況を確認できませんでした。通信環境をご確認のうえ再読み込みしてください。");
 	}
 	if(!completion.data) return block(RESULT_MESSAGES.not_completed+"スタンプラリーのページで取得状況をご確認ください。"+previewHint);
 	lead.textContent="オリジナルマステをゲットできる条件を達成しました！アンケートにご協力ください。";

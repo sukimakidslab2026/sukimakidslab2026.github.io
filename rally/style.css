@@ -274,9 +274,9 @@ html.modal-open{overflow:hidden}
 .save-foot{display:flex;flex-wrap:nowrap;gap:var(--space-2)}
 .save-foot .btn{flex:1 1 0;max-width:none;margin-left:0}
 
-/* ルール①の下の、ポスターの見本の画像（掲示板に貼り出されるポスターの、どこを読み取るか） */
+/* ルール①の下の、ポスターの見本の画像（掲示板に貼り出されるポスターの、どこを読み取るか）。画像そのものが吹き出しの枠線を持つので、角は丸めない（丸めると、枠線の角が見切れる） */
 .rules-sample{margin:10px 0 0;padding:0}
-.rules-sample img{display:block;width:100%;height:auto;border-radius:var(--radius-control)}
+.rules-sample img{display:block;width:100%;height:auto}
 
 /* 開催前・開催終了のお知らせのポップアップ（外側の形は、ルール説明と同じ） */
 .phase-dialog .rules-body{padding-top:16px;padding-bottom:10px}
